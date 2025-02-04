@@ -14,8 +14,30 @@
   }
 }
 
+
 body {
-  color: var(--foreground);
+  color: #171717;
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 50; /* Ensure this is higher than the tbody */
 }
