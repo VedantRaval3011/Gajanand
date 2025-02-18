@@ -3,27 +3,25 @@ import { Ubuntu } from "next/font/google";
 import "./globals.css";
 
 const ubuntu = Ubuntu({
-  variable: "--font-geist-sans",
+  variable: "--font-ubuntu",
   subsets: ["latin"],
-  weight: ["300","400","500","700"]
+  weight: ["300", "400", "500", "700"],
 });
-
 
 export const metadata: Metadata = {
   title: "Gajanad",
   description: "This is a finance software",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
   return (
     <html lang="en">
-      <body
-        className={` ${ubuntu.variable} antialiased`}
-      >
+      <body className={`${ubuntu.variable} antialiased`}>
         {children}
       </body>
     </html>

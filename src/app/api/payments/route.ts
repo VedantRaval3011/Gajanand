@@ -7,10 +7,38 @@ import LoanSchema from '@/models/LoanSchema';
 // GET handler
 export async function GET(request: NextRequest) {
   await dbConnect();
-
   try {
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
+    const totalReceivedAmount = searchParams.get('totalReceivedAmount'); // New query parameter
+    const totalPerAccount = searchParams.get('totalPerAccount'); // New query parameter for total per account
+
+    // Fetch total received amount (sum of all payments)
+    if (totalReceivedAmount === 'true') {
+      const payments = await Payment.find({}, { amountPaid: 1, _id: 0 }); // Only fetch the `amountPaid` field
+      const total = payments.reduce((sum, payment) => sum + payment.amountPaid, 0); // Calculate total received amount
+      return NextResponse.json({ totalReceivedAmount: total });
+    }
+
+    // Fetch total payments per account
+    if (totalPerAccount === 'true') {
+      const payments = await Payment.aggregate([
+        {
+          $group: {
+            _id: '$accountNo', // Group by accountNo
+            totalPaid: { $sum: '$amountPaid' } // Sum up the amountPaid for each account
+          }
+        },
+        {
+          $project: {
+            _id: 0, // Exclude _id from the output
+            accountNo: '$_id', // Rename _id to accountNo
+            totalPaid: 1 // Include totalPaid in the output
+          }
+        }
+      ]);
+      return NextResponse.json({ payments });
+    }
 
     if (!date) {
       return NextResponse.json({ message: 'Date is required' }, { status: 400 });
@@ -31,7 +59,6 @@ export async function GET(request: NextRequest) {
     const enhancedPayments = await Promise.all(
       payments.map(async (payment) => {
         const loan = await LoanSchema.findOne({ accountNo: payment.accountNo });
-        
         if (!loan) {
           return payment;
         }
@@ -47,12 +74,10 @@ export async function GET(request: NextRequest) {
           accountNo: payment.accountNo,
           date: { $lte: endOfDay }
         });
-
         const totalReceived = paymentHistory.reduce(
           (sum, hist) => sum + hist.amountPaid,
           0
         );
-
         const lateAmount = Math.max(0, (daysDiff * loan.instAmount) - totalReceived);
 
         return {
@@ -75,15 +100,12 @@ export async function GET(request: NextRequest) {
 // POST handler
 export async function POST(request: NextRequest) {
   await dbConnect();
-
   try {
     const body = await request.json();
     const { loanId, paymentDate, payments } = body;
-
     if (!paymentDate || !payments || !Array.isArray(payments)) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
     }
-
     const savedPayments = await Promise.all(
       payments.map(async (payment: any) => {
         // Save or update the payment
@@ -109,7 +131,6 @@ export async function POST(request: NextRequest) {
             lateAmount: payment.lateAmount
           });
         }
-
         // Update payment history
         await PaymentHistory.create({
           accountNo: payment.accountNo,
@@ -118,11 +139,9 @@ export async function POST(request: NextRequest) {
           lateAmount: payment.lateAmount,
           remainingAmount: payment.remainingAmount
         });
-
         return savedPayment;
       })
     );
-
     return NextResponse.json({
       message: 'Payments saved successfully',
       payments: savedPayments
@@ -141,7 +160,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   await dbConnect();
-
   try {
     const payment = await Payment.findById(params.id);
     if (!payment) {
@@ -150,16 +168,13 @@ export async function DELETE(
         { status: 404 }
       );
     }
-
     // Delete the payment
     await Payment.findByIdAndDelete(params.id);
-
     // Delete corresponding payment history
     await PaymentHistory.deleteOne({
       accountNo: payment.accountNo,
       date: payment.paymentDate
     });
-
     return NextResponse.json(
       { message: 'Payment deleted successfully' },
       { status: 200 }

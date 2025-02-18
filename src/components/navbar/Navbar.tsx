@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import ToggleSwitch from "./toggleSwitch/ToggleSwitch";
 import { Ubuntu } from "next/font/google";
-
+import TimeDisplay from "@/ui/TimeDisplay";
+import { useRouter } from "next/navigation";
 
 type NavItem = "Master" | "Transaction" | "Report" | "Utilities";
 type SubNavItem = {
@@ -13,14 +13,15 @@ type SubNavItem = {
 };
 
 const ubuntu = Ubuntu({
-  weight: '400',
-  subsets: ['latin'],
-})
+  weight: "400",
+  subsets: ["latin"],
+});
 
 export default function Navbar() {
   const [selected, setSelected] = useState<NavItem>("Master");
   const [focusedSubItem, setFocusedSubItem] = useState<number>(0);
   const navItems: NavItem[] = ["Master", "Transaction", "Report", "Utilities"];
+  const router = useRouter();
 
   const subNavItems: Record<NavItem, SubNavItem[]> = {
     Master: [
@@ -36,7 +37,7 @@ export default function Navbar() {
       { title: "Day Book", href: "/day-book", shortcut: "2" },
     ],
     Report: [
-      { title: "B-6", href: "/loan", shortcut: "1" },
+      { title: "B-6", href: "/payment-dashboard", shortcut: "1" },
       {
         title: "Month Wise Yearly Collection",
         href: "/month-wise-yearly-collection",
@@ -60,6 +61,27 @@ export default function Navbar() {
       { title: "Calculator", href: "/calculator", shortcut: "2" },
       { title: "Backup", href: "/Backup", shortcut: "3" },
     ],
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Make a request to the logout API endpoint
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.ok) {
+        // Redirect to login page after successful logout
+        router.push("/login");
+      } else {
+        console.error("Logout failed");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -113,7 +135,9 @@ export default function Navbar() {
   }, [selected, focusedSubItem]);
 
   return (
-    <div className={` bg-white shadow-lg ${ubuntu.className} dark:bg-gray-800 rounded-xl rounded-t-none `}>
+    <div
+      className={` bg-white shadow-lg ${ubuntu.className} dark:bg-gray-800 rounded-xl rounded-t-none `}
+    >
       <nav className="flex justify-between p-3 ">
         <div className="flex gap-6">
           {navItems.map((item, index) => (
@@ -123,19 +147,36 @@ export default function Navbar() {
                 setSelected(item);
                 setFocusedSubItem(0);
               }}
-              className={`relative px-4 py-2 font-medium text-2xl transition-all
+              className={`relative px-4 py-2 font-medium text-3xl transition-all
               ${
                 selected === item
                   ? "text-orange-600 before:absolute before:bottom-0 before:left-0 before:h-0.5 before:w-full before:bg-orange-600 "
-                  : "text-gray-600 dark:text-white hover:text-orange-600"
+                  : "text-gray-600 dark:text-white hover:text-orange-600 font-bold"
               }`}
             >
-              <span className="mr-2 text-lg text-gray-400 dark:text-white">{index + 1}</span>
+              <span className="mr-2 text-3xl text-gray-400 dark:text-white ">
+                {index + 1}
+              </span>
               {item}
             </button>
           ))}
         </div>
-        <ToggleSwitch />
+
+        <div className="flex gap-6">
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-orange-500 text-white text-xl hover:bg-red-600 transition-colors rounded-xl"
+          >
+            Logout
+          </button>
+          <button
+            
+            className="px-4 py-2 bg-[#e8b903] text-xl text-white  transition-colors rounded-xl"
+          >
+            <Link href='/reset-credentials'>Reset Password?</Link>
+          </button>
+          <TimeDisplay />
+        </div>
       </nav>
 
       <div className="p-4">
@@ -144,17 +185,22 @@ export default function Navbar() {
             {subNavItems[selected].map((item, index) => (
               <li
                 key={item.href}
-                className={`group text-lg  flex items-center space-x-2 rounded-lg p-2 transition-colors dark:bg-gray-800
+                className={`group text-xl  flex items-center space-x-2 rounded-lg p-2 transition-colors dark:bg-gray-800
                   ${
                     focusedSubItem === index
                       ? "bg-orange-50 text-orange-600 dark:bg-orange-600"
                       : "text-gray-600 hover:bg-gray-50"
                   }`}
               >
-                <Link href={item.href} className="flex-1 dark:text-gray-300">
+                <Link
+                  href={item.href}
+                  className="flex-1 font-bold text-2xl dark:text-gray-300"
+                >
                   {item.title}
                 </Link>
-                <span className="text-sm text-gray-400 dark:text-white">{item.shortcut}</span>
+                <span className="text-sm text-gray-400 dark:text-white">
+                  {item.shortcut}
+                </span>
               </li>
             ))}
           </ul>

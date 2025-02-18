@@ -6,18 +6,22 @@ export async function GET() {
   try {
     await dbConnect();
     
-    // Find the loan with the highest account number
-    const lastLoan = await LoanSchema.findOne().sort({ accountNo: -1 });
+    // Get all account numbers
+    const loans = await LoanSchema.find({}, { accountNo: 1 }).sort({ accountNo: 1 });
     
-    // If no loans exist, start with account number 1
-    if (!lastLoan) {
+    if (!loans.length) {
       return NextResponse.json({ nextAccountNo: '1' });
     }
 
-    // Increment the last account number
-    const nextAccountNo = (parseInt(lastLoan.accountNo) + 1).toString();
+    // Convert account numbers to integers and find first available number
+    const accountNumbers = loans.map(loan => parseInt(loan.accountNo));
+    let nextNumber = 1;
+
+    while (accountNumbers.includes(nextNumber)) {
+      nextNumber++;
+    }
     
-    return NextResponse.json({ nextAccountNo });
+    return NextResponse.json({ nextAccountNo: nextNumber.toString() });
   } catch (error) {
     console.error('Error getting next account number:', error);
     return NextResponse.json(

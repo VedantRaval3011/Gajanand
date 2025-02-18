@@ -9,17 +9,15 @@ export async function GET(
   try {
     await dbConnect();
     
-    const accountNo = params.accountNo;
-
+    // Await params to ensure it's resolved before accessing accountNo
+    const { accountNo } = await params;
     const loan = await LoanSchema.findOne({ accountNo });
-
     if (!loan) {
       return NextResponse.json(
         { message: 'Loan not found' },
         { status: 404 }
       );
     }
-
     return NextResponse.json(loan);
   } catch (error) {
     console.error('Error fetching loan:', error);
@@ -40,18 +38,15 @@ export async function DELETE(
   try {
     await dbConnect();
     
-    // Access params.accountNo safely
-    const accountNo = await Promise.resolve(params.accountNo);
-
+    // Await params to ensure it's resolved before accessing accountNo
+    const { accountNo } = await params;
     const loan = await LoanSchema.findOneAndDelete({ accountNo });
-
     if (!loan) {
       return NextResponse.json(
         { message: 'Loan not found' },
         { status: 404 }
       );
     }
-
     return NextResponse.json({ message: 'Loan deleted successfully' });
   } catch (error) {
     console.error('Error deleting loan:', error);

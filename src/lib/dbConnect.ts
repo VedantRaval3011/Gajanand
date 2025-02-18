@@ -1,11 +1,21 @@
-// lib/dbConnect.ts
+// src/lib/dbConnect.ts
 import mongoose from 'mongoose';
 
-if (!process.env.MONGODB_URI) {
+// Load environment variables from .env.local
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Please check:');
+    console.error('1. .env.local file exists in project root (C:\\Dev\\gajanand\\.env.local)');
+    console.error('2. MONGODB_URI is properly defined in .env.local');
+    console.error('3. No spaces or quotes around the MONGODB_URI value');
+  }
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
 }
 
-const MONGODB_URI: string = process.env.MONGODB_URI;
+// Remove any quotes that might have been accidentally added
+const uri = MONGODB_URI.replace(/["']/g, '');
 
 interface GlobalWithMongoose {
   mongoose: {
@@ -16,11 +26,6 @@ interface GlobalWithMongoose {
 
 declare const global: GlobalWithMongoose;
 
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
 let cached = global.mongoose;
 
 if (!cached) {
@@ -37,9 +42,12 @@ async function dbConnect() {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+    try {
+      cached.promise = mongoose.connect(uri, opts);
+    } catch (error) {
+      console.error('MongoDB connection error:', error);
+      throw error;
+    }
   }
 
   try {

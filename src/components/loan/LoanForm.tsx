@@ -1,13 +1,15 @@
 "use client";
 import { Ubuntu } from "next/font/google";
 import React, { useState, useRef, KeyboardEvent, useEffect } from "react";
-import ToggleSwitch from "../navbar/toggleSwitch/ToggleSwitch";
 import { GuarantorData } from "@/types/types";
 import { LoanFormData } from "@/types/types";
-import FormInput from "@/components/FormInput/FormInput";
+import FormInput, {
+  FormNavigationProvider,
+} from "@/components/FormInput/FormInput";
 import axios from "axios";
-import { validateForm } from "@/utils/validations";
 import { useRouter } from "next/navigation";
+import TimeDisplay from "@/ui/TimeDisplay";
+import AccountFinder from "../accountFinder/AccountFinder";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -41,11 +43,18 @@ export default function LoanForm() {
     }
   };
 
-  const formatDate = (date: Date): string => {
+  const formatDate = (
+    date: Date,
+    format: "display" | "input" = "display"
+  ): string => {
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-based
     const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+
+    if (format === "input") {
+      return `${year}-${month}-${day}`; // YYYY-MM-DD for input type="date"
+    }
+    return `${day}/${month}/${year}`; // DD/MM/YYYY for display
   };
 
   const [isExisting, setIsExisting] = useState(false);
@@ -53,6 +62,9 @@ export default function LoanForm() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addressEnterCount, setAddressEnterCount] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAccountNo, setSelectedAccountNo] = useState("");
+  const addGuarantorButtonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const [formData, setFormData] = useState<LoanFormData>({
     accountNo: "",
@@ -114,11 +126,19 @@ export default function LoanForm() {
   const formattedDate = `${days[today.getDay()]}, ${today.toLocaleDateString(
     "en-IN"
   )}`;
+  const guarantorSectionRef = useRef<HTMLDivElement>(null);
 
   // Parse DD/MM/YYYY back to a Date object
   const parseDate = (dateStr: string): Date => {
-    const [day, month, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
+    if (dateStr.includes("-")) {
+      // Handle YYYY-MM-DD format
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    } else {
+      // Handle DD/MM/YYYY format
+      const [day, month, year] = dateStr.split("/").map(Number);
+      return new Date(year, month - 1, day);
+    }
   };
 
   // Calculate maturity date when period changes
@@ -127,13 +147,35 @@ export default function LoanForm() {
     daysToAdd: string
   ): string => {
     if (!daysToAdd || isNaN(Number(daysToAdd))) return baseDate;
-    const base = parseDate(baseDate);
+
+    const base = parseDate(baseDate); // Parse YYYY-MM-DD or DD/MM/YYYY
     base.setDate(base.getDate() + parseInt(daysToAdd, 10));
-    return formatDate(base);
+    return formatDate(base, "display"); // Return in DD/MM/YYYY format
+  };
+
+  const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      inputRefs.current["holderAddress"]?.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current["holderAddress"]?.focus();
+    }
+  };
+
+  // Modify the telephone1 field to handle up arrow
+  const handleTelephone1KeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      inputRefs.current["holderAddress"]?.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current["telephone2"]?.focus();
+    }
   };
 
   const focusNextField = (currentField: string) => {
-    // Define the exact order you want
+    // Define the exact order you want, including address, payment type, and telephone2
     const fieldOrder = [
       "accountNo",
       "loanNo",
@@ -146,28 +188,46 @@ export default function LoanForm() {
       "mDate",
       "holderName",
       "name",
-      "holderAddress", // Make sure address is in the correct position
+      "holderAddress",
       "telephone1",
       "telephone2",
-      "name",
     ];
-
     const currentIndex = fieldOrder.indexOf(currentField);
     if (currentIndex > -1 && currentIndex < fieldOrder.length - 1) {
       const nextField = fieldOrder[currentIndex + 1];
-      inputRefs.current[nextField]?.focus();
+      const nextElement = inputRefs.current[nextField];
+      if (nextElement) {
+        nextElement.focus();
+        scrollToField(nextElement);
+      }
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      focusNextField(field);
+      if (field === "telephone2") {
+        // Focus the Add Guarantor button using ref
+        addGuarantorButtonRef.current?.focus();
+
+        // Simulate button click when Enter is pressed while focused
+        addGuarantorButtonRef.current?.addEventListener(
+          "keydown",
+          (buttonEvent) => {
+            if (buttonEvent.key === "Enter") {
+              buttonEvent.preventDefault();
+              addGuarantorButtonRef.current?.click();
+            }
+          }
+        );
+      } else {
+        focusNextField(field);
+      }
     } else if (e.altKey && e.key === "g") {
       e.preventDefault();
       addGuarantor();
     }
-     // Add Ctrl+S for form submission
+    // Add Ctrl+S for form submission
     else if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault();
       handleSubmit(e as unknown as React.FormEvent);
@@ -180,29 +240,82 @@ export default function LoanForm() {
     field: string,
     currentIndex: number
   ) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const guarantorFields = [
-        "holderName",
-        "address",
-        "telephone",
-        "city",
-        "name",
-      ];
-      const currentFieldIndex = guarantorFields.indexOf(field);
+    const guarantorFields = ["holderName", "address", "telephone", "city"];
+    const currentFieldIndex = guarantorFields.indexOf(field);
 
-      if (currentFieldIndex < guarantorFields.length - 1) {
-        // Move to next field in same guarantor
-        const nextField = `guarantor-${index}-${
-          guarantorFields[currentFieldIndex + 1]
-        }`;
-        inputRefs.current[nextField]?.focus();
-      } else if (currentIndex < formData.guarantors.length - 1) {
-        // Move to first field of next guarantor
-        const nextIndex = currentIndex + 1;
-        const nextField = `guarantor-${nextIndex}-holderName`;
-        inputRefs.current[nextField]?.focus();
-      }
+    switch (e.key) {
+      case "Enter":
+      case "ArrowDown":
+        e.preventDefault();
+        if (currentFieldIndex < guarantorFields.length - 1) {
+          // Move to next field in same guarantor
+          const nextField = `guarantor-${index}-${
+            guarantorFields[currentFieldIndex + 1]
+          }`;
+          const nextElement = inputRefs.current[nextField];
+          if (nextElement) {
+            nextElement.focus();
+            scrollToField(nextElement);
+          }
+        } else if (currentIndex < formData.guarantors.length - 1) {
+          // Move to first field of next guarantor
+          const nextIndex = currentIndex + 1;
+          const nextField = `guarantor-${nextIndex}-holderName`;
+          const nextElement = inputRefs.current[nextField];
+          if (nextElement) {
+            nextElement.focus();
+            scrollToField(nextElement);
+          }
+        }
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        if (currentFieldIndex > 0) {
+          // Move to previous field in same guarantor
+          const prevField = `guarantor-${index}-${
+            guarantorFields[currentFieldIndex - 1]
+          }`;
+          const prevElement = inputRefs.current[prevField];
+          if (prevElement) {
+            prevElement.focus();
+            scrollToField(prevElement);
+          }
+        }
+        break;
+
+      case "ArrowLeft":
+        e.preventDefault();
+        if (index > 0) {
+          // Move to same field in previous guarantor
+          const prevGuarantorField = `guarantor-${index - 1}-${field}`;
+          const prevElement = inputRefs.current[prevGuarantorField];
+          if (prevElement) {
+            prevElement.focus();
+            scrollToField(prevElement);
+          }
+        } else if (field === "holderName") {
+          // If at first guarantor's name field, move to telephone2
+          const telephone2Element = inputRefs.current["telephone2"];
+          if (telephone2Element) {
+            telephone2Element.focus();
+            scrollToField(telephone2Element);
+          }
+        }
+        break;
+
+      case "ArrowRight":
+        e.preventDefault();
+        if (index < formData.guarantors.length - 1) {
+          // Move to same field in next guarantor
+          const nextGuarantorField = `guarantor-${index + 1}-${field}`;
+          const nextElement = inputRefs.current[nextGuarantorField];
+          if (nextElement) {
+            nextElement.focus();
+            scrollToField(nextElement);
+          }
+        }
+        break;
     }
   };
 
@@ -210,16 +323,41 @@ export default function LoanForm() {
     if (!formData.hasGuarantor) {
       setFormData({ ...formData, hasGuarantor: true });
     }
+
     const newGuarantor: GuarantorData = {
       holderName: "",
       address: "",
       telephone: "",
       city: "",
     };
-    setFormData({
-      ...formData,
-      guarantors: [...formData.guarantors, newGuarantor],
+
+    setFormData((prevData) => {
+      const updatedData = {
+        ...prevData,
+        guarantors: [...prevData.guarantors, newGuarantor],
+      };
+
+      // Use setTimeout to ensure the DOM is updated before focusing
+      setTimeout(() => {
+        const newGuarantorIndex = updatedData.guarantors.length - 1;
+        const firstField = `guarantor-${newGuarantorIndex}-holderName`;
+        const element = inputRefs.current[firstField];
+        if (element) {
+          element.focus();
+          scrollToField(element);
+        }
+      }, 0);
+
+      return updatedData;
     });
+
+    // Add smooth scrolling after state update
+    setTimeout(() => {
+      guarantorSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 100);
   };
 
   const removeGuarantor = (index: number) => {
@@ -239,9 +377,14 @@ export default function LoanForm() {
 
     try {
       // Convert date strings from DD/MM/YYYY to JavaScript Date objects
-      const convertDateString = (dateStr: string) => {
-        const [day, month, year] = dateStr.split("/").map(Number);
-        return new Date(year, month - 1, day); // month is 0-based in JavaScript
+      const convertDateString = (dateStr: string): Date => {
+        if (dateStr.includes("-")) {
+          const [year, month, day] = dateStr.split("-").map(Number);
+          return new Date(year, month - 1, day);
+        } else {
+          const [day, month, year] = dateStr.split("/").map(Number);
+          return new Date(year, month - 1, day);
+        }
       };
 
       // Format the data exactly as it's working in Postman
@@ -273,7 +416,7 @@ export default function LoanForm() {
       const response = await axios({
         method: isExisting ? "put" : "post",
         // Fix the syntax error in the URL construction
-        url: isExisting ?  "/api/loans" : `/api/loans`,
+        url: isExisting ? "/api/loans" : `/api/loans`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -282,8 +425,12 @@ export default function LoanForm() {
       });
 
       if (response.status === 200 || response.status === 201) {
-        alert(isExisting ? "Loan updated successfully!" : "Loan created successfully!");
-        
+        alert(
+          isExisting
+            ? "Loan updated successfully!"
+            : "Loan created successfully!"
+        );
+
         // Reset form and fetch next account number if it's a new loan
         if (!isExisting) {
           setFormData(initialFormState);
@@ -303,6 +450,7 @@ export default function LoanForm() {
     if (!window.confirm("Are you sure you want to delete this loan?")) return;
 
     try {
+      // First, delete the loan
       await axios({
         method: "delete",
         url: `/api/loans/${formData.accountNo}`,
@@ -311,6 +459,36 @@ export default function LoanForm() {
           "Content-Type": "application/json",
         },
       });
+
+      // Ask the user if they want to delete the payment history as well
+      const shouldDeletePaymentHistory = window.confirm(
+        "Do you also want to delete the payment history for this loan?"
+      );
+
+      if (shouldDeletePaymentHistory) {
+        try {
+          // Attempt to delete payment history for the same accountNo
+          await axios({
+            method: "delete",
+            url: `/api/payment-history/${formData.accountNo}`,
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+          });
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            // If no payment history is found, just notify the user and move on
+            alert("No payment history found for this loan.");
+          } else {
+            // For other errors, log and alert the user
+            console.error("Error deleting payment history:", error);
+            alert("Failed to delete payment history");
+          }
+        }
+      }
+
+      // Reset form and fetch next account number
       setFormData(initialFormState);
       fetchNextAccountNo();
       setIsExisting(false);
@@ -324,38 +502,92 @@ export default function LoanForm() {
     }
   };
 
+  const scrollToField = (element: HTMLElement | null) => {
+    if (element) {
+      const elementRect = element.getBoundingClientRect();
+      const absoluteElementTop = elementRect.top + window.pageYOffset;
+      const middle =
+        absoluteElementTop - window.innerHeight / 2 + elementRect.height / 2;
+
+      window.scrollTo({
+        top: middle,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handlePaymentTypeKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      inputRefs.current["period"]?.focus();
+    } else if (e.key === "ArrowDown" || e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current["instAmount"]?.focus();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setFormData((prev) => ({ ...prev, isDaily: true }));
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setFormData((prev) => ({ ...prev, isDaily: false }));
+    }
+  };
+
   useEffect(() => {
     fetchNextAccountNo();
   }, []);
 
   useEffect(() => {
     const handleThemeToggle = (e: WindowEventMap["keydown"]) => {
-      if (e.key.toLowerCase() === 'd' && (e.altKey || e.metaKey)) {
+      if (e.key.toLowerCase() === "d" && (e.altKey || e.metaKey)) {
         e.preventDefault();
-        setIsDarkMode(prev => !prev);
+        setIsDarkMode((prev) => !prev);
         // Toggle dark class on document
-        if (document.documentElement.classList.contains('dark')) {
-          document.documentElement.classList.remove('dark');
+        if (document.documentElement.classList.contains("dark")) {
+          document.documentElement.classList.remove("dark");
         } else {
-          document.documentElement.classList.add('dark');
+          document.documentElement.classList.add("dark");
         }
       }
     };
 
-    window.addEventListener('keydown', handleThemeToggle);
-    return () => window.removeEventListener('keydown', handleThemeToggle);
+    window.addEventListener("keydown", handleThemeToggle);
+    return () => window.removeEventListener("keydown", handleThemeToggle);
   }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: WindowEventMap["keydown"]) => {
       if (e.key === "Escape") {
-        router.push('/');
+        if (!isModalOpen) {
+          // Only navigate back if the modal is not open
+          router.push("/");
+        }
       }
     };
-  
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen]);
+
+  const handlePeriodKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      inputRefs.current["isDaily"]?.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current["isDaily"]?.focus();
+    }
+  };
+
+  // Handle Installment Amount keyboard navigation
+  const handleInstAmountKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      inputRefs.current["isDaily"]?.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current["mAmount"]?.focus();
+    }
+  };
 
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const handleAccountNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -366,7 +598,6 @@ export default function LoanForm() {
       clearTimeout(timeoutIdRef.current);
     }
 
-    // Debounce the API call
     timeoutIdRef.current = setTimeout(async () => {
       if (value.trim()) {
         try {
@@ -374,562 +605,622 @@ export default function LoanForm() {
           if (response.data) {
             setFormData({
               ...response.data,
-              date: formatDate(new Date(response.data.date)),
-              mDate: formatDate(new Date(response.data.mDate)),
+              date: formatDate(new Date(response.data.date), "input"), // Convert to YYYY-MM-DD
+              mDate: formatDate(new Date(response.data.mDate), "display"), // Keep as DD/MM/YYYY
             });
             setIsExisting(true);
           }
         } catch (error) {
           if (axios.isAxiosError(error) && error.response?.status === 404) {
             setIsExisting(false);
-            // Reset form but keep the entered account number and preserve nextAccountNo
             if (value === nextAccountNo) {
-              // If the entered value is the next account number, keep all fields reset
               setFormData({
                 ...initialFormState,
                 accountNo: value,
+                date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
               });
             } else {
-              // If it's a different number, reset all fields except accountNo
               setFormData((prev) => ({
                 ...initialFormState,
                 accountNo: value,
+                date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
               }));
             }
-          } else {
-            console.error("Error fetching loan details:", error);
-            alert("Failed to fetch loan details");
           }
         }
       }
-    }, 500);
-
-    // Cleanup function
-    return () => {
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
-      }
-    };
+    }, 300);
   };
+
+  // Add initial focus effect
+  useEffect(() => {
+    if (nextAccountNo) {
+      setTimeout(() => {
+        inputRefs.current["accountNo"]?.select();
+      }, 100);
+    }
+  }, [nextAccountNo]);
+
+  // Add this useEffect to select the account number on initial load
+  useEffect(() => {
+    if (nextAccountNo) {
+      // Small delay to ensure the input is mounted
+      setTimeout(() => {
+        inputRefs.current["accountNo"]?.select();
+      }, 100);
+    }
+  }, [nextAccountNo]);
+
   return (
-    <div className={`min-h-screen  ${ubuntu.className}`}>
+    <div className={`min-h-screen ${ubuntu.className}`}>
       <div className=" mx-auto">
         {/* Header Section */}
         <div className="flex justify-between mx-10 items-center mb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-800 dark:text-orange-600 transition-all">
+          <div className="flex justify-between w-full items-center">
+            <h1 className="text-4xl font-bold text-orange-600 transition-all">
               Loan Master
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mt-2">
+            <TimeDisplay />
+            <p className="text-xl text-gray-600 dark:text-gray-300 mt-2 font-semibold p-2">
               {formattedDate}
             </p>
           </div>
         </div>
+        <FormNavigationProvider>
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              // Global shortcut for form submission
+              if (e.altKey && e.key === "s") {
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
 
-        <form
-          onSubmit={handleSubmit}
-          onKeyDown={(e) => {
-            // Global shortcut for form submission
-            if ((e.altKey) && e.key === "s") {
-              e.preventDefault();
-              handleSubmit(e as unknown as React.FormEvent);
-            }
-          }}
-          className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-lg"
-        >
-          <div className="grid grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-6">
-              <FormInput
-                label="Account No."
-                name="accountNo"
-                value={formData.accountNo}
-                onChange={handleAccountNoChange}
-                onKeyDown={(e) => handleKeyDown(e, "accountNo")}
-                error={errors.accountNo}
-                inputRef={(el) => {
-                  inputRefs.current["accountNo"] = el;
-                }}
-                required
-              />
-
-              <FormInput
-                label="Loan No."
-                name="loanNo"
-                value={formData.loanNo}
-                onChange={(e) =>
-                  setFormData({ ...formData, loanNo: e.target.value })
-                }
-                onKeyDown={(e) => handleKeyDown(e, "loanNo")}
-                error={errors.loanNo}
-                inputRef={(el) => {
-                  inputRefs.current["loanNo"] = el;
-                }}
-                required
-              />
-
-              {/* Today's Date */}
-              <div className="space-y-6">
-                <FormInput
-                  label="Date"
-                  name="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "date")}
-                  error={errors.date}
-                  inputRef={(el) => {
-                    inputRefs.current["date"] = el;
-                  }}
-                  required
-                />
-              </div>
-              <div>
-                <FormInput
-                  label="Amount"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "amount")}
-                  error={errors.amount}
-                  inputRef={(el) => {
-                    inputRefs.current["amount"] = el;
-                  }}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              <div>
-                <FormInput
-                  label="Period (Days)"
-                  name="period"
-                  type="number"
-                  value={formData.period}
-                  onChange={(e) => {
-                    const newPeriod = e.target.value;
-                    setFormData((prev) => ({
-                      ...prev,
-                      period: newPeriod,
-                      mDate: calculateMaturityDate(prev.date, newPeriod),
-                    }));
-                  }}
-                  onKeyDown={(e) => handleKeyDown(e, "period")}
-                  inputRef={(el) => {
-                    inputRefs.current["period"] = el;
-                  }}
-                  required
-                />
-              </div>
-
-              <div className="p-3">
-                <label className="block text-xl font-medium text-gray-700 dark:text-gray-300">
-                  Payment Type
-                </label>
-                <div className="flex space-x-6 mt-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      checked={formData.isDaily}
-                      ref={(el) => {
-                        inputRefs.current["isDaily"] = el;
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, "isDaily")}
-                      onChange={() =>
-                        setFormData({ ...formData, isDaily: true })
-                      }
-                      className="w-5 h-5 mr-2"
-                    />
-                    <span className="text-xl dark:text-gray-200 text-black">Daily</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      checked={!formData.isDaily}
-                      onChange={() =>
-                        setFormData({ ...formData, isDaily: false })
-                      }
-                      ref={(el) => {
-                        inputRefs.current["isDaily"] = el;
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, "isDaily")}
-                      className="w-5 h-5 mr-2 "
-                    />
-                    <span className="text-xl dark:text-gray-200 text-black">Monthly</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <FormInput
-                  label="Installment Amount"
-                  name="instAmount"
-                  value={formData.instAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, instAmount: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "instAmount")}
-                  error={errors.instAmount}
-                  inputRef={(el) => {
-                    inputRefs.current["instAmount"] = el;
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <FormInput
-                  label="Maturity Amount"
-                  name="mAmount"
-                  value={formData.mAmount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, mAmount: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "mAmount")}
-                  error={errors.mAmount}
-                  inputRef={(el) => {
-                    inputRefs.current["mAmount"] = el;
-                  }}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Maturity Date Section */}
-          <div className="mt-6 flex justify-start w-80">
-            <div className="flex items-center space-x-4">
-              <label className="text-xl font-medium text-gray-700 dark:text-gray-200">
-                M. Date:
-              </label>
-              <input
-                type="text"
-                readOnly
-                ref={(el) => {
-                  inputRefs.current["mDate"] = el;
-                }}
-                value={formData.mDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, mDate: e.target.value })
-                }
-                onKeyDown={(e) => handleKeyDown(e, "mDate")}
-                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* Holder Information */}
-          <div className="mt-8">
-            <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-white">
-              Holder Information
-            </h2>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-              <div className="col-span-2 md:col-span-1">
-                <FormInput
-                  label="Holder Name"
-                  name="holderName"
-                  value={formData.holderName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, holderName: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "holderName")}
-                  error={errors.holderName}
-                  inputRef={(el) => {
-                    inputRefs.current["holderName"] = el;
-                  }}
-                  required
-                />
-              </div>
-
-              <div className="col-span-2 md:col-span-1">
-                <FormInput
-                  label="Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  onKeyDown={(e) => handleKeyDown(e, "name")}
-                  error={errors.name}
-                  inputRef={(el) => {
-                    inputRefs.current["name"] = el;
-                  }}
-                />
-              </div>
-
-              <div className="col-span-2">
-                <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                  Address
-                </label>
-                <textarea
-                  name="holderAddress"
-                  id="holderAddress"
-                  rows={3}
-                  ref={(el) => {
-                    inputRefs.current["holderAddress"] = el;
-                  }}
-                  value={formData.holderAddress}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      holderAddress: e.target.value,
-                    })
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setAddressEnterCount((prev) => prev + 1);
-
-                      if (addressEnterCount >= 2) {
-                        // Reset the counter and move to telephone1
-                        e.preventDefault();
-                        setAddressEnterCount(0);
-                        inputRefs.current["telephone1"]?.focus();
-                      }
-                      // For first and second Enter press, let the default behavior handle the newline
-                    }
-                  }}
-                  className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
-                />
-              </div>
-
-              <div className="col-span-2 grid grid-cols-2 gap-6">
-                <div>
-                  <FormInput
-                    label="Telephone 1"
-                    name="telephone1"
-                    value={formData.telephone1}
-                    onChange={(e) =>
-                      setFormData({ ...formData, telephone1: e.target.value })
-                    }
-                    onKeyDown={(e) => handleKeyDown(e, "telephone1")}
-                    error={errors.telephone1}
-                    inputRef={(el) => {
-                      inputRefs.current["telephone1"] = el;
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                    Telephone 2
-                  </label>
-                  <input
-                    type="tel"
-                    ref={(el) => {
-                      inputRefs.current["telephone2"] = el;
-                    }}
-                    value={formData.telephone2}
-                    onChange={(e) =>
-                      setFormData({ ...formData, telephone2: e.target.value })
-                    }
-                    onKeyDown={(e) => handleKeyDown(e, "telephone2")}
-                    className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Guarantor Section */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
-                Guarantor Information
-              </h2>
-              <button
-                type="button"
-                onClick={addGuarantor}
-                className="bg-blue-500 dark:bg-blue-600 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-blue-600 dark:hover:bg-blue-700"
-              >
-                Add Guarantor (ALT+G)
-              </button>
-            </div>
-
-            {formData.guarantors.map((guarantor, index) => (
-              <div
-                key={`guarantor-${index}`}
-                className="mt-6 p-6 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-semibold text-gray-800 dark:text-white">
-                    Guarantor #{index + 1}
-                  </h3>
-                  <button
-                    type="button"
-                    key={`remove-${index}`}
-                    onClick={() => removeGuarantor(index)}
-                    className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-lg"
-                  >
-                    Remove
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Name Input */}
-                  <div key={`name-field-${index}`}>
-                    <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      ref={(el) => {
-                        inputRefs.current[`guarantor-${index}-holderName`] = el;
-                      }}
-                      value={guarantor.holderName}
-                      onChange={(e) => {
-                        const updatedGuarantors = [...formData.guarantors];
-                        updatedGuarantors[index] = {
-                          ...updatedGuarantors[index],
-                          holderName: e.target.value,
-                        };
-                        setFormData({
-                          ...formData,
-                          guarantors: updatedGuarantors,
-                        });
-                      }}
-                      onKeyDown={(e) =>
-                        handleGuarantorKeyDown(e, index, "holderName", index)
-                      }
-                      className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Address Input */}
-                  <div key={`address-field-${index}`}>
-                    <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      ref={(el) => {
-                        inputRefs.current[`guarantor-${index}-address`] = el;
-                      }}
-                      value={guarantor.address}
-                      onChange={(e) => {
-                        const updatedGuarantors = [...formData.guarantors];
-                        updatedGuarantors[index] = {
-                          ...updatedGuarantors[index],
-                          address: e.target.value,
-                        };
-                        setFormData({
-                          ...formData,
-                          guarantors: updatedGuarantors,
-                        });
-                      }}
-                      onKeyDown={(e) =>
-                        handleGuarantorKeyDown(e, index, "address", index)
-                      }
-                      className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Telephone Input */}
-                  <div key={`telephone-field-${index}`}>
-                    <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                      Telephone
-                    </label>
-                    <input
-                      type="tel"
-                      ref={(el) => {
-                        inputRefs.current[`guarantor-${index}-telephone`] = el;
-                      }}
-                      value={guarantor.telephone}
-                      onChange={(e) => {
-                        const updatedGuarantors = [...formData.guarantors];
-                        updatedGuarantors[index] = {
-                          ...updatedGuarantors[index],
-                          telephone: e.target.value,
-                        };
-                        setFormData({
-                          ...formData,
-                          guarantors: updatedGuarantors,
-                        });
-                      }}
-                      onKeyDown={(e) =>
-                        handleGuarantorKeyDown(e, index, "telephone", index)
-                      }
-                      className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-
-                  {/* City Input */}
-                  <div key={`city-field-${index}`}>
-                    <label className="block text-xl font-medium text-gray-700 dark:text-gray-200">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      ref={(el) => {
-                        inputRefs.current[`guarantor-${index}-city`] = el;
-                      }}
-                      value={guarantor.city}
-                      onChange={(e) => {
-                        const updatedGuarantors = [...formData.guarantors];
-                        updatedGuarantors[index] = {
-                          ...updatedGuarantors[index],
-                          city: e.target.value,
-                        };
-                        setFormData({
-                          ...formData,
-                          guarantors: updatedGuarantors,
-                        });
-                      }}
-                      onKeyDown={(e) =>
-                        handleGuarantorKeyDown(e, index, "city", index)
-                      }
-                      className="mt-2 block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Form Buttons */}
-          <div className="mt-8 flex gap-4">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`flex-1 ${
-                isExisting
-                  ? "bg-blue-500 hover:bg-blue-600"
-                  : "bg-green-500 hover:bg-green-600"
-              } text-white px-6 py-3 rounded-md text-xl font-semibold transition-colors`}
-            >
-              {isSubmitting
-                ? "Processing..."
-                : isExisting
-                ? "Update Loan (ALT+S)"
-                : "Submit Loan Application (ALT+S)"}
-            </button>
-            {isExisting && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="bg-red-500 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-red-600 transition-colors"
-              >
-                Delete Loan
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
+              if (e.ctrlKey && e.key.toLowerCase() === "r") {
+                e.preventDefault();
                 setFormData(initialFormState);
                 fetchNextAccountNo();
                 setIsExisting(false);
-              }}
-              className="bg-gray-500 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-gray-600 transition-colors"
-            >
-              Reset Form
-            </button>
-          </div>
-        </form>
+              }
+
+              // Ctrl+Delete for Delete
+              if (e.ctrlKey && e.key === "d" && isExisting) {
+                e.preventDefault();
+                handleDelete();
+              }
+            }}
+            className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-lg"
+          >
+            <div className="grid grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div className="space-y-6">
+                <FormInput
+                  label="Account No."
+                  name="accountNo"
+                  type="text"
+                  value={formData.accountNo}
+                  onChange={handleAccountNoChange}
+                  autoSelect={true}
+                  onKeyDown={(e) => handleKeyDown(e, "accountNo")}
+                  error={errors.accountNo}
+                  inputRef={(el) => {
+                    inputRefs.current["accountNo"] = el;
+                  }}
+                  required
+                />
+
+                <FormInput
+                  label="Loan No."
+                  name="loanNo"
+                  value={formData.loanNo}
+                  type="text"
+                  onChange={(e) =>
+                    setFormData({ ...formData, loanNo: e.target.value })
+                  }
+                  onKeyDown={(e) => handleKeyDown(e, "loanNo")}
+                  error={errors.loanNo}
+                  inputRef={(el) => {
+                    inputRefs.current["loanNo"] = el;
+                  }}
+                  required
+                />
+
+                {/* Today's Date */}
+                <div className="space-y-6">
+                  <FormInput
+                    label="Date"
+                    name="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, date: e.target.value })
+                    }
+                    onKeyDown={(e) => handleKeyDown(e, "date")}
+                    error={errors.date}
+                    inputRef={(el) => {
+                      inputRefs.current["date"] = el;
+                    }}
+                    required
+                  />
+                </div>
+                <div>
+                  <FormInput
+                    label="Amount"
+                    name="amount"
+                    value={formData.amount}
+                    type="text"
+                    onChange={(e) =>
+                      setFormData({ ...formData, amount: e.target.value })
+                    }
+                    onKeyDown={(e) => handleKeyDown(e, "amount")}
+                    error={errors.amount}
+                    inputRef={(el) => {
+                      inputRefs.current["amount"] = el;
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                <div>
+                  <FormInput
+                    label="Period (Days)"
+                    name="period"
+                    type="number"
+                    value={formData.period}
+                    onChange={(e) => {
+                      const newPeriod = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        period: newPeriod,
+                        mDate: calculateMaturityDate(prev.date, newPeriod),
+                      }));
+                    }}
+                    onKeyDown={handlePeriodKeyDown}
+                    inputRef={(el) => {
+                      inputRefs.current["period"] = el;
+                    }}
+                    required
+                  />
+                </div>
+
+                <div className="p-3">
+                  <label className="block text-xl font-bold  text-gray-700 dark:text-gray-300">
+                    Payment Type
+                  </label>
+                  <div className="flex space-x-6 mt-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        checked={formData.isDaily}
+                        ref={(el) => {
+                          inputRefs.current["isDaily"] = el;
+                        }}
+                        onKeyDown={handlePaymentTypeKeyDown}
+                        onChange={() =>
+                          setFormData({ ...formData, isDaily: true })
+                        }
+                        className="w-5 h-5 mr-2"
+                      />
+                      <span className="text-xl dark:text-gray-200 text-black">
+                        Daily
+                      </span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        checked={!formData.isDaily}
+                        onChange={() =>
+                          setFormData({ ...formData, isDaily: false })
+                        }
+                        ref={(el) => {
+                          inputRefs.current["isMonthly"] = el;
+                        }}
+                        onKeyDown={handlePaymentTypeKeyDown}
+                        className="w-5 h-5 mr-2"
+                      />
+                      <span className="text-xl dark:text-gray-200 text-black">
+                        Monthly
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <FormInput
+                    label="Installment Amount"
+                    name="instAmount"
+                    value={formData.instAmount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, instAmount: e.target.value })
+                    }
+                    type="text"
+                    onKeyDown={handleInstAmountKeyDown}
+                    error={errors.instAmount}
+                    inputRef={(el) => {
+                      inputRefs.current["instAmount"] = el;
+                    }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <FormInput
+                    label="Maturity Amount"
+                    name="mAmount"
+                    value={formData.mAmount}
+                    type="text"
+                    onChange={(e) =>
+                      setFormData({ ...formData, mAmount: e.target.value })
+                    }
+                    onKeyDown={(e) => handleKeyDown(e, "mAmount")}
+                    error={errors.mAmount}
+                    inputRef={(el) => {
+                      inputRefs.current["mAmount"] = el;
+                    }}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Maturity Date Section */}
+            <div className="mt-6 flex justify-start w-80">
+              <div className="flex items-center space-x-4">
+                <label className="text-xl font-bold text-gray-700 dark:text-gray-200 ">
+                  M. Date:
+                </label>
+                <input
+                  readOnly
+                  ref={(el) => {
+                    inputRefs.current["mDate"] = el;
+                  }}
+                  value={formData.mDate}
+                  type="text"
+                  onChange={(e) =>
+                    setFormData({ ...formData, mDate: e.target.value })
+                  }
+                  onKeyDown={(e) => handleKeyDown(e, "mDate")}
+                  className="mt-1 font-bold text-xl block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3  bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Holder Information */}
+            <div className="mt-8">
+              <h2 className="text-3xl font-bold mb-6 text-orange-500">
+                Holder Information
+              </h2>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                <div className="col-span-2 md:col-span-1">
+                  <FormInput
+                    label="Holder Name"
+                    name="holderName"
+                    value={formData.holderName}
+                    type="text"
+                    onChange={(e) =>
+                      setFormData({ ...formData, holderName: e.target.value })
+                    }
+                    onKeyDown={(e) => handleKeyDown(e, "holderName")}
+                    error={errors.holderName}
+                    inputRef={(el) => {
+                      inputRefs.current["holderName"] = el;
+                    }}
+                    required
+                  />
+                </div>
+
+                <div className="col-span-2 md:col-span-1">
+                  <FormInput
+                    label="Name"
+                    name="name"
+                    value={formData.name}
+                    type="text"
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    onKeyDown={handleNameKeyDown}
+                    error={errors.name}
+                    inputRef={(el) => {
+                      inputRefs.current["name"] = el;
+                    }}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <div>
+                    <label className="block text-xl font-bold  text-gray-700 dark:text-gray-200">
+                      Address
+                    </label>
+                    <textarea
+                      name="holderAddress"
+                      id="holderAddress"
+                      rows={3}
+                      ref={(el) => {
+                        inputRefs.current["holderAddress"] = el;
+                      }}
+                      value={formData.holderAddress}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          holderAddress: e.target.value,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          inputRefs.current["name"]?.focus(); // Move focus to the "Name" field
+                        } else if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          inputRefs.current["telephone1"]?.focus(); // Move focus to the "Telephone 1" field
+                        } else if (e.key === "Enter") {
+                          setAddressEnterCount((prev) => prev + 1);
+                          if (addressEnterCount >= 2) {
+                            e.preventDefault();
+                            setAddressEnterCount(0);
+                            inputRefs.current["telephone1"]?.focus();
+                          }
+                        }
+                      }}
+                      className="mt-2 font-bold block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="col-span-2 grid grid-cols-2 gap-6">
+                  <div>
+                    <FormInput
+                      label="Telephone 1"
+                      name="telephone1"
+                      value={formData.telephone1}
+                      type="text"
+                      onChange={(e) =>
+                        setFormData({ ...formData, telephone1: e.target.value })
+                      }
+                      onKeyDown={handleTelephone1KeyDown}
+                      error={errors.telephone1}
+                      inputRef={(el) => {
+                        inputRefs.current["telephone1"] = el;
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <FormInput
+                      label="Telephone 2"
+                      name="telephone2"
+                      value={formData.telephone2}
+                      type="text"
+                      onChange={(e) =>
+                        setFormData({ ...formData, telephone2: e.target.value })
+                      }
+                      onKeyDown={(e) => handleKeyDown(e, "telephone2")}
+                      inputRef={(el) => {
+                        inputRefs.current["telephone2"] = el;
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guarantor Section */}
+            <div className="mt-8" ref={guarantorSectionRef}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
+                  Guarantor Information
+                </h2>
+                <button
+                  ref={addGuarantorButtonRef}
+                  type="button"
+                  onClick={addGuarantor}
+                  className="add-guarantor-button bg-blue-500 dark:bg-blue-600 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Add Guarantor (ALT+G)
+                </button>
+              </div>
+
+              {formData.guarantors.map((guarantor, index) => (
+                <div
+                  ref={guarantorSectionRef}
+                  key={`guarantor-${index}`}
+                  className="mt-6 p-6 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-2xl font-semibold text-gray-800 dark:text-white">
+                      Guarantor #{index + 1}
+                    </h3>
+                    <button
+                      type="button"
+                      key={`remove-${index}`}
+                      onClick={() => removeGuarantor(index)}
+                      className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-lg"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Name Input */}
+                    <div key={`name-field-${index}`}>
+                      <label className="block text-xl font-bold  text-gray-700 dark:text-gray-200">
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        ref={(el) => {
+                          inputRefs.current[`guarantor-${index}-holderName`] =
+                            el;
+                        }}
+                        value={guarantor.holderName}
+                        onChange={(e) => {
+                          const updatedGuarantors = [...formData.guarantors];
+                          updatedGuarantors[index] = {
+                            ...updatedGuarantors[index],
+                            holderName: e.target.value,
+                          };
+                          setFormData({
+                            ...formData,
+                            guarantors: updatedGuarantors,
+                          });
+                        }}
+                        onKeyDown={(e) =>
+                          handleGuarantorKeyDown(e, index, "holderName", index)
+                        }
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* Address Input */}
+                    <div key={`address-field-${index}`}>
+                      <label className="block text-xl font-bold  text-gray-700 dark:text-gray-200">
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        ref={(el) => {
+                          inputRefs.current[`guarantor-${index}-address`] = el;
+                        }}
+                        value={guarantor.address}
+                        onChange={(e) => {
+                          const updatedGuarantors = [...formData.guarantors];
+                          updatedGuarantors[index] = {
+                            ...updatedGuarantors[index],
+                            address: e.target.value,
+                          };
+                          setFormData({
+                            ...formData,
+                            guarantors: updatedGuarantors,
+                          });
+                        }}
+                        onKeyDown={(e) =>
+                          handleGuarantorKeyDown(e, index, "address", index)
+                        }
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* Telephone Input */}
+                    <div key={`telephone-field-${index}`}>
+                      <label className="block text-xl font-bold  text-gray-700 dark:text-gray-200">
+                        Telephone
+                      </label>
+                      <input
+                        type="tel"
+                        ref={(el) => {
+                          inputRefs.current[`guarantor-${index}-telephone`] =
+                            el;
+                        }}
+                        value={guarantor.telephone}
+                        onChange={(e) => {
+                          const updatedGuarantors = [...formData.guarantors];
+                          updatedGuarantors[index] = {
+                            ...updatedGuarantors[index],
+                            telephone: e.target.value,
+                          };
+                          setFormData({
+                            ...formData,
+                            guarantors: updatedGuarantors,
+                          });
+                        }}
+                        onKeyDown={(e) =>
+                          handleGuarantorKeyDown(e, index, "telephone", index)
+                        }
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* City Input */}
+                    <div key={`city-field-${index}`}>
+                      <label className="block  text-xl font-bold  text-gray-700 dark:text-gray-200">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        ref={(el) => {
+                          inputRefs.current[`guarantor-${index}-city`] = el;
+                        }}
+                        value={guarantor.city}
+                        onChange={(e) => {
+                          const updatedGuarantors = [...formData.guarantors];
+                          updatedGuarantors[index] = {
+                            ...updatedGuarantors[index],
+                            city: e.target.value,
+                          };
+                          setFormData({
+                            ...formData,
+                            guarantors: updatedGuarantors,
+                          });
+                        }}
+                        onKeyDown={(e) =>
+                          handleGuarantorKeyDown(e, index, "city", index)
+                        }
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Form Buttons */}
+            <div className="mt-8 flex gap-4">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`flex-1 ${
+                  isExisting
+                    ? "bg-blue-500 hover:bg-blue-600"
+                    : "bg-green-500 hover:bg-green-600"
+                } text-white px-6 py-3 rounded-md text-xl font-semibold transition-colors`}
+              >
+                {isSubmitting
+                  ? "Processing..."
+                  : isExisting
+                  ? "Update Loan (ALT+S)"
+                  : "Submit Loan Application (ALT+S)"}
+              </button>
+              {isExisting && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="bg-red-500 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-red-600 transition-colors"
+                >
+                  Delete Loan
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(initialFormState);
+                  fetchNextAccountNo();
+                  setIsExisting(false);
+                }}
+                className="bg-gray-500 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Reset Form
+              </button>
+            </div>
+          </form>
+        </FormNavigationProvider>
       </div>
+      <AccountFinder
+        onAccountSelect={(accountNo) => {
+          setSelectedAccountNo(accountNo);
+          // Create a synthetic event object
+          const syntheticEvent = {
+            target: { value: accountNo },
+          } as React.ChangeEvent<HTMLInputElement>;
+          handleAccountNoChange(syntheticEvent); // Pass the synthetic event
+
+          setTimeout(() => {
+            inputRefs.current[`accountNo`]?.focus();
+          }, 0);
+        }}
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+      />
     </div>
   );
 }
