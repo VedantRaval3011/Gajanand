@@ -439,8 +439,9 @@ export default function LoanForm() {
       }
 
       // Rest of the code remains the same...
-    } catch (error) {
+    } catch {
       // Error handling code remains the same...
+      console.error("Error submitting data");
     } finally {
       setIsSubmitting(false);
     }
@@ -620,7 +621,7 @@ export default function LoanForm() {
                 date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
               });
             } else {
-              setFormData((prev) => ({
+              setFormData(() => ({
                 ...initialFormState,
                 accountNo: value,
                 date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
@@ -653,14 +654,16 @@ export default function LoanForm() {
 
   return (
     <div className={`min-h-screen ${ubuntu.className}`}>
-      <div className=" mx-auto">
+      <div className="  md:mx-auto">
         {/* Header Section */}
         <div className="flex justify-between mx-10 items-center mb-6">
           <div className="flex justify-between w-full items-center">
-            <h1 className="text-4xl font-bold text-orange-600 transition-all">
+            <h1 className="text-2xl w-full md:text-4xl font-bold text-orange-600 transition-all">
               Loan Master
             </h1>
+            <span className="hidden md:block">
             <TimeDisplay />
+            </span>
             <p className="text-xl text-gray-600 dark:text-gray-300 mt-2 font-semibold p-2">
               {formattedDate}
             </p>
@@ -691,7 +694,7 @@ export default function LoanForm() {
             }}
             className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-lg"
           >
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Left Column */}
               <div className="space-y-6">
                 <FormInput
@@ -707,6 +710,7 @@ export default function LoanForm() {
                     inputRefs.current["accountNo"] = el;
                   }}
                   required
+                 
                 />
 
                 <FormInput
@@ -762,6 +766,10 @@ export default function LoanForm() {
                 </div>
               </div>
 
+              <span className="hidden">
+                {isDarkMode}
+                {selectedAccountNo}
+              </span>
               {/* Right Column */}
               <div className="space-y-6">
                 <div>
@@ -867,7 +875,7 @@ export default function LoanForm() {
 
             {/* Maturity Date Section */}
             <div className="mt-6 flex justify-start w-80">
-              <div className="flex items-center space-x-4">
+              <div className="flex md:items-center space-x-4 flex-col md:flex-row">
                 <label className="text-xl font-bold text-gray-700 dark:text-gray-200 ">
                   M. Date:
                 </label>
@@ -882,7 +890,7 @@ export default function LoanForm() {
                     setFormData({ ...formData, mDate: e.target.value })
                   }
                   onKeyDown={(e) => handleKeyDown(e, "mDate")}
-                  className="mt-1 font-bold text-xl block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3  bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="mt-1 font-bold text-xl block md:w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3  bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               </div>
             </div>
@@ -968,7 +976,7 @@ export default function LoanForm() {
                   </div>
                 </div>
 
-                <div className="col-span-2 grid grid-cols-2 gap-6">
+                <div className="col-span-2 grid md:grid-cols-2 gap-6">
                   <div>
                     <FormInput
                       label="Telephone 1"
@@ -1008,14 +1016,14 @@ export default function LoanForm() {
             {/* Guarantor Section */}
             <div className="mt-8" ref={guarantorSectionRef}>
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
+                <h2 className="text-xl md:text-3xl  font-bold text-gray-800 dark:text-white">
                   Guarantor Information
                 </h2>
                 <button
                   ref={addGuarantorButtonRef}
                   type="button"
                   onClick={addGuarantor}
-                  className="add-guarantor-button bg-blue-500 dark:bg-blue-600 text-white px-6 py-3 rounded-md text-xl font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="add-guarantor-button bg-blue-500 dark:bg-blue-600 text-white px-1 py-1 md:px-6 md:py-3 rounded-md text-base md:text-xl font-semibold hover:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   Add Guarantor (ALT+G)
                 </button>
@@ -1028,7 +1036,7 @@ export default function LoanForm() {
                   className="mt-6 p-6 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
                 >
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-semibold text-gray-800 dark:text-white">
+                    <h3 className="text-lg md:text-2xl font-semibold text-gray-800 dark:text-white">
                       Guarantor #{index + 1}
                     </h3>
                     <button
@@ -1041,7 +1049,7 @@ export default function LoanForm() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Name Input */}
                     <div key={`name-field-${index}`}>
                       <label className="block text-xl font-bold  text-gray-700 dark:text-gray-200">
@@ -1165,7 +1173,7 @@ export default function LoanForm() {
             </div>
 
             {/* Form Buttons */}
-            <div className="mt-8 flex gap-4">
+            <div className="mt-8 flex gap-4 md:flex-row flex-col">
               <button
                 type="submit"
                 disabled={isSubmitting}

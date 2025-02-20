@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     // Validate the OTP type
     if (!['email'].includes(type)) {
       return NextResponse.json(
-        { error: 'Invalid OTP type. Please choose "email", "sms", or "both".' },
+        { error: 'Invalid OTP type.' },
         { status: 400 }
       );
     }

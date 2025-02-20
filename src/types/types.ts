@@ -25,23 +25,4 @@ export interface LoanFormData {
     telephone: string;
     city: string;
   }
-interface Account {
-  accountNo: number;
-  startDate: string;
-  totalAmount: number;
-}
-
-interface PaymentTrackerProps {
-  accounts: Account[];
-  installmentAmount?: number;
-  selectedRowIndex?: number;
-}
-
-interface PaymentState {
-  [key: number]: number;
-}
-
-interface LateAmountState {
-  [key: number]: number;
-}
   

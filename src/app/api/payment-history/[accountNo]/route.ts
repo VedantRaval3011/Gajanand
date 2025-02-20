@@ -2,13 +2,21 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Payment } from '@/models/Payment';
 
+interface PaymentQuery {
+  accountNo: string;
+  date?: {
+    $gte?: Date;
+    $lte?: Date;
+  };
+}
+
 export async function GET(
   req: Request,
-  { params }: { params: { accountNo: string } }
+  context: { params: Promise<{ accountNo: string }> }
 ) {
   try {
     await dbConnect();
-    const { accountNo } = await params; // Await params here
+    const { accountNo } = await context.params; // Await params correctly
 
     // Get the search params for date filtering if needed
     const { searchParams } = new URL(req.url);
@@ -16,7 +24,7 @@ export async function GET(
     const endDate = searchParams.get('endDate');
 
     // Build query
-    const query: any = { accountNo };
+    const query: PaymentQuery = { accountNo };
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
@@ -40,11 +48,11 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { accountNo: string } }
+  context: { params: Promise<{ accountNo: string }> }
 ) {
   try {
     await dbConnect();
-    const { accountNo } = await params; // Await params here
+    const { accountNo } = await context.params; // Await params correctly
 
     // Delete all payment history records for the given accountNo
     const result = await Payment.deleteMany({ accountNo });

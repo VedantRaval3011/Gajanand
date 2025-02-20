@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { verifyOTPs } from '@/lib/otp';
 import User from '@/models/User';
 import { OTP } from '@/models/OTP';
 import dbConnect from '@/lib/dbConnect';

@@ -4,6 +4,16 @@ import { Payment } from '@/models/Payment';
 import { PaymentHistory } from '@/models/Payment';
 import LoanSchema from '@/models/LoanSchema';
 
+interface PaymentData {
+  _id?: string;
+  loanId: string;
+  accountNo: string;
+  amountPaid: number;
+  paymentDate: Date;
+  lateAmount?: number;
+  remainingAmount?: number;
+}
+
 // GET handler
 export async function GET(request: NextRequest) {
   await dbConnect();
@@ -107,7 +117,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
     }
     const savedPayments = await Promise.all(
-      payments.map(async (payment: any) => {
+      payments.map(async (payment: PaymentData) => {
         // Save or update the payment
         let savedPayment;
         if (payment._id) {
@@ -156,32 +166,31 @@ export async function POST(request: NextRequest) {
 
 // DELETE handler
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: Request,
+  context: { params: Promise<{ accountNo: string }> }
 ) {
-  await dbConnect();
   try {
-    const payment = await Payment.findById(params.id);
-    if (!payment) {
+    await dbConnect();
+    const { accountNo } = await context.params; // Await params correctly
+
+    // Delete all payment history records for the given accountNo
+    const result = await Payment.deleteMany({ accountNo });
+
+    if (result.deletedCount > 0) {
       return NextResponse.json(
-        { message: 'Payment not found' },
+        { message: `Successfully deleted ${result.deletedCount} payment history records for accountNo: ${accountNo}` },
+        { status: 200 }
+      );
+    } else {
+      return NextResponse.json(
+        { message: `No payment history found for accountNo: ${accountNo}` },
         { status: 404 }
       );
     }
-    // Delete the payment
-    await Payment.findByIdAndDelete(params.id);
-    // Delete corresponding payment history
-    await PaymentHistory.deleteOne({
-      accountNo: payment.accountNo,
-      date: payment.paymentDate
-    });
-    return NextResponse.json(
-      { message: 'Payment deleted successfully' },
-      { status: 200 }
-    );
   } catch (error) {
+    console.error('Error deleting payment history:', error);
     return NextResponse.json(
-      { message: 'Error deleting payment', error: String(error) },
+      { error: 'Error deleting payment history' },
       { status: 500 }
     );
   }

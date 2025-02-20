@@ -13,12 +13,12 @@ export const generateOTP = () => {
   return crypto.randomInt(100000, 999999).toString();
 };
 
-export const storeOTP = async (otp: string, type: 'email' | 'sms') => {
+export const storeOTP = async (otp: string, type: 'email' ) => {
   await OTP.deleteMany({ type }); // Remove existing OTPs of the same type
   await OTP.create({ otp, type, createdAt: new Date() });
 };
 
-export const verifyOTPs = async (emailOTP: string, smsOTP: string) => {
+export const verifyOTPs = async (emailOTP: string) => {
   const emailOTPDoc = await OTP.findOne({ otp: emailOTP, type: 'email' });
   
   if (!emailOTPDoc ) return false;

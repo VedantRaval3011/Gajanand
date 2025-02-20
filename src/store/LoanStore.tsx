@@ -1,5 +1,5 @@
-import {create} from 'zustand';
-import { toast } from 'react-hot-toast';
+import { create } from "zustand";
+import { toast } from "react-hot-toast";
 
 interface Payment {
   _id?: string;
@@ -30,7 +30,7 @@ interface PaymentStore {
   receivedAmounts: { [key: string]: number };
   lateAmounts: { [key: string]: number };
   currentRow: number;
-  
+
   // Actions
   setPayments: (payments: Payment[]) => void;
   setSelectedDate: (date: Date) => void;
@@ -41,10 +41,13 @@ interface PaymentStore {
   deletePayment: (index: number) => void;
   updateReceivedAmount: (accountNo: string, amount: number) => void;
   updateLateAmount: (accountNo: string, amount: number) => void;
-  
+
   // Complex operations
   fetchLoanDetails: (accountNo: string) => Promise<LoanDetails | null>;
-  calculateLateAmount: (details: LoanDetails, accountNo: string) => Promise<void>;
+  calculateLateAmount: (
+    details: LoanDetails,
+    accountNo: string
+  ) => Promise<void>;
   savePayments: () => Promise<void>;
   fetchExistingPayments: (date: Date) => Promise<void>;
   resetState: () => void;
@@ -52,14 +55,16 @@ interface PaymentStore {
 
 const usePaymentStore = create<PaymentStore>((set, get) => ({
   // Initial state
-  payments: [{
-    index: 1,
-    accountNo: "",
-    amountPaid: 0,
-    paymentDate: new Date(),
-    lateAmount: 0,
-    isDefaultAmount: false,
-  }],
+  payments: [
+    {
+      index: 1,
+      accountNo: "",
+      amountPaid: 0,
+      paymentDate: new Date(),
+      lateAmount: 0,
+      isDefaultAmount: false,
+    },
+  ],
   selectedDate: new Date(),
   loanDetails: null,
   receivedAmounts: {},
@@ -71,31 +76,38 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
   setSelectedDate: (date) => set({ selectedDate: date }),
   setLoanDetails: (details) => set({ loanDetails: details }),
   setCurrentRow: (row) => set({ currentRow: row }),
-  
-  updatePayment: (index, paymentUpdate) => set((state) => ({
-    payments: state.payments.map((payment, i) => 
-      i === index ? { ...payment, ...paymentUpdate } : payment
-    )
-  })),
 
-  addPayment: () => set((state) => ({
-    payments: [...state.payments, {
-      index: state.payments.length + 1,
-      accountNo: "",
-      amountPaid: 0,
-      paymentDate: state.selectedDate,
-      lateAmount: 0,
-      isDefaultAmount: false,
-    }]
-  })),
+  updatePayment: (index, paymentUpdate) =>
+    set((state) => ({
+      payments: state.payments.map((payment, i) =>
+        i === index ? { ...payment, ...paymentUpdate } : payment
+      ),
+    })),
 
-  updateReceivedAmount: (accountNo, amount) => set((state) => ({
-    receivedAmounts: { ...state.receivedAmounts, [accountNo]: amount }
-  })),
+  addPayment: () =>
+    set((state) => ({
+      payments: [
+        ...state.payments,
+        {
+          index: state.payments.length + 1,
+          accountNo: "",
+          amountPaid: 0,
+          paymentDate: state.selectedDate,
+          lateAmount: 0,
+          isDefaultAmount: false,
+        },
+      ],
+    })),
 
-  updateLateAmount: (accountNo, amount) => set((state) => ({
-    lateAmounts: { ...state.lateAmounts, [accountNo]: amount }
-  })),
+  updateReceivedAmount: (accountNo, amount) =>
+    set((state) => ({
+      receivedAmounts: { ...state.receivedAmounts, [accountNo]: amount },
+    })),
+
+  updateLateAmount: (accountNo, amount) =>
+    set((state) => ({
+      lateAmounts: { ...state.lateAmounts, [accountNo]: amount },
+    })),
 
   deletePayment: async (index) => {
     const state = get();
@@ -110,7 +122,7 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
         if (!response.ok) {
           throw new Error("Failed to delete payment");
         }
-      } catch (error) {
+      } catch {
         toast.error("Error deleting payment");
         return;
       }
@@ -142,10 +154,10 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
     try {
       const response = await fetch(`/api/loans/${accountNo}`);
       if (!response.ok) throw new Error("Loan not found");
-      
+
       const data = await response.json();
       set({ loanDetails: data });
-      
+
       // Calculate late amount after fetching loan details
       await get().calculateLateAmount(data, accountNo);
       return data;
@@ -163,27 +175,23 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
     }
 
     try {
-      const response = await fetch(`/api/payment-history/${accountNo}`);
-      const paymentHistory = await response.json();
+      const lateAmount = 0;
 
-      // Your existing late amount calculation logic here
-      // Simplified for example - replace with your actual logic
-      const lateAmount = 0; // Calculate based on your business logic
-      
       set((state) => ({
         lateAmounts: { ...state.lateAmounts, [accountNo]: lateAmount },
-        payments: state.payments.map(payment =>
+        payments: state.payments.map((payment) =>
           payment.accountNo === accountNo
             ? {
                 ...payment,
                 lateAmount,
-                amountPaid: payment.isDefaultAmount ? details.instAmount : payment.amountPaid,
+                amountPaid: payment.isDefaultAmount
+                  ? details.instAmount
+                  : payment.amountPaid,
               }
             : payment
         ),
       }));
-    } catch (error) {
-      console.error("Error calculating late amount:", error);
+    } catch {
       toast.error("Error calculating payment details");
     }
   },
@@ -226,12 +234,14 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
 
       const responseData = await response.json();
       toast.success("Payments saved successfully");
-      
+
       set({
-        payments: responseData.payments.map((payment: Payment, index: number) => ({
-          ...payment,
-          index: index + 1,
-        }))
+        payments: responseData.payments.map(
+          (payment: Payment, index: number) => ({
+            ...payment,
+            index: index + 1,
+          })
+        ),
       });
 
       await get().fetchExistingPayments(state.selectedDate);
@@ -262,7 +272,8 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
         const receivedAmountsMap: { [key: string]: number } = {};
         formattedPayments.forEach((payment: Payment) => {
           receivedAmountsMap[payment.accountNo] =
-            (receivedAmountsMap[payment.accountNo] || 0) + (payment.amountPaid || 0);
+            (receivedAmountsMap[payment.accountNo] || 0) +
+            (payment.amountPaid || 0);
         });
 
         set({
@@ -276,25 +287,28 @@ const usePaymentStore = create<PaymentStore>((set, get) => ({
       } else {
         get().resetState();
       }
-    } catch (error) {
+    } catch {
       toast.error("Error fetching existing payments");
       get().resetState();
     }
   },
 
-  resetState: () => set({
-    payments: [{
-      index: 1,
-      accountNo: "",
-      amountPaid: 0,
-      paymentDate: get().selectedDate,
-      lateAmount: 0,
-      isDefaultAmount: false,
-    }],
-    loanDetails: null,
-    receivedAmounts: {},
-    lateAmounts: {},
-  }),
+  resetState: () =>
+    set({
+      payments: [
+        {
+          index: 1,
+          accountNo: "",
+          amountPaid: 0,
+          paymentDate: get().selectedDate,
+          lateAmount: 0,
+          isDefaultAmount: false,
+        },
+      ],
+      loanDetails: null,
+      receivedAmounts: {},
+      lateAmounts: {},
+    }),
 }));
 
 export default usePaymentStore;

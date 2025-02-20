@@ -4,13 +4,14 @@ import LoanSchema from '@/models/LoanSchema';
 
 export async function GET(
   req: Request,
-  { params }: { params: { accountNo: string } }
+  context: { params: Promise<{ accountNo: string }> }
 ) {
   try {
     await dbConnect();
-    
-    // Await params to ensure it's resolved before accessing accountNo
-    const { accountNo } = await params;
+
+    // Correct way to await params
+    const { accountNo } = await context.params;
+
     const loan = await LoanSchema.findOne({ accountNo });
     if (!loan) {
       return NextResponse.json(
@@ -18,6 +19,7 @@ export async function GET(
         { status: 404 }
       );
     }
+
     return NextResponse.json(loan);
   } catch (error) {
     console.error('Error fetching loan:', error);
@@ -33,13 +35,14 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { accountNo: string } }
+  context: { params: Promise<{ accountNo: string }> }
 ) {
   try {
     await dbConnect();
-    
-    // Await params to ensure it's resolved before accessing accountNo
-    const { accountNo } = await params;
+
+    // Correct way to await params
+    const { accountNo } = await context.params;
+
     const loan = await LoanSchema.findOneAndDelete({ accountNo });
     if (!loan) {
       return NextResponse.json(
@@ -47,6 +50,7 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
     return NextResponse.json({ message: 'Loan deleted successfully' });
   } catch (error) {
     console.error('Error deleting loan:', error);

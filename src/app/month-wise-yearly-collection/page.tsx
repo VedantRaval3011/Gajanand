@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
 const ubuntu = Ubuntu({
-  weight: '400',
-  subsets: ['latin'],
+  weight: "400",
+  subsets: ["latin"],
 });
 
 export default function PaymentHistory() {
   const [year, setYear] = useState(new Date().getFullYear().toString());
-  const [data, setData] = useState<{ totalsByMonthAndAccount: Record<number, Record<string, number>> }>({ totalsByMonthAndAccount: {} });
+  const [data, setData] = useState<{
+    totalsByMonthAndAccount: Record<number, Record<string, number>>;
+  }>({ totalsByMonthAndAccount: {} });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -20,14 +22,14 @@ export default function PaymentHistory() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          router.push("/");
-        }
-      };
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        router.push("/");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const fetchData = async () => {
     if (!year) {
@@ -45,8 +47,8 @@ export default function PaymentHistory() {
       }
       const result = await response.json();
       setData(result);
-    } catch (err: any) {
-      setError(err.message);
+    } catch {
+      setError("Error fetching data");
     } finally {
       setLoading(false);
     }
@@ -82,7 +84,7 @@ export default function PaymentHistory() {
   const calculateMonthlyTotals = () => {
     const { totalsByMonthAndAccount } = data;
     const monthlyTotals: { [key: number]: number } = {};
-    
+
     for (const [month, accounts] of Object.entries(totalsByMonthAndAccount)) {
       monthlyTotals[parseInt(month)] = Object.values(
         accounts as Record<string, number>
@@ -93,7 +95,7 @@ export default function PaymentHistory() {
 
   const calculateAccountTotal = (accountNo: string) => {
     let total = 0;
-    months.forEach(month => {
+    months.forEach((month) => {
       total += totalsByMonthAndAccount[month]?.[accountNo] || 0;
     });
     return total;
@@ -103,7 +105,7 @@ export default function PaymentHistory() {
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const accountNos = Array.from(
     new Set(
-      Object.values(totalsByMonthAndAccount).flatMap((monthData: any) =>
+      Object.values(totalsByMonthAndAccount).flatMap((monthData) =>
         Object.keys(monthData)
       )
     )
@@ -115,13 +117,15 @@ export default function PaymentHistory() {
 
   return (
     <div
-      className={`p-6 min-h-screen mx-auto ${ubuntu.className} ${
+      className={`p-3 sm:p-6 min-h-screen mx-auto ${ubuntu.className} ${
         isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-      } text-xl font-bold`}
+      } text-base sm:text-xl font-bold`}
     >
-      <h1 className="text-3xl font-bold mb-6 text-orange-500">Month Wise Yearly Collection</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-orange-500">
+        Month Wise Yearly Collection
+      </h1>
 
-      <div className="flex items-center space-x-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:space-x-4 mb-4 sm:mb-6">
         <input
           ref={inputRef}
           type="number"
@@ -129,7 +133,7 @@ export default function PaymentHistory() {
           value={year}
           onChange={(e) => setYear(e.target.value)}
           onKeyDown={handleKeyPress}
-          className={`px-4 py-2 border rounded-md focus:outline-none focus:ring-2 text-xl font-bold ${
+          className={`w-full sm:w-auto px-3 sm:px-4 py-2 border rounded-md focus:outline-none focus:ring-2 text-base sm:text-xl font-bold ${
             isDarkMode
               ? "border-gray-600 bg-gray-800 text-white focus:ring-orange-500"
               : "border-gray-300 focus:ring-orange-500"
@@ -138,7 +142,7 @@ export default function PaymentHistory() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className={`px-4 py-2 rounded-md transition text-xl font-bold ${
+          className={`w-full sm:w-auto px-3 sm:px-4 py-2 rounded-md transition text-base sm:text-xl font-bold ${
             loading
               ? "bg-gray-400 cursor-not-allowed"
               : isDarkMode
@@ -148,16 +152,15 @@ export default function PaymentHistory() {
         >
           {loading ? "Loading..." : "Fetch Data"}
         </button>
-        
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <input
           type="text"
           placeholder="Search by Account No."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className={`px-4 py-2 border rounded-md focus:outline-none focus:ring-2 text-xl font-bold ${
+          className={`w-full px-3 sm:px-4 py-2 border rounded-md focus:outline-none focus:ring-2 text-base sm:text-xl font-bold ${
             isDarkMode
               ? "border-gray-600 bg-gray-800 text-white focus:ring-orange-500"
               : "border-gray-300 focus:ring-orange-500"
@@ -165,84 +168,109 @@ export default function PaymentHistory() {
         />
       </div>
 
-      {error && <p className="text-red-500 mb-4 text-2xl font-bold">{error}</p>}
+      {error && (
+        <p className="text-red-500 mb-4 text-xl sm:text-2xl font-bold">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <div className="text-center py-8 text-xl font-bold">Loading...</div>
+        <div className="text-center py-8 text-base sm:text-xl font-bold">
+          Loading...
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 rounded-3xl">
-            <thead className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-              <tr>
-                <th
-                  scope="col"
-                  className={`px-2 py-3 text-left text-xl font-bold uppercase ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-500'
-                  }`}
-                >
-                  Account No.
-                </th>
-                {months.map((month) => {
-                  const monthlyTotals = calculateMonthlyTotals();
-                  const total = monthlyTotals[month];
-                  return (
-                    <th
-                      key={month}
-                      scope="col"
-                      className={`px-6 py-3 text-center text-xl font-bold uppercase ${
-                        isDarkMode ? 'text-gray-200' : 'text-gray-500'
-                      }`}
-                    >
-                      {month}
-                      {total ? (
-                        <div className={`text-2xl font-bold mt-2 text-red-600 ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                          {total}
-                        </div>
-                      ) : null}
-                    </th>
-                  );
-                })}
-                <th
-                  scope="col"
-                  className={`px-6 py-3 text-center text-xl font-bold uppercase ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-500'
-                  }`}
-                >
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y divide-gray-200 ${
-              isDarkMode ? 'bg-gray-900 divide-gray-700' : 'bg-white'
-            }`}>
-              {accountNos.map((accountNo) => (
-                <tr key={accountNo} className={isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}>
-                  <td className={`px-6 py-4 whitespace-nowrap text-xl font-bold ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-900'
-                  }`}>
-                    {accountNo}
-                  </td>
-                  {months.map((month) => (
-                    <td
-                      key={month}
-                      className={`px-6 py-4 whitespace-nowrap text-xl font-bold text-center ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-500'
-                      }`}
-                    >
-                      {totalsByMonthAndAccount[month]?.[accountNo] || 0}
-                    </td>
-                  ))}
-                  <td
-                    className={`px-6 py-4 whitespace-nowrap text-2xl font-bold text-center  text-emerald-600`}
+        <div className="overflow-x-auto -mx-3 sm:mx-0">
+          <div className="inline-block min-w-full align-middle">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm sm:text-base md:text-xl">
+              <thead className={`${isDarkMode ? "bg-gray-800" : "bg-gray-50"}`}>
+                <tr>
+                  <th
+                    scope="col"
+                    className={`sticky left-0 z-10 ${
+                      isDarkMode ? "bg-gray-800" : "bg-gray-50"
+                    } px-1 sm:px-2 py-2 sm:py-3 text-left text-xs sm:text-sm md:text-xl font-bold uppercase ${
+                      isDarkMode ? "text-gray-200" : "text-gray-500"
+                    }`}
                   >
-                    {calculateAccountTotal(accountNo)}
-                  </td>
+                    Account
+                  </th>
+                  {months.map((month) => {
+                    const monthlyTotals = calculateMonthlyTotals();
+                    const total = monthlyTotals[month];
+                    return (
+                      <th
+                        key={month}
+                        scope="col"
+                        className={`px-3 sm:px-3 md:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm md:text-xl font-bold uppercase ${
+                          isDarkMode ? "text-gray-200" : "text-gray-500"
+                        }`}
+                      >
+                        {month}
+                        {total ? (
+                          <div
+                            className={`text-xs sm:text-base md:text-2xl font-bold mt-1 sm:mt-2 text-red-600 ${
+                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            {total}
+                          </div>
+                        ) : null}
+                      </th>
+                    );
+                  })}
+                  <th
+                    scope="col"
+                    className={`px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-center text-xs sm:text-sm md:text-xl font-bold uppercase ${
+                      isDarkMode ? "text-gray-200" : "text-gray-500"
+                    }`}
+                  >
+                    Total
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody
+                className={`divide-y divide-gray-200 ${
+                  isDarkMode ? "bg-gray-900 divide-gray-700" : "bg-white"
+                }`}
+              >
+                {accountNos.map((accountNo) => (
+                  <tr
+                    key={accountNo}
+                    className={
+                      isDarkMode ? "hover:bg-gray-800" : "hover:bg-gray-50"
+                    }
+                  >
+                    <td
+                      className={`sticky left-5 z-10 ${
+                        isDarkMode ? "bg-gray-900" : "bg-white"
+                      } ${
+                        isDarkMode && "hover:bg-gray-800"
+                      } px-1 sm:px-2 md:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm md:text-xl font-bold ${
+                        isDarkMode ? "text-gray-200" : "text-gray-900"
+                      }`}
+                    >
+                      {accountNo}
+                    </td>
+                    {months.map((month) => (
+                      <td
+                        key={month}
+                        className={`px-2 sm:px-3 md:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm md:text-xl font-bold text-center ${
+                          isDarkMode ? "text-gray-300" : "text-gray-500"
+                        }`}
+                      >
+                        {totalsByMonthAndAccount[month]?.[accountNo] || 0}
+                      </td>
+                    ))}
+                    <td
+                      className={`px-2 sm:px-3 md:px-6 py-2 sm:py-4 whitespace-nowrap text-sm sm:text-lg md:text-2xl font-bold text-center text-emerald-600`}
+                    >
+                      {calculateAccountTotal(accountNo)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

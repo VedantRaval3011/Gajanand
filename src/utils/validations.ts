@@ -2,8 +2,8 @@ import { LoanFormData } from "@/types/types";
 
 export const validateForm = (
   formData: LoanFormData
-): Partial<Record<keyof LoanFormData, string>> => {
-  const errors: Partial<Record<keyof LoanFormData, string>> = {};
+): Partial<Record<keyof LoanFormData, string>> & { [key: string]: string } => {
+  const errors: Partial<Record<keyof LoanFormData, string>> & { [key: string]: string } = {};
 
   // Account number validation
   if (!formData.accountNo.trim()) {
@@ -70,7 +70,7 @@ export const validateForm = (
   if (formData.hasGuarantor && formData.guarantors.length > 0) {
     formData.guarantors.forEach((guarantor, index) => {
       if (!guarantor.holderName.trim()) {
-        (errors as any)[`guarantors[${index}].holderName`] = 'Guarantor name is required';
+        (errors)[`guarantors[${index}].holderName`] = 'Guarantor name is required';
       }
     });
   } 

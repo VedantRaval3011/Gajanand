@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import { Payment } from '@/models/Payment';
-import LoanSchema from '@/models/LoanSchema';
 import mongoose from 'mongoose';
+
+interface PaymentData {
+  _id?: string;
+  loanId: string;
+  accountNo: string;
+  amountPaid: number;
+  paymentDate: Date; 
+  lateAmount?: number;
+}
 
 // GET handler
 export async function GET(request: NextRequest) {
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const savedPayments = await Promise.all(
-        payments.map(async (payment: any) => {
+        payments.map(async (payment: PaymentData) => {
           const paymentData = {
             loanId: new mongoose.Types.ObjectId(loanId),
             accountNo: payment.accountNo,

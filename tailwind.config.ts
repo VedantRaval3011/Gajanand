@@ -15,9 +15,8 @@ export default {
         navbar: '#D6DBE1',
         yellowBorder: '#FFD700',
       },
-     
-      
     },
+    
   },
   plugins: [require('@tailwindcss/forms')],
 } satisfies Config;

@@ -70,15 +70,6 @@ const LoanManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Current time state
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Update current time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch payment history and calculate amounts
   const fetchPaymentHistory = async (accountNo: string) => {
@@ -88,7 +79,7 @@ const LoanManagement: React.FC = () => {
 
       // Calculate total received amount
       const totalReceived = history.reduce(
-        (sum: number, payment: any) => sum + payment.amountPaid,
+        (sum: number, payment: Payment) => sum + payment.amountPaid,
         0
       );
 
@@ -109,82 +100,6 @@ const LoanManagement: React.FC = () => {
   };
 
   // Calculate late amount based on payment history
-  const calculateLateAmount = async (
-    details: LoanDetails,
-    accountNo: string
-  ) => {
-    if (!details || !selectedDate) {
-      return;
-    }
-    try {
-      const paymentHistory = await fetchPaymentHistory(accountNo);
-      const loanDate = new Date(details.date);
-      const today = new Date(selectedDate);
-
-      if (isNaN(loanDate.getTime())) {
-        return;
-      }
-
-      let expectedPayments = 0;
-
-      if (details.isDaily) {
-        // Daily period calculation
-        const daysDiff = Math.floor(
-          (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        const daysFromLoan = Math.max(0, daysDiff + 1);
-        expectedPayments = daysFromLoan * details.instAmount;
-      } else {
-        // Monthly period calculation
-        const monthsDiff =
-          (today.getFullYear() - loanDate.getFullYear()) * 12 +
-          (today.getMonth() - loanDate.getMonth());
-
-        // Add 1 if we've passed the date within the current month
-        const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
-        const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
-        expectedPayments = monthsFromLoan * details.instAmount;
-      }
-
-      // Calculate actual payments
-      const sortedPayments = paymentHistory.sort(
-        (a: any, b: any) =>
-          new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime()
-      );
-
-      const cumulativePayments = sortedPayments.reduce(
-        (sum: number, payment: Payment) => {
-          return sum + (payment.amountPaid || 0);
-        },
-        0
-      );
-
-      // Calculate late amount
-      const lateAmount = expectedPayments - cumulativePayments;
-
-      // Update states
-      setLateAmounts((prev) => ({
-        ...prev,
-        [accountNo]: lateAmount,
-      }));
-
-      setPayments((prevPayments) =>
-        prevPayments.map((payment) =>
-          payment.accountNo === accountNo
-            ? {
-                ...payment,
-                lateAmount: lateAmount,
-                amountPaid: payment.isDefaultAmount
-                  ? details.instAmount
-                  : payment.amountPaid,
-              }
-            : payment
-        )
-      );
-    } catch (error) {
-      toast.error("Error calculating payment details");
-    }
-  };
 
   // Add this function near your other calculations
   const calculateTotalAmount = () => {
@@ -193,14 +108,10 @@ const LoanManagement: React.FC = () => {
     }, 0);
   };
 
-  useEffect(() => {
-    console.log(selectedDate);
-  }, [selectedDate]);
 
   const handleAmountPaidFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     event.target.select(); // Select all text when input is focused
   };
-
 
   // Handle keyboard navigation
   const handleKeyDown = async (e: React.KeyboardEvent) => {
@@ -345,7 +256,7 @@ const LoanManagement: React.FC = () => {
           setPayments(resetPayments);
         }
       } catch (error) {
-        toast.error("Error validating account number.");
+        console.error("Error validating account number.", error);
         // Reset the account number on error
         const resetPayments = [...payments];
         resetPayments[index].accountNo = "";
@@ -580,15 +491,92 @@ const LoanManagement: React.FC = () => {
 
   useEffect(() => {
     if (loanDetails && payments[currentRow]?.accountNo) {
-      calculateLateAmount(loanDetails, payments[currentRow].accountNo);
-    }
-  }, [selectedDate, loanDetails, payments[currentRow]?.accountNo]);
+      const calculateLateAmount = async (
+        details: LoanDetails,
+        accountNo: string
+      ) => {
+        if (!details || !selectedDate) {
+          return;
+        }
+        try {
+          const paymentHistory = await fetchPaymentHistory(accountNo);
+          const loanDate = new Date(details.date);
+          const today = new Date(selectedDate);
 
-  useEffect(() => {
-    if (loanDetails && payments[currentRow]?.accountNo) {
+          if (isNaN(loanDate.getTime())) {
+            return;
+          }
+
+          let expectedPayments = 0;
+
+          if (details.isDaily) {
+            // Daily period calculation
+            const daysDiff = Math.floor(
+              (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const daysFromLoan = Math.max(0, daysDiff + 1);
+            expectedPayments = daysFromLoan * details.instAmount;
+          } else {
+            // Monthly period calculation
+            const monthsDiff =
+              (today.getFullYear() - loanDate.getFullYear()) * 12 +
+              (today.getMonth() - loanDate.getMonth());
+
+            // Add 1 if we've passed the date within the current month
+            const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
+            const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
+            expectedPayments = monthsFromLoan * details.instAmount;
+          }
+
+          // Calculate actual payments
+          const sortedPayments = paymentHistory.sort(
+            (a: Payment, b: Payment) =>
+              new Date(a.paymentDate as Date).getTime() -
+              new Date(b.paymentDate as Date).getTime()
+          );
+
+          const cumulativePayments = sortedPayments.reduce(
+            (sum: number, payment: Payment) => {
+              return sum + (payment.amountPaid || 0);
+            },
+            0
+          );
+
+          // Calculate late amount
+          const lateAmount = expectedPayments - cumulativePayments;
+
+          // Update states
+          setLateAmounts((prev) => ({
+            ...prev,
+            [accountNo]: lateAmount,
+          }));
+
+          setPayments((prevPayments) =>
+            prevPayments.map((payment) =>
+              payment.accountNo === accountNo
+                ? {
+                    ...payment,
+                    lateAmount: lateAmount,
+                    amountPaid: payment.isDefaultAmount
+                      ? details.instAmount
+                      : payment.amountPaid,
+                  }
+                : payment
+            )
+          );
+        } catch (error) {
+          console.error("Error Calculating payment details", error);
+        }
+      };
+
       calculateLateAmount(loanDetails, payments[currentRow].accountNo);
     }
-  }, [payments[currentRow]?.amountPaid]);
+  }, [
+    selectedDate,
+    loanDetails,
+    payments[currentRow]?.accountNo,
+    payments[currentRow]?.amountPaid,
+  ]);
 
   useEffect(() => {
     const handleThemeToggle = (e: KeyboardEvent) => {
@@ -623,7 +611,7 @@ const LoanManagement: React.FC = () => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -633,7 +621,7 @@ const LoanManagement: React.FC = () => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const handleKeyboardSave = (e: KeyboardEvent) => {
@@ -731,7 +719,7 @@ const LoanManagement: React.FC = () => {
       } else {
         resetState();
       }
-    } catch (error) {
+    } catch {
       toast.error("Error fetching existing payments");
       resetState();
     }
@@ -805,6 +793,84 @@ const LoanManagement: React.FC = () => {
     setLateAmounts({});
   };
 
+  const calculateLateAmount = async (
+    details: LoanDetails,
+    accountNo: string
+  ) => {
+    if (!details || !selectedDate) {
+      return;
+    }
+    try {
+      const paymentHistory = await fetchPaymentHistory(accountNo);
+      const loanDate = new Date(details.date);
+      const today = new Date(selectedDate);
+
+      if (isNaN(loanDate.getTime())) {
+        return;
+      }
+
+      let expectedPayments = 0;
+
+      if (details.isDaily) {
+        // Daily period calculation
+        const daysDiff = Math.floor(
+          (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const daysFromLoan = Math.max(0, daysDiff + 1);
+        expectedPayments = daysFromLoan * details.instAmount;
+      } else {
+        // Monthly period calculation
+        const monthsDiff =
+          (today.getFullYear() - loanDate.getFullYear()) * 12 +
+          (today.getMonth() - loanDate.getMonth());
+
+        // Add 1 if we've passed the date within the current month
+        const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
+        const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
+        expectedPayments = monthsFromLoan * details.instAmount;
+      }
+
+      // Calculate actual payments
+      const sortedPayments = paymentHistory.sort(
+        (a: Payment, b: Payment) =>
+          new Date(a.paymentDate as Date).getTime() -
+          new Date(b.paymentDate as Date).getTime()
+      );
+
+      const cumulativePayments = sortedPayments.reduce(
+        (sum: number, payment: Payment) => {
+          return sum + (payment.amountPaid || 0);
+        },
+        0
+      );
+
+      // Calculate late amount
+      const lateAmount = expectedPayments - cumulativePayments;
+
+      // Update states
+      setLateAmounts((prev) => ({
+        ...prev,
+        [accountNo]: lateAmount,
+      }));
+
+      setPayments((prevPayments) =>
+        prevPayments.map((payment) =>
+          payment.accountNo === accountNo
+            ? {
+                ...payment,
+                lateAmount: lateAmount,
+                amountPaid: payment.isDefaultAmount
+                  ? details.instAmount
+                  : payment.amountPaid,
+              }
+            : payment
+        )
+      );
+    } catch (error) {
+      console.error("Error Calculating payment details", error);
+    }
+  };
+
   // Fetch loan details
   const fetchLoanDetails = async (
     accountNo: string
@@ -826,6 +892,15 @@ const LoanManagement: React.FC = () => {
       return null;
     }
   };
+
+  const handleRowClick = async (index: number, accountNo: string) => {
+    if (accountNo) {
+      setCurrentRow(index);
+      setSelectedCell({ row: index, column: "accountNo" });
+      await fetchLoanDetails(accountNo);
+    }
+  };
+
 
   // Utility function to parse date from input
   const parseDateFromInput = (dateString: string): Date => {
@@ -861,39 +936,27 @@ const LoanManagement: React.FC = () => {
 
   // Render component
   return (
-    <div
-      className={` ${ubuntu.className} min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 transition-colors`}
-    >
+    <div className={`${ubuntu.className} min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-2 md:p-4 transition-colors`}>
       {/* Header Section */}
-      <div className="mb-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 border border-gray-200/60 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-4">
-              <label className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+      <div className="mb-4 md:mb-8 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 border border-gray-200/60 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col lg:flex-row md:items-start lg:items-center gap-4 md:gap-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4">
+              <label className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-300">
                 Payment Date
               </label>
               <ReactDatePicker
                 selected={selectedDate}
-                onChange={(date) => {
-                  if (date) {
-                    setSelectedDate(date); // Update state with the selected date
-                  }
-                }}
-                dateFormat="dd-MM-yyyy" // Ensure the date is displayed in dd-MM-yyyy format
+                onChange={(date) => date && setSelectedDate(date)}
+                dateFormat="dd-MM-yyyy"
                 placeholderText="dd-MM-yyyy"
-                className="w-full px-6 py-3 rounded-xl border text-xl font-semibold"
+                className="w-full md:w-auto px-4 md:px-6 py-2 md:py-3 rounded-xl border text-lg md:text-xl font-semibold"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    e.preventDefault(); // Prevent default behavior of the Enter key
-
-                    // Handle manual date entry when the user presses Enter
-                    const inputValue = (
-                      e.target as HTMLInputElement
-                    ).value.replace(/\D/g, ""); // Remove non-numeric characters
+                    e.preventDefault();
+                    const inputValue = (e.target as HTMLInputElement).value.replace(/\D/g, "");
                     const parsedDate = handleManualDateEntry(inputValue);
-
                     if (parsedDate) {
-                      // If the date is successfully parsed, move focus to the first Account No. input
                       firstAccountNoRef.current?.focus();
                     } else {
                       toast.error("Invalid date format. Please use DDMMYYYY.");
@@ -902,46 +965,48 @@ const LoanManagement: React.FC = () => {
                 }}
               />
             </div>
-            <div className="flex items-center space-x-4 gap-8 pl-28">
+            <div className="flex items-center justify-between md:justify-start gap-4 md:gap-8 lg:pl-28">
               <Link href="/">
                 <div className="bg-white dark:bg-orange-200 rounded-full p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  <Home />
+                  <Home size={20} />
                 </div>
               </Link>
-              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#C58403] via-[#EB6612] to-orange-600 ">
+              <h1 className="text-xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#C58403] via-[#EB6612] to-orange-600">
                 Collection Book
               </h1>
               <Link
                 href="/loan"
-                className="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors"
+                className="px-4 md:px-6 py-2 md:py-3 bg-orange-600 text-white rounded-xl text-sm md:text-base hover:bg-orange-700 transition-colors"
               >
                 Loans
               </Link>
-              <span className="text-lg font-medium text-gray-600 dark:text-gray-400">
-                {formatDate(selectedDate)}
-              </span>
             </div>
           </div>
-          <TimeDisplay />
+          <div className="lg:flex justify-between items-center hidden ">
+            <span className="text-base md:text-lg font-medium text-gray-600 dark:text-gray-400">
+              {formatDate(selectedDate)}
+            </span>
+            <TimeDisplay />
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-8">
+      {/* Main Content */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
         {/* Loan Details Panel */}
-        <div className="w-1/2">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 pt-5 border border-gray-200/60 dark:border-gray-700">
+        <div className="w-full lg:w-1/2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-4 md:p-8 pt-4 md:pt-5 border border-gray-200/60 dark:border-gray-700">
             {loanDetails ? (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-4">
+              <div className="space-y-4 md:space-y-6">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-4">
                   Loan Details
                 </h2>
-                <div className="space-y-4 ">
-                  <div className="grid gap-2.5">
+                <div className="space-y-3 md:space-y-4">
+                  <div className="grid gap-2 md:gap-2.5">
                     {[
                       { label: "Holder Name", value: loanDetails.holderName },
                       { label: "Name", value: loanDetails.name },
                       { label: "Address", value: loanDetails.holderAddress },
-
                       {
                         label: "Loan Date",
                         value: new Date(loanDetails.date)
@@ -969,12 +1034,12 @@ const LoanManagement: React.FC = () => {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="flex justify-between items-center "
+                        className="flex justify-between items-center"
                       >
-                        <span className="text-base font-medium text-orange-600 ">
+                        <span className="text-sm md:text-base font-medium text-orange-600">
                           {item.label}
                         </span>
-                        <span className="text-lg text-gray-900 dark:text-gray-100 font-semibold text-right uppercase">
+                        <span className="text-base md:text-lg text-gray-900 dark:text-gray-100 font-semibold text-right uppercase">
                           {item.value}
                         </span>
                       </div>
@@ -982,11 +1047,11 @@ const LoanManagement: React.FC = () => {
                   </div>
 
                   {payments[currentRow]?.accountNo && (
-                    <div className="mt-4 p-6 bg-orange-50 dark:bg-orange-900/10 rounded-xl space-y-4 border border-orange-200 dark:border-orange-800">
-                      <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200 mb-4">
+                    <div className="mt-4 p-4 md:p-6 bg-orange-50 dark:bg-orange-900/10 rounded-xl space-y-3 md:space-y-4 border border-orange-200 dark:border-orange-800">
+                      <h3 className="text-base md:text-lg font-semibold text-orange-800 dark:text-orange-200 mb-3 md:mb-4">
                         Current Account Details
                       </h3>
-                      <div className="grid gap-3">
+                      <div className="grid gap-2 md:gap-3">
                         {[
                           {
                             label: "Account No",
@@ -1016,10 +1081,10 @@ const LoanManagement: React.FC = () => {
                             key={item.label}
                             className="flex justify-between items-center"
                           >
-                            <span className="text-base font-medium text-orange-700 dark:text-orange-300">
+                            <span className="text-sm md:text-base font-medium text-orange-700 dark:text-orange-300">
                               {item.label}
                             </span>
-                            <span className="text-lg text-orange-900 dark:text-orange-100 font-semibold">
+                            <span className="text-base md:text-lg text-orange-900 dark:text-orange-100 font-semibold">
                               {item.value}
                             </span>
                           </div>
@@ -1030,8 +1095,8 @@ const LoanManagement: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="h-64 flex items-center justify-center">
-                <p className="text-lg text-gray-500 dark:text-gray-400">
+              <div className="h-48 md:h-64 flex items-center justify-center">
+                <p className="text-base md:text-lg text-gray-500 dark:text-gray-400">
                   Select an account to view loan details
                 </p>
               </div>
@@ -1040,105 +1105,99 @@ const LoanManagement: React.FC = () => {
         </div>
 
         {/* Payments Table */}
-        <div className="w-2/3 flex flex-col">
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700 overflow-hidden flex flex-col min-h-0 max-h-[61vh]">
-            <div className="flex-1 overflow-y-auto relative">
-              <table className="w-full overflow-y-auto">
+        <div className="w-full lg:w-2/3 flex flex-col">
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700 overflow-hidden flex flex-col min-h-0 max-h-[61vh]">
+            <div className="flex-1 overflow-x-auto overflow-y-auto relative">
+              <table className="w-full min-w-[640px]">
                 <thead className="sticky top-0 z-50 bg-orange-50 dark:bg-orange-950 shadow-md">
                   <tr>
-                    {["Index", "Account No.", "Amount Paid", "Actions"].map(
-                      (header) => (
-                        <th
-                          key={header}
-                          className="px-8 py-5 text-left text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                        >
-                          {header}
-                        </th>
-                      )
-                    )}
+                    {["Index", "Account No.", "Amount Paid", "Actions"].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                      >
+                        {header}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
                   {payments.map((payment, index) => (
                     <tr
                       key={index}
+                      id={`payment-row-${index}`}
+                      onClick={() => handleRowClick(index, payment.accountNo)}
                       className={`${
                         selectedCell.row === index
-                          ? "bg-orange-100 dark:bg-orange-900 *:"
+                          ? "bg-orange-100 dark:bg-orange-900"
                           : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       } transition-colors`}
                     >
-                      <td className="px-8 py-5 text-xl font-bold text-gray-500 dark:text-gray-400 ">
+                      <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
                         {payment.index}
                       </td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 md:px-8 py-3 md:py-4">
                         <input
                           ref={(el) => {
                             inputRefs.current[`accountNo-${index}`] = el;
-                            if (index === 0) {
-                              firstAccountNoRef.current = el;
-                            }
+                            if (index === 0) firstAccountNoRef.current = el;
                           }}
                           type="text"
                           value={payment.accountNo}
-                          onChange={(e) =>
-                            handleAccountNoChange(e.target.value, index)
-                          }
+                          onChange={(e) => handleAccountNoChange(e.target.value, index)}
                           onBlur={() => handleAccountNoBlur(index)}
                           onKeyDown={handleKeyDown}
-                          className={`w-full px-6 py-3 rounded-xl border text-xl font-bold 
-                  ${
-                    selectedCell.row === index &&
-                    selectedCell.column === "accountNo"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
-                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500
-                  transition-all`}
+                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
+                            ${
+                              selectedCell.row === index &&
+                              selectedCell.column === "accountNo"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
+                            }
+                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                            placeholder-gray-400 dark:placeholder-gray-500
+                            focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500
+                            transition-all`}
                           placeholder="Enter Account No."
                         />
                       </td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 md:px-8 py-3 md:py-4">
                         <input
                           ref={(el) => {
                             inputRefs.current[`amountPaid-${index}`] = el;
                           }}
                           type="number"
                           value={payment.amountPaid || ""}
-                          onChange={(e) =>
-                            handleAmountPaidChange(e.target.value, index)
-                          }
+                          onChange={(e) => handleAmountPaidChange(e.target.value, index)}
                           onFocus={handleAmountPaidFocus}
                           onKeyDown={handleKeyDown}
-                          className={`w-full px-6 py-3 rounded-xl border text-xl font-bold
-                  ${
-                    selectedCell.row === index &&
-                    selectedCell.column === "amountPaid"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
-                  ${
-                    payment.isDefaultAmount
-                      ? "text-orange-600 dark:text-orange-400"
-                      : ""
-                  }
-                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500
-                  transition-all`}
+                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                            ${
+                              selectedCell.row === index &&
+                              selectedCell.column === "amountPaid"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
+                            }
+                            ${
+                              payment.isDefaultAmount
+                                ? "text-orange-600 dark:text-orange-400"
+                                : ""
+                            }
+                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                            placeholder-gray-400 dark:placeholder-gray-500
+                            focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500
+                            transition-all`}
                           placeholder="Enter Amount"
                         />
                       </td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 md:px-8 py-3 md:py-4">
                         <button
                           onClick={() => handleDeletePayment(index)}
-                          className="px-6 py-3 text-base font-medium text-red-600 dark:text-red-400 
-                  bg-red-50 dark:bg-red-900 rounded-xl
-                  hover:bg-red-100 dark:hover:bg-red-900
-                  focus:outline-none focus:ring-2 focus:ring-red-500/50
-                  transition-colors"
+                          className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 
+                            bg-red-50 dark:bg-red-900 rounded-xl
+                            hover:bg-red-100 dark:hover:bg-red-900
+                            focus:outline-none focus:ring-2 focus:ring-red-500/50
+                            transition-colors"
                         >
                           Delete
                         </button>
@@ -1150,28 +1209,21 @@ const LoanManagement: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-6 mb-4 flex gap-32 text-lg items-center">
+          {/* Footer Section */}
+          <div className="mt-4 md:mt-6 mb-2 md:mb-4 flex flex-col md:flex-row justify-between md:gap-32 text-base md:text-lg items-center gap-4">
             <button
               onClick={savePayments}
-              className="px-8 py-4 text-lg font-semibold text-white
-      bg-orange-600 hover:bg-orange-700 rounded-xl
-      shadow-lg shadow-orange-500/20
-      focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
-      dark:focus:ring-offset-gray-800
-      transition-all"
+              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all"
             >
               Save All Payments (ALT + S)
             </button>
-            <span className="font-bold border border-orange-400 rounded-lg p-4 w-60 text-center dark:text-white text-2xl">
-              {" "}
-              Total :{" "}
-              <span className="text-orange-500 ">
-                ₹{calculateTotalAmount().toLocaleString("en-IN")}
-              </span>
+            <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full md:w-60 text-center dark:text-white text-xl md:text-2xl">
+              Total: <span className="text-orange-500">₹{calculateTotalAmount().toLocaleString("en-IN")}</span>
             </span>
           </div>
         </div>
       </div>
+
       <AccountFinder
         onAccountSelect={(accountNo) => {
           setSelectedAccountNo(accountNo);

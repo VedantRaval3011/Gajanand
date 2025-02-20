@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/dbConnect";
-import { Payment, PaymentHistory } from "@/models/Payment";
+import { Payment } from "@/models/Payment";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {

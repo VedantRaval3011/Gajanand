@@ -145,7 +145,7 @@ const FormInput: React.FC<FormInputProps> = ({
 
   return (
     <div>
-      <label className="block text-xl  text-gray-700 dark:text-gray-200 font-bold">
+      <label className="block text-xl md:text-xl  text-gray-700 dark:text-gray-200 font-bold">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>

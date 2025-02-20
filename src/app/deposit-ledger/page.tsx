@@ -10,6 +10,17 @@ const ubuntu = Ubuntu({
   subsets: ["latin"],
 });
 
+interface Payment {
+  paymentDate: string;
+  amountPaid: number;
+}
+
+interface PaymentData {
+  monthYear: string;
+  days: (number | null)[];
+  totalAmount: number;
+}
+
 interface LoanDetails {
   accountNo: string;
   loanNo: string;
@@ -37,7 +48,7 @@ interface LoanDetails {
 
 export default function PaymentHistory() {
   const [accountNo, setAccountNo] = useState("");
-  const [paymentData, setPaymentData] = useState<any[]>([]);
+  const [paymentData, setPaymentData] = useState<PaymentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [loanDetails, setLoanDetails] = useState<LoanDetails>();
   const [finalReceivedAmount, setFinalReceivedAmount] = useState(0);
@@ -97,7 +108,7 @@ export default function PaymentHistory() {
       const details = await res.json();
       setLoanDetails(details);
       await fetchPaymentHistory();
-    } catch (error) {
+    } catch  {
       setLoanDetails(undefined);
       setPaymentData([]);
       alert("Loan does not exist"); // or use toast notification
@@ -128,8 +139,8 @@ export default function PaymentHistory() {
     }
   };
 
-  const processPaymentData = (payments: any[]) => {
-    const groupedData: { [key: string]: any } = {};
+  const processPaymentData = (payments: Payment[]) => {
+    const groupedData: { [key: string]: { days: (number | null)[]; totalAmount: number } } = {};
     let cumulativeTotal = 0;
 
     const sortedPayments = payments.sort(
@@ -177,20 +188,20 @@ export default function PaymentHistory() {
 
   return (
     <div
-      className={`p-4 mx-auto w-full min-h-screen transition-colors duration-200 ${
+      className={`p-2 sm:p-4 mx-auto w-full min-h-screen transition-colors duration-200 ${
         ubuntu.className
       } 
       ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-800"}`}
     >
-      <div className="flex justify-center items-center mb-6 relative">
-        <h1 className="text-4xl font-bold text-orange-500">Deposit Ledger</h1>
-        <div className="flex items-center gap-4 right-0 absolute ml-4">
+      <div className="flex flex-col sm:flex-row justify-between sm:justify-center items-center mb-4 sm:mb-6 relative">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-orange-500 mb-2 sm:mb-0">Deposit Ledger</h1>
+        <div className="sm:absolute right-0 flex items-center gap-2 sm:gap-4">
           <TimeDisplay />
         </div>
       </div>
-
+  
       {/* Search Section */}
-      <div className="mb-6 flex gap-4">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-4">
         <input
           type="text"
           placeholder="Enter Account No."
@@ -199,7 +210,7 @@ export default function PaymentHistory() {
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           autoFocus
-          className={`flex-1 rounded-lg px-6 py-4 text-xl font-bold focus:outline-none focus:ring-2 transition-all
+          className={`flex-1 rounded-lg px-3 sm:px-6 py-3 sm:py-4 text-base sm:text-xl font-bold focus:outline-none focus:ring-2 transition-all
             ${
               isDarkMode
                 ? "bg-gray-800 border-orange-600 text-white placeholder-gray-400 focus:ring-orange-500"
@@ -209,7 +220,7 @@ export default function PaymentHistory() {
         <button
           onClick={fetchLoanDetails}
           disabled={loading || !accountNo}
-          className={`px-8 py-4 text-xl font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[160px]
+          className={`px-4 sm:px-8 py-3 sm:py-4 text-base sm:text-xl font-bold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] sm:min-w-[160px]
             ${
               isDarkMode
                 ? "bg-orange-600 hover:bg-orange-700 text-white"
@@ -218,7 +229,7 @@ export default function PaymentHistory() {
         >
           {loading ? (
             <>
-              <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 mr-2" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -234,6 +245,7 @@ export default function PaymentHistory() {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
+              <span className="hidden">{selectedAccountNo}</span>
               Loading...
             </>
           ) : (
@@ -241,11 +253,11 @@ export default function PaymentHistory() {
           )}
         </button>
       </div>
-
+  
       {/* Loan Details Section */}
       {loanDetails && (
         <div
-          className={`mb-6 rounded-lg border overflow-hidden transition-colors duration-200
+          className={`mb-4 sm:mb-6 rounded-lg border overflow-hidden transition-colors duration-200
           ${
             isDarkMode
               ? "bg-gradient-to-r from-gray-800 to-gray-700 border-orange-800"
@@ -253,20 +265,20 @@ export default function PaymentHistory() {
           }`}
         >
           <div
-            className={`p-4 border-b ${
+            className={`p-3 sm:p-4 border-b ${
               isDarkMode ? "border-orange-800" : "border-orange-200"
             }`}
           >
             <h2
-              className={`text-2xl font-bold ${
+              className={`text-xl sm:text-2xl font-bold ${
                 isDarkMode ? "text-orange-400" : "text-orange-800"
               }`}
             >
               Loan Details
             </h2>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xl font-bold">
+          <div className="p-3 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-sm sm:text-base md:text-xl font-bold">
               <div>
                 <p
                   className={`font-bold ${
@@ -295,7 +307,7 @@ export default function PaymentHistory() {
                 >
                   Holder Name
                 </p>
-                <p className="mt-1">{loanDetails.holderName}</p>
+                <p className="mt-1 break-words">{loanDetails.holderName}</p>
               </div>
               <div>
                 <p
@@ -305,7 +317,7 @@ export default function PaymentHistory() {
                 >
                   Address
                 </p>
-                <p className="mt-1">{loanDetails.holderAddress}</p>
+                <p className="mt-1 break-words">{loanDetails.holderAddress}</p>
               </div>
               <div>
                 <p
@@ -367,126 +379,133 @@ export default function PaymentHistory() {
           </div>
         </div>
       )}
-
+  
       {/* Payment History Section */}
       {paymentData.length > 0 && (
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           <div
-            className={`flex-1 overflow-x-auto rounded-lg shadow-sm border max-h-[500px] transition-colors duration-200
+            className={`flex-1 overflow-x-auto rounded-lg shadow-sm border max-h-[400px] sm:max-h-[500px] transition-colors duration-200
             ${
               isDarkMode
                 ? "bg-gray-800 border-orange-800"
                 : "bg-white border-orange-200"
             }`}
           >
-            <table className="min-w-full divide-y text-xl font-bold">
-              <thead
-                className={`sticky top-0 ${
-                  isDarkMode ? "bg-gray-900" : "bg-orange-50"
-                }`}
-              >
-                <tr>
-                  <th
-                    className={`px-6 py-4 text-left font-bold ${
-                      isDarkMode ? "text-orange-400" : "text-orange-800"
-                    }`}
-                  >
-                    Month-Year
-                  </th>
-                  {[...Array(31)].map((_, i) => (
+            <div className="min-w-full inline-block align-middle">
+              <table className="min-w-full divide-y text-xs sm:text-sm md:text-xl font-bold">
+                <thead
+                  className={`sticky top-0 z-10 ${
+                    isDarkMode ? "bg-gray-900" : "bg-orange-50"
+                  }`}
+                >
+                  <tr>
                     <th
-                      key={i}
-                      className={`px-4 py-4 text-center font-bold ${
+                      className={`sticky left-0 z-20 ${isDarkMode ? "bg-gray-900" : "bg-orange-50"} px-2 sm:px-6 py-2 sm:py-4 text-left font-bold ${
                         isDarkMode ? "text-orange-400" : "text-orange-800"
                       }`}
                     >
-                      {i + 1}
+                      Month-Year
                     </th>
-                  ))}
-                  <th
-                    className={`px-6 py-4 text-right font-bold ${
-                      isDarkMode ? "text-orange-400" : "text-orange-800"
-                    }`}
-                  >
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody
-                className={`divide-y ${
-                  isDarkMode ? "divide-gray-700" : "divide-orange-100"
-                }`}
-              >
-                {paymentData.map((row, index) => (
-                  <tr
-                    key={index}
-                    className={
-                      isDarkMode ? "hover:bg-gray-700" : "hover:bg-orange-50"
-                    }
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {row.monthYear}
-                    </td>
-                    {row.days.map((amount: number | null, dayIndex: number) => (
-                      <td key={dayIndex} className="px-4 py-4 text-center">
-                        {amount !== null ? `₹${amount.toFixed(2)}` : "-"}
-                      </td>
+                    {[...Array(31)].map((_, i) => (
+                      <th
+                        key={i}
+                        className={`px-2 sm:px-4 py-2 sm:py-4 text-center font-bold whitespace-nowrap ${
+                          isDarkMode ? "text-orange-400" : "text-orange-800"
+                        }`}
+                      >
+                        {i + 1}
+                      </th>
                     ))}
-                    <td
-                      className={`px-6 py-4 text-right font-bold ${
-                        isDarkMode ? "text-orange-400" : "text-orange-600"
+                    <th
+                      className={`px-2 sm:px-6 py-2 sm:py-4 text-right font-bold whitespace-nowrap ${
+                        isDarkMode ? "text-orange-400" : "text-orange-800"
                       }`}
                     >
-                      ₹{row.totalAmount.toFixed(2)}
-                    </td>
+                      Total
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody
+                  className={`divide-y ${
+                    isDarkMode ? "divide-gray-700" : "divide-orange-100"
+                  }`}
+                >
+                  {paymentData.map((row, index) => (
+                    <tr
+                      key={index}
+                      className={
+                        isDarkMode ? "hover:bg-gray-700" : "hover:bg-orange-50"
+                      }
+                    >
+                      <td className={`sticky left-0 z-10 ${isDarkMode ? "bg-gray-800" : "bg-white"} ${isDarkMode && "hover:bg-gray-700"} px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap`}>
+                        {row.monthYear}
+                      </td>
+                      {row.days.map((amount: number | null, dayIndex: number) => (
+                        <td key={dayIndex} className="px-2 sm:px-4 py-2 sm:py-4 text-center">
+                          {amount !== null ? `₹${amount.toFixed(0)}` : "-"}
+                        </td>
+                      ))}
+                      <td
+                        className={`px-2 sm:px-6 py-2 sm:py-4 text-right font-bold ${
+                          isDarkMode ? "text-orange-400" : "text-orange-600"
+                        }`}
+                      >
+                        ₹{row.totalAmount.toFixed(0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-
+  
           <div
-            className={`w-full md:w-1/3 p-6 rounded-lg shadow-sm border transition-colors duration-200
+            className={`w-full lg:w-1/3 p-4 sm:p-6 rounded-lg shadow-sm border transition-colors duration-200
             ${
               isDarkMode
                 ? "bg-gradient-to-br from-gray-800 to-gray-700 border-orange-800"
                 : "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"
             }`}
           >
-            <h2
-              className={`text-xl font-bold mb-4 ${
-                isDarkMode ? "text-orange-400" : "text-orange-700"
-              }`}
-            >
-              Total Received Amount
-            </h2>
-            <p
-              className={`text-3xl font-bold ${
-                isDarkMode ? "text-orange-400" : "text-orange-800"
-              }`}
-            >
-              ₹{finalReceivedAmount.toFixed(2)}
-            </p>
-            <div className="mt-6">
-              <h2
-                className={`text-xl font-bold mb-4 ${
-                  isDarkMode ? "text-orange-400" : "text-orange-700"
-                }`}
-              >
-                Total To Be Paid
-              </h2>
-              <p
-                className={`text-3xl font-bold ${
-                  isDarkMode ? "text-orange-400" : "text-orange-800"
-                }`}
-              >
-                ₹{totalToBePaid.toFixed(2)}
-              </p>
+            <div className="flex flex-col sm:flex-row lg:flex-col justify-between gap-4">
+              <div>
+                <h2
+                  className={`text-lg sm:text-xl font-bold mb-2 sm:mb-4 ${
+                    isDarkMode ? "text-orange-400" : "text-orange-700"
+                  }`}
+                >
+                  Total Received Amount
+                </h2>
+                <p
+                  className={`text-xl sm:text-2xl md:text-3xl font-bold ${
+                    isDarkMode ? "text-orange-400" : "text-orange-800"
+                  }`}
+                >
+                  ₹{finalReceivedAmount.toFixed(2)}
+                </p>
+              </div>
+              
+              <div>
+                <h2
+                  className={`text-lg sm:text-xl font-bold mb-2 sm:mb-4 ${
+                    isDarkMode ? "text-orange-400" : "text-orange-700"
+                  }`}
+                >
+                  Total To Be Paid
+                </h2>
+                <p
+                  className={`text-xl sm:text-2xl md:text-3xl font-bold ${
+                    isDarkMode ? "text-orange-400" : "text-orange-800"
+                  }`}
+                >
+                  ₹{totalToBePaid.toFixed(2)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       )}
-
+  
       <AccountFinder
         onAccountSelect={handleAccountSelect}
         isModalOpen={isModalOpen}

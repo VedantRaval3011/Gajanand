@@ -17,7 +17,8 @@ export async function POST(req: Request) {
   const { username, password } = await req.json();
 
   try {
-    const user = await User.findOne({ username }) as (Document<unknown, {}, IUser> & IUser);
+    const user = await User.findOne({ username }) as (Document<unknown, Record<string, unknown>, IUser> & IUser);
+
 
     if (!user || !(await user.comparePassword(password))) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
