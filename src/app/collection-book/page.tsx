@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import ReactDatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 interface LoanDetails {
   _id: string;
@@ -21,6 +22,8 @@ interface LoanDetails {
   name: string;
   instAmount: number;
   isDaily: boolean;
+  telephone1:string;
+  telephone2:string;
 }
 
 interface Payment {
@@ -57,6 +60,9 @@ const LoanManagement: React.FC = () => {
       isDefaultAmount: false,
     },
   ]);
+   const setSelectedNavItem = useNavigationStore(
+      (state) => state.setSelectedNavItem
+    );
   const [currentRow, setCurrentRow] = useState(0);
   const [loanDetails, setLoanDetails] = useState<LoanDetails | null>(null);
   const [receivedAmounts, setReceivedAmounts] = useState<{
@@ -490,6 +496,17 @@ const LoanManagement: React.FC = () => {
   // Use Effects
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        router.push("/");
+        setSelectedNavItem("Transaction", 0);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (loanDetails && payments[currentRow]?.accountNo) {
       const calculateLateAmount = async (
         details: LoanDetails,
@@ -606,6 +623,7 @@ const LoanManagement: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "l" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
         router.push("/loan");
       }
     };
@@ -982,7 +1000,7 @@ const LoanManagement: React.FC = () => {
               </Link>
             </div>
           </div>
-          <div className="lg:flex justify-between items-center hidden ">
+          <div className="lg:flex justify-between items-center hidden lg:gap-12 ">
             <span className="text-base md:text-lg font-medium text-gray-600 dark:text-gray-400">
               {formatDate(selectedDate)}
             </span>
@@ -998,15 +1016,17 @@ const LoanManagement: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-4 md:p-8 pt-4 md:pt-5 border border-gray-200/60 dark:border-gray-700">
             {loanDetails ? (
               <div className="space-y-4 md:space-y-6">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-4">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
                   Loan Details
                 </h2>
-                <div className="space-y-3 md:space-y-4">
-                  <div className="grid gap-2 md:gap-2.5">
+                <div className="space-y-3 md:space-y-3">
+                  <div className="grid gap-2 md:gap-2">
                     {[
                       { label: "Holder Name", value: loanDetails.holderName },
                       { label: "Name", value: loanDetails.name },
                       { label: "Address", value: loanDetails.holderAddress },
+                      { label: "Telephone 1", value: loanDetails.telephone1 },
+                      { label: "Telephone 2", value: loanDetails.telephone2 },
                       {
                         label: "Loan Date",
                         value: new Date(loanDetails.date)
@@ -1048,9 +1068,7 @@ const LoanManagement: React.FC = () => {
 
                   {payments[currentRow]?.accountNo && (
                     <div className="mt-4 p-4 md:p-6 bg-orange-50 dark:bg-orange-900/10 rounded-xl space-y-3 md:space-y-4 border border-orange-200 dark:border-orange-800">
-                      <h3 className="text-base md:text-lg font-semibold text-orange-800 dark:text-orange-200 mb-3 md:mb-4">
-                        Current Account Details
-                      </h3>
+                     
                       <div className="grid gap-2 md:gap-3">
                         {[
                           {
@@ -1129,7 +1147,7 @@ const LoanManagement: React.FC = () => {
                       onClick={() => handleRowClick(index, payment.accountNo)}
                       className={`${
                         selectedCell.row === index
-                          ? "bg-orange-100 dark:bg-orange-900"
+                          ? "bg-orange-200 dark:bg-orange-900"
                           : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       } transition-colors`}
                     >

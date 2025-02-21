@@ -12,6 +12,7 @@ import {
   Wallet,
 } from "lucide-react";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -51,6 +52,9 @@ const LoanDetailsRange = () => {
   const [accountDetails, setAccountDetails] = useState<
     Record<string, AccountDetail>
   >({});
+  const setSelectedNavItem = useNavigationStore(
+      (state) => state.setSelectedNavItem
+    );
 
   const fromAccountNoRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
@@ -82,6 +86,7 @@ const LoanDetailsRange = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         router.push("/");
+        setSelectedNavItem("Report", 5);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

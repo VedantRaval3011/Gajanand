@@ -656,17 +656,19 @@ export default function LoanForm() {
     <div className={`min-h-screen ${ubuntu.className}`}>
       <div className="  md:mx-auto">
         {/* Header Section */}
-        <div className="flex justify-between mx-10 items-center mb-6">
-          <div className="flex justify-between w-full items-center">
-            <h1 className="text-2xl w-full md:text-4xl font-bold text-orange-600 transition-all">
+        <div className="flex justify-between items-center mx-4 md:mx-10 mb-6">
+          <div className="flex justify-between w-full items-center gap-4">
+            <h1 className="text-2xl md:text-4xl font-bold text-orange-600 transition-all whitespace-nowrap">
               Loan Master
             </h1>
-            <span className="hidden md:block">
-            <TimeDisplay />
-            </span>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mt-2 font-semibold p-2">
-              {formattedDate}
-            </p>
+            <div className="hidden md:flex items-center space-x-4 lg:space-x-8">
+              <span className="flex-shrink-0">
+                <TimeDisplay />
+              </span>
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 font-semibold">
+                {formattedDate}
+              </p>
+            </div>
           </div>
         </div>
         <FormNavigationProvider>
@@ -710,7 +712,6 @@ export default function LoanForm() {
                     inputRefs.current["accountNo"] = el;
                   }}
                   required
-                 
                 />
 
                 <FormInput
@@ -874,9 +875,9 @@ export default function LoanForm() {
             </div>
 
             {/* Maturity Date Section */}
-            <div className="mt-6 flex justify-start w-80">
-              <div className="flex md:items-center space-x-4 flex-col md:flex-row">
-                <label className="text-xl font-bold text-gray-700 dark:text-gray-200 ">
+            <div className="mt-6 flex justify-start w-full max-w-md">
+              <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 sm:items-center w-full">
+                <label className="text-xl font-bold text-gray-700 dark:text-gray-200 shrink-0">
                   M. Date:
                 </label>
                 <input
@@ -890,7 +891,7 @@ export default function LoanForm() {
                     setFormData({ ...formData, mDate: e.target.value })
                   }
                   onKeyDown={(e) => handleKeyDown(e, "mDate")}
-                  className="mt-1 font-bold text-xl block md:w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3  bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="mt-1 font-bold text-xl block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               </div>
             </div>

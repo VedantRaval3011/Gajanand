@@ -1,4 +1,5 @@
 "use client";
+import { useNavigationStore } from "@/store/NavigationStore";
 import { Ubuntu } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
@@ -18,13 +19,16 @@ export default function PaymentHistory() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const router = useRouter();
-
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         router.push("/");
+        setSelectedNavItem("Report", 1);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

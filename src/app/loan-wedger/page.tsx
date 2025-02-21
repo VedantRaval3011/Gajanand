@@ -6,6 +6,7 @@ import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { useRouter } from "next/navigation";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 interface LoanDetails {
   accountNo: string;
@@ -48,6 +49,9 @@ const LoanLedger: React.FC = () => {
   const [totalAmount, setTotalAmount] = useState(0);
   const toDateRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
 
   useEffect(() => {
     const handleThemeToggle = (e: KeyboardEvent) => {
@@ -71,6 +75,7 @@ const LoanLedger: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         router.push("/");
+        setSelectedNavItem("Report", 2);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

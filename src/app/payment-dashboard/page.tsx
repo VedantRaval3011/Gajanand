@@ -4,6 +4,8 @@ import { ArrowRight } from 'lucide-react';
 import TimeDisplay from '@/ui/TimeDisplay';
 import { Ubuntu } from 'next/font/google';
 import { useRouter } from 'next/navigation';
+import { useNavigation } from '@/utils/routeMapping';
+import { useNavigationStore } from '@/store/NavigationStore';
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -42,6 +44,9 @@ export default function Home() {
   const [error, setError] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   const router = useRouter();
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
 
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
@@ -132,16 +137,21 @@ export default function Home() {
   const getDaysInMonth = (year: string, month: string): number => {
     return new Date(parseInt(year), parseInt(month), 0).getDate();
   };
+  useNavigation({
+    onEscape: () => {} // We don't need to handle anything here since Navbar will handle the selection
+  });
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        router.push("/");
+    const handleKeyPress = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+      event.preventDefault();
+      setSelectedNavItem("Report", 0); // Set to "Report" with the first sub-item focused
+      router.push("/");
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
+  }, [router]);
 
   const daysInMonth = selectedMonth ? 
     getDaysInMonth(selectedMonth.split('-')[0], selectedMonth.split('-')[1]) : 0;

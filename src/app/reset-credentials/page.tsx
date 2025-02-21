@@ -1,9 +1,10 @@
 // app/reset-credentials/page.tsx
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Loader2 } from "lucide-react";
 import { Ubuntu } from "next/font/google";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -19,8 +20,21 @@ export default function ResetCredentials() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [sendingOTP, setSendingOTP] = useState<"email" | null>(null);
-
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
   const router = useRouter();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        router.push("/");
+        setSelectedNavItem("Utilities", 0);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const requestOTP = async () => {
     setError("");

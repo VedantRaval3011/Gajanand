@@ -16,7 +16,7 @@ const TimeDisplay = () => {
   }
 
   return (
-    <div className="text-lg font-medium px-6 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300">
+    <div className="text-xl font-medium px-6 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl lg:w-full text-gray-600 dark:text-gray-300">
       {currentTime.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",

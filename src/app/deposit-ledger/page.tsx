@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { Ubuntu } from "next/font/google";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -58,6 +59,9 @@ export default function PaymentHistory() {
   const router = useRouter();
   const totalToBePaid = (loanDetails?.mAmount ?? 0) - finalReceivedAmount;
   const accountInputRef = useRef<HTMLInputElement>(null);
+  const setSelectedNavItem = useNavigationStore(
+      (state) => state.setSelectedNavItem
+    );
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -75,6 +79,7 @@ export default function PaymentHistory() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         router.push("/");
+        setSelectedNavItem("Report", 3);
       }
     };
     window.addEventListener("keydown", handleKeyDown);

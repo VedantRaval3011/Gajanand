@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ArrowUpRight, Wallet, PiggyBank, AlertTriangle } from "lucide-react";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { Ubuntu } from "next/font/google";
+import { useNavigationStore } from "@/store/NavigationStore";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -29,6 +30,9 @@ const FinancialStatement = () => {
     totalMonthlyInstallments: 0,
     totalDailyInstallments: 0,
   });
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
 
   const outStandingAmount = (totalLoanAmount ?? 0) - (totalReceivedAmount ?? 0);
 
@@ -37,6 +41,7 @@ const FinancialStatement = () => {
       if (event.key === "Escape") {
         event.preventDefault();
         router.push("/");
+        setSelectedNavItem("Report", 4);
       }
       if (event.altKey && event.key === "d") {
         event.preventDefault();
