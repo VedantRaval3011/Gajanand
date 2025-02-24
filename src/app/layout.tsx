@@ -12,11 +12,13 @@ export const metadata: Metadata = {
   title: "Gajanand",
   description: "This is a finance software",
   icons: {
-    icon: [
-      { url: "/ganpati.jpg", type: "image/x-icon" }, // Favicon
-      { url: "/ganpati.jpg", type: "image/jpeg", sizes: "512x512" }, // App Icon
-    ],
-    apple: "/ganpati.jpg", // Apple Touch Icon
+    icon: "/ganpati.ico", // Use .ico format for best compatibility
+    apple: {
+      url: "/ganpati.jpg", // A PNG is better for Apple devices
+      sizes: "180x180",
+      type: "image/png",
+    },
+    shortcut: "/ganpati.jpg", // For home screen shortcuts
   },
 };
 
