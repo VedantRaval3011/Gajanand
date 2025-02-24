@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description: "This is a finance software",
   icons: {
     icon: [
-      { url: "/favicon.ico", type: "image/x-icon" }, // Favicon
+      { url: "/ganpati.jpg", type: "image/x-icon" }, // Favicon
       { url: "/ganpati.jpg", type: "image/jpeg", sizes: "512x512" }, // App Icon
     ],
     apple: "/ganpati.jpg", // Apple Touch Icon
