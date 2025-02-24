@@ -533,7 +533,7 @@ const LoanDetailsRange = () => {
                                 ? loan.instAmount?.toFixed(2) || "-"
                                 : "-"}
                             </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold max-w-[100px] sm:max-w-[150px] truncate">
+                            <td className="px-2 sm:px-4 md:px-2 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold max-w-[100px] sm:max-w-[150px] ">
                               {loan.holderName}
                             </td>
                             <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
