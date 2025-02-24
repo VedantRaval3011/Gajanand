@@ -688,7 +688,7 @@ export default function LoanForm() {
           }
         }
       }
-    }, 100);
+    }, 0);
   };
 
   // Add initial focus effect
@@ -696,7 +696,7 @@ export default function LoanForm() {
     if (nextAccountNo) {
       setTimeout(() => {
         inputRefs.current["accountNo"]?.select();
-      }, 100);
+      }, 0);
     }
   }, [nextAccountNo]);
 
@@ -706,7 +706,7 @@ export default function LoanForm() {
       // Small delay to ensure the input is mounted
       setTimeout(() => {
         inputRefs.current["accountNo"]?.select();
-      }, 100);
+      }, 0);
     }
   }, [nextAccountNo]);
 
