@@ -9,8 +9,15 @@ const ubuntu = Ubuntu({
 });
 
 export const metadata: Metadata = {
-  title: "Gajanad",
+  title: "Gajanand",
   description: "This is a finance software",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon" }, // Favicon
+      { url: "/ganpati.jpg", type: "image/jpeg", sizes: "512x512" }, // App Icon
+    ],
+    apple: "/ganpati.jpg", // Apple Touch Icon
+  },
 };
 
 export default async function RootLayout({
