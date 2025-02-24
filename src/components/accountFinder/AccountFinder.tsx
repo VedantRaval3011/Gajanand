@@ -200,7 +200,7 @@ const AccountFinder = ({
                       index === highlightedIndex ? "bg-gray-100" : ""
                     } hover:bg-gray-100`}
                   >
-                    <div className="font-medium">{account.holderName}</div>
+                    <div className="font-medium uppercase">{account.holderName}</div>
                     <div className="text-sm text-gray-500">{account.accountNo}</div>
                   </li>
                 ))}

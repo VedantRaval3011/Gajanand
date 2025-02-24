@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Calendar, Home } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { useRouter } from "next/navigation";

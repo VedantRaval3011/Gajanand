@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Home, Search } from "lucide-react";
+import {Search } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -1052,6 +1052,7 @@ const LoanManagement: React.FC = () => {
         {/* Loan Details Panel */}
         <div className="w-full lg:w-1/2">
           <div className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-4 md:p-8 pt-4 md:pt-5 border border-gray-200/60 dark:border-gray-700">
+          <span className="hidden"> ${existingPayments.length} ${selectedAccountNo} </span>
             {loanDetails ? (
               <div className="space-y-4 md:space-y-6">
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">

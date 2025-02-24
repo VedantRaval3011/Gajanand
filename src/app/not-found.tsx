@@ -16,7 +16,7 @@ export default function NotFound() {
         <h2 className="text-3xl font-semibold text-orange-800 mb-6">Page Not Found</h2>
         <p className="text-orange-700 mb-8 text-xl">
           Oops! DK
-          The page you're looking for doesn't exist or has been moved.
+          The page you are looking for doesnot exist or has been moved.
         </p>
         <Link 
           href="/"
