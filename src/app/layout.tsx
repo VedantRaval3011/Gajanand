@@ -14,11 +14,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/ganpati.ico", // Use .ico format for best compatibility
     apple: {
-      url: "/ganpati.jpg", // A PNG is better for Apple devices
+      url: "/ganpati.png", // A PNG is better for Apple devices
       sizes: "180x180",
       type: "image/png",
     },
-    shortcut: "/ganpati.jpg", // For home screen shortcuts
+    shortcut: "/ganpati.png", // For home screen shortcuts
   },
 };
 
