@@ -1,20 +1,29 @@
 import mongoose from 'mongoose';
 
-const otpSchema = new mongoose.Schema({
+const OTPSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   otp: {
     type: String,
-    required: true
+    required: true,
   },
   type: {
     type: String,
-    enum: ['email', 'sms'],
-    required: true
+    enum: ['email'],
+    required: true,
   },
-  createdAt: { 
-    type: Date, 
+  expiresAt: {
+    type: Date,
+    required: true,
+  },
+  createdAt: {
+    type: Date,
     default: Date.now,
-    expires: 600 // OTP expires after 10 minutes
-  }
+    expires: 1800, // Auto-delete after 30 minutes (in seconds)
+  },
 });
 
-export const OTP = mongoose.models.OTP || mongoose.model('OTP', otpSchema);
+export const OTP = mongoose.models.OTP || mongoose.model('OTP', OTPSchema);
