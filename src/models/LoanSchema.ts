@@ -34,22 +34,20 @@ export interface ILoan extends Document {
 const GuarantorSchema = new Schema<IGuarantor>({
   holderName: {
     type: String,
-    required: [true, 'Guarantor holder name is required'],
+    required: [true, 'Guarantor holderName is required'],
+
     trim: true
   },
   address: {
     type: String,
-    required: [true, 'Guarantor address is required'],
     trim: true
   },
   telephone: {
     type: String,
-    required: [true, 'Guarantor telephone is required'],
     trim: true
   },
   city: {
     type: String,
-    required: [true, 'Guarantor city is required'],
     trim: true
   },
  
@@ -136,8 +134,6 @@ const LoanSchema = new Schema<ILoan>({
 }, {
   timestamps: true
 });
-
-
 
 
 // Export the model

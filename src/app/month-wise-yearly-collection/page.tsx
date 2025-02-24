@@ -1,6 +1,7 @@
 "use client";
 import { useNavigationStore } from "@/store/NavigationStore";
 import { Ubuntu } from "next/font/google";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
@@ -125,9 +126,30 @@ export default function PaymentHistory() {
         isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
       } text-base sm:text-xl font-bold`}
     >
-      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-orange-500">
-        Month Wise Yearly Collection
-      </h1>
+      <div className="flex items-center justify-start gap-4 mb-6">
+        {isDarkMode ? (
+          <Image
+            src="/GFLogo.png"
+            alt="logo"
+            height={50}
+            width={50}
+            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+            onClick={() => router.push("/")}
+          />
+        ) : (
+          <Image
+            src="/lightlogo.png"
+            alt="logo"
+            height={50}
+            width={50}
+            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+            onClick={() => router.push("/")}
+          />
+        )}
+        <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
+          Month Wise Yearly Collection
+        </h1>
+      </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:space-x-4 mb-4 sm:mb-6">
         <input

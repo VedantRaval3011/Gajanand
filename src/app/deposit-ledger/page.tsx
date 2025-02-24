@@ -5,6 +5,8 @@ import TimeDisplay from "@/ui/TimeDisplay";
 import { Ubuntu } from "next/font/google";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
 import { useNavigationStore } from "@/store/NavigationStore";
+import Image from "next/image";
+import { Search } from "lucide-react";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -60,8 +62,8 @@ export default function PaymentHistory() {
   const totalToBePaid = (loanDetails?.mAmount ?? 0) - finalReceivedAmount;
   const accountInputRef = useRef<HTMLInputElement>(null);
   const setSelectedNavItem = useNavigationStore(
-      (state) => state.setSelectedNavItem
-    );
+    (state) => state.setSelectedNavItem
+  );
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -113,7 +115,7 @@ export default function PaymentHistory() {
       const details = await res.json();
       setLoanDetails(details);
       await fetchPaymentHistory();
-    } catch  {
+    } catch {
       setLoanDetails(undefined);
       setPaymentData([]);
       alert("Loan does not exist"); // or use toast notification
@@ -145,7 +147,9 @@ export default function PaymentHistory() {
   };
 
   const processPaymentData = (payments: Payment[]) => {
-    const groupedData: { [key: string]: { days: (number | null)[]; totalAmount: number } } = {};
+    const groupedData: {
+      [key: string]: { days: (number | null)[]; totalAmount: number };
+    } = {};
     let cumulativeTotal = 0;
 
     const sortedPayments = payments.sort(
@@ -198,13 +202,42 @@ export default function PaymentHistory() {
       } 
       ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-800"}`}
     >
-      <div className="flex flex-col sm:flex-row justify-between sm:justify-center items-center mb-4 sm:mb-6 relative">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-orange-500 mb-2 sm:mb-0">Deposit Ledger</h1>
+      <div className="flex flex-col sm:flex-row justify-start sm:justify-start items-center mb-4 sm:mb-6 relative">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {isDarkMode ? (
+            <Image
+              src="/GFLogo.png"
+              alt="logo"
+              height={50}
+              width={50}
+              className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+              onClick={() => router.push("/")}
+            />
+          ) : (
+            <Image
+              src="/lightlogo.png"
+              alt="logo"
+              height={50}
+              width={50}
+              className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+              onClick={() => router.push("/")}
+            />
+          )}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-orange-500 mb-2 sm:mb-0">
+            Deposit Ledger
+          </h1>
+          <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 p-2.5 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
+            >
+              <Search size={20} />
+            </button>
+        </div>
         <div className="sm:absolute right-0 flex items-center gap-2 sm:gap-4">
           <TimeDisplay />
         </div>
       </div>
-  
+
       {/* Search Section */}
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-4">
         <input
@@ -234,7 +267,10 @@ export default function PaymentHistory() {
         >
           {loading ? (
             <>
-              <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 mr-2" viewBox="0 0 24 24">
+              <svg
+                className="animate-spin h-4 w-4 sm:h-5 sm:w-5 mr-2"
+                viewBox="0 0 24 24"
+              >
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -258,7 +294,7 @@ export default function PaymentHistory() {
           )}
         </button>
       </div>
-  
+
       {/* Loan Details Section */}
       {loanDetails && (
         <div
@@ -384,7 +420,7 @@ export default function PaymentHistory() {
           </div>
         </div>
       )}
-  
+
       {/* Payment History Section */}
       {paymentData.length > 0 && (
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
@@ -405,7 +441,9 @@ export default function PaymentHistory() {
                 >
                   <tr>
                     <th
-                      className={`sticky left-0 z-20 ${isDarkMode ? "bg-gray-900" : "bg-orange-50"} px-2 sm:px-6 py-2 sm:py-4 text-left font-bold ${
+                      className={`sticky left-0 z-20 ${
+                        isDarkMode ? "bg-gray-900" : "bg-orange-50"
+                      } px-2 sm:px-6 py-2 sm:py-4 text-left font-bold ${
                         isDarkMode ? "text-orange-400" : "text-orange-800"
                       }`}
                     >
@@ -442,14 +480,25 @@ export default function PaymentHistory() {
                         isDarkMode ? "hover:bg-gray-700" : "hover:bg-orange-50"
                       }
                     >
-                      <td className={`sticky left-0 z-10 ${isDarkMode ? "bg-gray-800" : "bg-white"} ${isDarkMode && "hover:bg-gray-700"} px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap`}>
+                      <td
+                        className={`sticky left-0 z-10 ${
+                          isDarkMode ? "bg-gray-800" : "bg-white"
+                        } ${
+                          isDarkMode && "hover:bg-gray-700"
+                        } px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap`}
+                      >
                         {row.monthYear}
                       </td>
-                      {row.days.map((amount: number | null, dayIndex: number) => (
-                        <td key={dayIndex} className="px-2 sm:px-4 py-2 sm:py-4 text-center">
-                          {amount !== null ? `₹${amount.toFixed(0)}` : "-"}
-                        </td>
-                      ))}
+                      {row.days.map(
+                        (amount: number | null, dayIndex: number) => (
+                          <td
+                            key={dayIndex}
+                            className="px-2 sm:px-4 py-2 sm:py-4 text-center"
+                          >
+                            {amount !== null ? `₹${amount.toFixed(0)}` : "-"}
+                          </td>
+                        )
+                      )}
                       <td
                         className={`px-2 sm:px-6 py-2 sm:py-4 text-right font-bold ${
                           isDarkMode ? "text-orange-400" : "text-orange-600"
@@ -463,7 +512,7 @@ export default function PaymentHistory() {
               </table>
             </div>
           </div>
-  
+
           <div
             className={`w-full lg:w-1/3 p-4 sm:p-6 rounded-lg shadow-sm border transition-colors duration-200
             ${
@@ -489,7 +538,7 @@ export default function PaymentHistory() {
                   ₹{finalReceivedAmount.toFixed(2)}
                 </p>
               </div>
-              
+
               <div>
                 <h2
                   className={`text-lg sm:text-xl font-bold mb-2 sm:mb-4 ${
@@ -510,7 +559,7 @@ export default function PaymentHistory() {
           </div>
         </div>
       )}
-  
+
       <AccountFinder
         onAccountSelect={handleAccountSelect}
         isModalOpen={isModalOpen}

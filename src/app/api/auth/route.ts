@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     // Convert _id to string explicitly
     const token = await new SignJWT({ userId: user._id.toString() })
       .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('1h')
+      .setExpirationTime('12h')
       .setIssuedAt()
       .sign(secret);
 

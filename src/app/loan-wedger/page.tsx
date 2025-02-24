@@ -3,10 +3,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Calendar, Home } from "lucide-react";
 import { Ubuntu } from "next/font/google";
-import Link from "next/link";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { useRouter } from "next/navigation";
 import { useNavigationStore } from "@/store/NavigationStore";
+import Image from "next/image";
 
 interface LoanDetails {
   accountNo: string;
@@ -44,7 +44,7 @@ const LoanLedger: React.FC = () => {
   const [loans, setLoans] = useState<LoanDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
-  const [_isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const fromDateRef = useRef<HTMLInputElement | null>(null);
   const [totalAmount, setTotalAmount] = useState(0);
   const toDateRef = useRef<HTMLInputElement | null>(null);
@@ -125,19 +125,8 @@ const LoanLedger: React.FC = () => {
       }
 
       const data = await response.json();
-
-      // Log the fetched data for debugging
-      console.log(
-        "Fetched loans for date range:",
-        fromDate,
-        "to",
-        toDate,
-        data
-      );
-
       // Update the loans state with the new data
       setLoans(data);
-
       // Calculate the total amount for the new loans
       const total = data.reduce(
         (sum: number, loan: LoanDetails) => sum + loan.amount,
@@ -200,6 +189,13 @@ const LoanLedger: React.FC = () => {
   };
 
   const sortedLoans = [...loans].sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+
+    if (dateA !== dateB) {
+      return dateA - dateB;
+    }
+
     const aNum = parseInt(a.accountNo);
     const bNum = parseInt(b.accountNo);
     return aNum - bNum;
@@ -215,12 +211,28 @@ const LoanLedger: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-orange-500 flex items-center gap-2 sm:gap-6">
             Loan Ledger
             <span>
-              <Link href="/">
-                <Home />
-              </Link>
+              {isDarkMode ? (
+                <Image
+                  src="/GFLogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                />
+              ) : (
+                <Image
+                  src="/lightlogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                />
+              )}
             </span>
           </h1>
-  
+
           <TimeDisplay />
           <button
             onClick={() => {
@@ -236,8 +248,7 @@ const LoanLedger: React.FC = () => {
             Fetch Loans
           </button>
         </div>
-        <span className="hidden">{_isDarkMode}</span>
-  
+
         {/* Input Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="relative">
@@ -276,7 +287,7 @@ const LoanLedger: React.FC = () => {
             />
           </div>
         </div>
-  
+
         {loans.length > 0 && (
           <div className="mb-4 p-3 sm:p-4 bg-orange-50 dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-gray-700 overflow-x-auto">
             <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-800 dark:text-gray-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
@@ -323,167 +334,169 @@ const LoanLedger: React.FC = () => {
             </p>
           </div>
         )}
-  
+
         {/* Loan Details Table */}
         {loans.length > 0 && (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="min-w-full overflow-x-auto">
-              <table className="w-full border-collapse table-auto">
-                <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                  <tr>
-                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Acc No
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Holder
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Name
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      M. Date
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Amount
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Inst
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Period
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Loan Date
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Address
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Phone 1
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Phone 2
-                    </th>
-                    <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {sortedLoans.map((loan, index) => (
-                    <React.Fragment key={index}>
-                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {loan.accountNo}
-                        </td>
-                        <td className="px-2 sm:px-3 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 uppercase whitespace-nowrap">
-                          {loan.holderName}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {loan.name}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {new Date(loan.mDate).toLocaleDateString("en-GB")}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 uppercase whitespace-nowrap">
-                          ₹{loan.amount.toLocaleString("en-IN")}
-                        </td>
-                        <td className="px-2 sm:px-5 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          ₹{loan.instAmount.toFixed(2)}{" "}
-                          <span className="font-bold text-orange-500 text-sm sm:text-lg lg:text-xl">
-                            ({loan.isDaily ? "D" : "M"})
-                          </span>
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {loan.period}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {new Date(loan.date).toLocaleDateString("en-GB")}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 max-w-xs truncate">
-                          {loan.holderAddress}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {loan.telephone1}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                          {loan.telephone2}
-                        </td>
-                        <td className="px-2 sm:px-6 py-2 sm:py-4">
-                          <button
-                            onClick={() => toggleGuarantorDetails(loan.accountNo)}
-                            className="px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-all text-sm sm:text-lg lg:text-xl font-bold shadow-sm whitespace-nowrap"
-                          >
-                            {expandedAccount === loan.accountNo ? "Hide" : "Show"}{" "}
-                            Guarantors
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedAccount === loan.accountNo && (
-                        <tr>
-                          <td
-                            colSpan={12}
-                            className="px-2 sm:px-6 py-2 sm:py-4 bg-orange-50 dark:bg-gray-800/50"
-                          >
-                            <div className="space-y-3 sm:space-y-4">
-                              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 dark:text-gray-100">
-                                Guarantor Details
-                              </h3>
-                              <div className="grid gap-3 sm:gap-4">
-                                {loan.guarantors.map((guarantor, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="p-2 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
-                                  >
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-                                      <div>
-                                        <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
-                                          Name
-                                        </span>
-                                        <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
-                                          {guarantor.holderName}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
-                                          Phone
-                                        </span>
-                                        <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
-                                          {guarantor.telephone}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
-                                          Address
-                                        </span>
-                                        <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100 break-words">
-                                          {guarantor.address}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
-                                          City
-                                        </span>
-                                        <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
-                                          {guarantor.city}
-                                        </p>
-                                      </div>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="min-w-full overflow-x-auto">
+            <table className="w-full border-collapse table-auto">
+              <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    SR No.
+                  </th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Acc No
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Holder
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Name
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Loan Date
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    M. Date
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Amount
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Inst
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Period
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Address
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Phone 1
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Phone 2
+                  </th>
+                  <th className="px-2 sm:px-6 py-2 sm:py-3 text-sm sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300 text-left whitespace-nowrap">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {sortedLoans.map((loan, index) => (
+                  <React.Fragment key={index}>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="px-2 text-center sm:px-4 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {index + 1}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {loan.accountNo}
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap uppercase">
+                        {loan.holderName}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap uppercase">
+                        {loan.name}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(loan.date).toLocaleDateString("en-GB")}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(loan.mDate).toLocaleDateString("en-GB")}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 uppercase whitespace-nowrap">
+                        ₹{loan.amount.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-2 sm:px-5 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        ₹{loan.instAmount.toFixed(2)}{" "}
+                        <span className="font-bold text-orange-500 text-sm sm:text-lg lg:text-xl">
+                          ({loan.isDaily ? "D" : "M"})
+                        </span>
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {loan.period}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                        {loan.holderAddress}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {loan.telephone1}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                        {loan.telephone2}
+                      </td>
+                      <td className="px-2 sm:px-6 py-2 sm:py-4">
+                        <button
+                          onClick={() => toggleGuarantorDetails(loan.accountNo)}
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-all text-sm sm:text-lg lg:text-xl font-bold shadow-sm whitespace-nowrap"
+                        >
+                          {expandedAccount === loan.accountNo ? "Hide" : "Show"} Guarantors
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedAccount === loan.accountNo && (
+                      <tr>
+                        <td colSpan={13} className="px-2 sm:px-6 py-2 sm:py-4 bg-orange-50 dark:bg-gray-800/50">
+                          <div className="space-y-3 sm:space-y-4">
+                            <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 dark:text-gray-100">
+                              Guarantor Details
+                            </h3>
+                            <div className="grid gap-3 sm:gap-4">
+                              {loan.guarantors.map((guarantor, idx) => (
+                                <div
+                                  key={idx}
+                                  className="p-2 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                >
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                                    <div>
+                                      <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
+                                        Name
+                                      </span>
+                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
+                                        {guarantor.holderName}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
+                                        Phone
+                                      </span>
+                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
+                                        {guarantor.telephone}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
+                                        Address
+                                      </span>
+                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100 break-words">
+                                        {guarantor.address}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
+                                        City
+                                      </span>
+                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
+                                        {guarantor.city}
+                                      </p>
                                     </div>
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              ))}
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-  
+        </div>
+      )}
+
         {/* No Data Found Message */}
         {loans.length === 0 && !loading && (
           <div className="mt-6 sm:mt-8 text-center p-4 sm:p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -492,7 +505,7 @@ const LoanLedger: React.FC = () => {
             </p>
           </div>
         )}
-  
+
         {/* Loading State */}
         {loading && (
           <div className="mt-6 sm:mt-8 text-center p-4 sm:p-8">

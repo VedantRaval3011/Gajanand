@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Home } from "lucide-react";
+import { Home, Search } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -10,6 +10,8 @@ import ReactDatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
 import { useNavigationStore } from "@/store/NavigationStore";
+import Image from "next/image";
+import CustomAlertDialog from "@/components/customAlertDialog/CustomAlertDialog";
 
 interface LoanDetails {
   _id: string;
@@ -22,8 +24,8 @@ interface LoanDetails {
   name: string;
   instAmount: number;
   isDaily: boolean;
-  telephone1:string;
-  telephone2:string;
+  telephone1: string;
+  telephone2: string;
 }
 
 interface Payment {
@@ -60,9 +62,9 @@ const LoanManagement: React.FC = () => {
       isDefaultAmount: false,
     },
   ]);
-   const setSelectedNavItem = useNavigationStore(
-      (state) => state.setSelectedNavItem
-    );
+  const setSelectedNavItem = useNavigationStore(
+    (state) => state.setSelectedNavItem
+  );
   const [currentRow, setCurrentRow] = useState(0);
   const [loanDetails, setLoanDetails] = useState<LoanDetails | null>(null);
   const [receivedAmounts, setReceivedAmounts] = useState<{
@@ -74,6 +76,8 @@ const LoanManagement: React.FC = () => {
   const firstAccountNoRef = useRef<HTMLInputElement | null>(null);
   const [selectedAccountNo, setSelectedAccountNo] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
 
   // Current time state
 
@@ -113,7 +117,6 @@ const LoanManagement: React.FC = () => {
       return sum + (Number(payment.amountPaid) || 0);
     }, 0);
   };
-
 
   const handleAmountPaidFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     event.target.select(); // Select all text when input is focused
@@ -192,7 +195,10 @@ const LoanManagement: React.FC = () => {
             );
 
             if (isDuplicate) {
-              alert("This account number is already entered in another row.");
+              setAlertMessage(
+                "This account number is already entered in another row."
+              );
+              setAlertOpen(true);
               // Keep focus on the current input field
               inputRefs.current[`accountNo-${currentRow}`]?.focus();
               return; // Stop further processing
@@ -351,7 +357,9 @@ const LoanManagement: React.FC = () => {
   // Save payments
   const savePayments = async () => {
     if (!loanDetails) {
-      alert("No loan selected");
+      // alert("No loan selected");
+      setAlertMessage("No loan selected");
+      setAlertOpen(true);
       return;
     }
 
@@ -360,7 +368,8 @@ const LoanManagement: React.FC = () => {
     );
 
     if (validPayments.length === 0) {
-      alert("No valid payments to save");
+      setAlertMessage("No valid payments to save");
+      setAlertOpen(true);
       return;
     }
 
@@ -391,7 +400,8 @@ const LoanManagement: React.FC = () => {
       }
 
       const responseData = await response.json();
-      alert("Payments saved successfully");
+      setAlertMessage("Payment saved successfully");
+      setAlertOpen(true);
 
       setPayments(
         responseData.payments.map((payment: Payment, index: number) => ({
@@ -407,7 +417,8 @@ const LoanManagement: React.FC = () => {
         setSelectedCell({ row: lastIndex, column: "accountNo" });
       }, 0);
     } catch (error) {
-      alert("Error saving payments: " + (error as Error).message);
+      setAlertMessage("Error Saving Payments: " + (error as Error).message);
+      setAlertOpen(true);
     }
   };
 
@@ -423,7 +434,8 @@ const LoanManagement: React.FC = () => {
           });
 
           if (response.ok) {
-            alert("Payment deleted successfully");
+            setAlertMessage("Payment deleted successfully");
+            setAlertOpen(true);
 
             const updatedPayments = payments.filter((_, i) => i !== index);
             const updatedReceivedAmounts: { [key: string]: number } = {
@@ -461,7 +473,8 @@ const LoanManagement: React.FC = () => {
               setLateAmounts(updatedLateAmounts);
             }
           } else {
-            alert("Error deleting payment");
+            setAlertMessage("error deleting loan");
+            setAlertOpen(true);
           }
         } else {
           // Handle local deletion
@@ -485,10 +498,12 @@ const LoanManagement: React.FC = () => {
               }))
             );
           }
-          alert("Payment deleted successfully");
+          setAlertMessage("Payment deleted successfully");
+          setAlertOpen(true);
         }
       } catch (error) {
-        alert("Error deleting payment: " + (error as Error).message);
+        setAlertMessage("Error deleting payment: " + (error as Error).message);
+        setAlertOpen(true);
       }
     }
   };
@@ -919,7 +934,6 @@ const LoanManagement: React.FC = () => {
     }
   };
 
-
   // Utility function to parse date from input
   const parseDateFromInput = (dateString: string): Date => {
     const parts = dateString.split("-");
@@ -954,14 +968,22 @@ const LoanManagement: React.FC = () => {
 
   // Render component
   return (
-    <div className={`${ubuntu.className} min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-2 md:p-4 transition-colors`}>
+    <div
+      className={`${ubuntu.className} min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-2 md:p-4 transition-colors`}
+    >
       {/* Header Section */}
       <div className="mb-4 md:mb-8 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 border border-gray-200/60 dark:border-gray-700">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col lg:flex-row md:items-start lg:items-center gap-4 md:gap-8">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4">
-              <label className="text-base md:text-lg font-semibold text-gray-700 dark:text-gray-300">
+              <label className="text-base items-center flex gap-2 md:text-lg font-semibold text-gray-700 dark:text-gray-300">
                 Payment Date
+                <span
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center gap-2 p-2 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
+                >
+                  <Search size={12} />
+                </span>
               </label>
               <ReactDatePicker
                 selected={selectedDate}
@@ -972,7 +994,9 @@ const LoanManagement: React.FC = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    const inputValue = (e.target as HTMLInputElement).value.replace(/\D/g, "");
+                    const inputValue = (
+                      e.target as HTMLInputElement
+                    ).value.replace(/\D/g, "");
                     const parsedDate = handleManualDateEntry(inputValue);
                     if (parsedDate) {
                       firstAccountNoRef.current?.focus();
@@ -984,11 +1008,25 @@ const LoanManagement: React.FC = () => {
               />
             </div>
             <div className="flex items-center justify-between md:justify-start gap-4 md:gap-8 lg:pl-28">
-              <Link href="/">
-                <div className="bg-white dark:bg-orange-200 rounded-full p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  <Home size={20} />
-                </div>
-              </Link>
+              {isDarkMode ? (
+                <Image
+                  src="/GFLogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-8 lg:w-10 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                ></Image>
+              ) : (
+                <Image
+                  src="/lightlogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-8 lg:w-10 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                ></Image>
+              )}
               <h1 className="text-xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#C58403] via-[#EB6612] to-orange-600">
                 Collection Book
               </h1>
@@ -1068,7 +1106,6 @@ const LoanManagement: React.FC = () => {
 
                   {payments[currentRow]?.accountNo && (
                     <div className="mt-4 p-4 md:p-6 bg-orange-50 dark:bg-orange-900/10 rounded-xl space-y-3 md:space-y-4 border border-orange-200 dark:border-orange-800">
-                     
                       <div className="grid gap-2 md:gap-3">
                         {[
                           {
@@ -1129,14 +1166,16 @@ const LoanManagement: React.FC = () => {
               <table className="w-full min-w-[640px]">
                 <thead className="sticky top-0 z-50 bg-orange-50 dark:bg-orange-950 shadow-md">
                   <tr>
-                    {["Index", "Account No.", "Amount Paid", "Actions"].map((header) => (
-                      <th
-                        key={header}
-                        className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                      >
-                        {header}
-                      </th>
-                    ))}
+                    {["Index", "Account No.", "Amount Paid", "Actions"].map(
+                      (header) => (
+                        <th
+                          key={header}
+                          className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                        >
+                          {header}
+                        </th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
@@ -1160,9 +1199,11 @@ const LoanManagement: React.FC = () => {
                             inputRefs.current[`accountNo-${index}`] = el;
                             if (index === 0) firstAccountNoRef.current = el;
                           }}
-                          type="text"
+                          type="number"
                           value={payment.accountNo}
-                          onChange={(e) => handleAccountNoChange(e.target.value, index)}
+                          onChange={(e) =>
+                            handleAccountNoChange(e.target.value, index)
+                          }
                           onBlur={() => handleAccountNoBlur(index)}
                           onKeyDown={handleKeyDown}
                           className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
@@ -1186,7 +1227,9 @@ const LoanManagement: React.FC = () => {
                           }}
                           type="number"
                           value={payment.amountPaid || ""}
-                          onChange={(e) => handleAmountPaidChange(e.target.value, index)}
+                          onChange={(e) =>
+                            handleAmountPaidChange(e.target.value, index)
+                          }
                           onFocus={handleAmountPaidFocus}
                           onKeyDown={handleKeyDown}
                           className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
@@ -1236,7 +1279,10 @@ const LoanManagement: React.FC = () => {
               Save All Payments (ALT + S)
             </button>
             <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full md:w-60 text-center dark:text-white text-xl md:text-2xl">
-              Total: <span className="text-orange-500">₹{calculateTotalAmount().toLocaleString("en-IN")}</span>
+              Total:{" "}
+              <span className="text-orange-500">
+                ₹{calculateTotalAmount().toLocaleString("en-IN")}
+              </span>
             </span>
           </div>
         </div>
@@ -1253,6 +1299,12 @@ const LoanManagement: React.FC = () => {
         }}
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
+      />
+      <CustomAlertDialog
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        title="Alert"
+        description={alertMessage}
       />
     </div>
   );

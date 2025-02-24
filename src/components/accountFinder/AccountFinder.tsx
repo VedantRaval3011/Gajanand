@@ -33,12 +33,18 @@ const AccountFinder = ({
       if (e.key === "F1") {
         e.preventDefault();
         setIsModalOpen(true);
-        fetchAccounts();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setIsModalOpen]);
+
+  // Fetch all accounts from API when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      fetchAccounts();
+    }
+  }, [isModalOpen]);
 
   // Fetch all accounts from API
   const fetchAccounts = async () => {

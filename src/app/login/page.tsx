@@ -71,7 +71,7 @@ export default function LoginPage() {
             type="text"
             placeholder="Enter your username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setUsername(e.target.value.trim())}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

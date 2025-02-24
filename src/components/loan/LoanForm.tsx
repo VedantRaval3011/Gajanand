@@ -10,6 +10,9 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import TimeDisplay from "@/ui/TimeDisplay";
 import AccountFinder from "../accountFinder/AccountFinder";
+import Image from "next/image";
+import { Loader2, Search } from "lucide-react";
+import CustomAlertDialog from "@/components/customAlertDialog/CustomAlertDialog";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -39,7 +42,10 @@ export default function LoanForm() {
         console.log("Status:", error.response?.status);
         console.log("Response:", error.response?.data);
       }
-      alert("Failed to fetch next account number");
+      setAlertMessage(
+        "Failed to fetch next account number"
+      );
+      setAlertOpen(true);
     }
   };
 
@@ -111,6 +117,10 @@ export default function LoanForm() {
   const inputRefs = useRef<
     Record<string, HTMLInputElement | HTMLTextAreaElement | null>
   >({});
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState("");
 
   // Get today's date and day
   const today = new Date();
@@ -233,6 +243,45 @@ export default function LoanForm() {
       handleSubmit(e as unknown as React.FormEvent);
     }
   };
+
+  const initializeApp = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios({
+        method: "get",
+        url: "/api/loans/next-account",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+
+      const next = response.data.nextAccountNo;
+      setNextAccountNo(next);
+      setFormData((prev) => ({
+        ...prev,
+        accountNo: next,
+        loanNo: next,
+      }));
+    } catch (error) {
+      console.error("Error initializing app:", error);
+      if (axios.isAxiosError(error)) {
+        console.log("Status:", error.response?.status);
+        console.log("Response:", error.response?.data);
+      }
+      setAlertMessage(
+        "Failed to initialize application"
+      );
+      setAlertOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Call initialization on mount
+  useEffect(() => {
+    initializeApp();
+  }, []);
 
   const handleGuarantorKeyDown = (
     e: KeyboardEvent<HTMLInputElement>,
@@ -425,11 +474,12 @@ export default function LoanForm() {
       });
 
       if (response.status === 200 || response.status === 201) {
-        alert(
+        setAlertMessage(
           isExisting
             ? "Loan updated successfully!"
             : "Loan created successfully!"
         );
+        setAlertOpen(true);
 
         // Reset form and fetch next account number if it's a new loan
         if (!isExisting) {
@@ -437,10 +487,7 @@ export default function LoanForm() {
           fetchNextAccountNo();
         }
       }
-
-      // Rest of the code remains the same...
     } catch {
-      // Error handling code remains the same...
       console.error("Error submitting data");
     } finally {
       setIsSubmitting(false);
@@ -479,26 +526,35 @@ export default function LoanForm() {
           });
         } catch (error) {
           if (axios.isAxiosError(error) && error.response?.status === 404) {
-            // If no payment history is found, just notify the user and move on
-            alert("No payment history found for this loan.");
+            setAlertMessage(
+              "No payment history found for this loan."
+            );
+            setAlertOpen(true);
           } else {
-            // For other errors, log and alert the user
             console.error("Error deleting payment history:", error);
-            alert("Failed to delete payment history");
+            setAlertMessage(
+              "Failed to delete the payment history"
+            );
+            setAlertOpen(true);
           }
         }
       }
 
-      // Reset form and fetch next account number
       setFormData(initialFormState);
       fetchNextAccountNo();
       setIsExisting(false);
-      alert("Loan deleted successfully!");
+      setAlertMessage(
+        "Loan deleted successfully!"
+      );
+      setAlertOpen(true);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error("Error Status:", error.response?.status);
         console.error("Error Data:", error.response?.data);
-        alert(error.response?.data?.message || "Error deleting loan");
+        setAlertMessage(
+          error.response?.data?.message || "Error deleting loan"
+        );
+        setAlertOpen(true);
       }
     }
   };
@@ -593,7 +649,7 @@ export default function LoanForm() {
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const handleAccountNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setFormData((prev) => ({ ...prev, accountNo: value }));
+    setFormData((prev) => ({ ...prev, accountNo: value, loanNo: value }));
 
     if (timeoutIdRef.current) {
       clearTimeout(timeoutIdRef.current);
@@ -618,19 +674,21 @@ export default function LoanForm() {
               setFormData({
                 ...initialFormState,
                 accountNo: value,
+                loanNo: value,
                 date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
               });
             } else {
               setFormData(() => ({
                 ...initialFormState,
                 accountNo: value,
+                loanNo: value,
                 date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
               }));
             }
           }
         }
       }
-    }, 300);
+    }, 100);
   };
 
   // Add initial focus effect
@@ -652,15 +710,51 @@ export default function LoanForm() {
     }
   }, [nextAccountNo]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+          <p className="text-xl text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${ubuntu.className}`}>
       <div className="  md:mx-auto">
         {/* Header Section */}
         <div className="flex justify-between items-center mx-4 md:mx-10 mb-6">
           <div className="flex justify-between w-full items-center gap-4">
-            <h1 className="text-2xl md:text-4xl font-bold text-orange-600 transition-all whitespace-nowrap">
+            <h1 className="text-2xl flex items-center gap-2 md:text-4xl font-bold text-orange-600 transition-all whitespace-nowrap">
+              {isDarkMode ? (
+                <Image
+                  src="/GFLogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push('/')}
+                ></Image>
+              ) : (
+                <Image
+                  src="/lightlogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push('/')}
+                ></Image>
+              )}
               Loan Master
             </h1>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 p-2.5 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
+            >
+              <Search size={20} />
+            </button>
             <div className="hidden md:flex items-center space-x-4 lg:space-x-8">
               <span className="flex-shrink-0">
                 <TimeDisplay />
@@ -972,7 +1066,7 @@ export default function LoanForm() {
                           }
                         }
                       }}
-                      className="mt-2 font-bold block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                      className="mt-2 font-bold block w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none uppercase"
                     />
                   </div>
                 </div>
@@ -1078,6 +1172,7 @@ export default function LoanForm() {
                           handleGuarantorKeyDown(e, index, "holderName", index)
                         }
                         className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        required
                       />
                     </div>
 
@@ -1229,6 +1324,13 @@ export default function LoanForm() {
         }}
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
+      />
+
+<CustomAlertDialog
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        title="Alert"
+        description={alertMessage}
       />
     </div>
   );

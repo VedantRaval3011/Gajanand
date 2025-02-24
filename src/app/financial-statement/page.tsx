@@ -5,6 +5,7 @@ import { ArrowUpRight, Wallet, PiggyBank, AlertTriangle } from "lucide-react";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { Ubuntu } from "next/font/google";
 import { useNavigationStore } from "@/store/NavigationStore";
+import Image from "next/image";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -129,9 +130,30 @@ const FinancialStatement = () => {
     >
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8 gap-3">
+          <div className="flex items-center gap-2">
+          {isDarkMode ? (
+          <Image
+            src="/GFLogo.png"
+            alt="logo"
+            height={50}
+            width={50}
+            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+            onClick={() => router.push("/")}
+          />
+        ) : (
+          <Image
+            src="/lightlogo.png"
+            alt="logo"
+            height={50}
+            width={50}
+            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+            onClick={() => router.push("/")}
+          />
+        )}
           <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
             Financial Statement
           </h1>
+          </div>
           <TimeDisplay />
           <span className="hidden">{monthlyTotal?.toLocaleString()} {dailyTotal?.toLocaleString()} {monthlyAccountCount?.toLocaleString()} {dailyAccountCount?.toLocaleString()} </span>
         </div>

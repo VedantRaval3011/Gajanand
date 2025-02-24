@@ -9,10 +9,12 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
+  Search,
   Wallet,
 } from "lucide-react";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
 import { useNavigationStore } from "@/store/NavigationStore";
+import Image from "next/image";
 
 const ubuntu = Ubuntu({
   weight: "400",
@@ -53,8 +55,8 @@ const LoanDetailsRange = () => {
     Record<string, AccountDetail>
   >({});
   const setSelectedNavItem = useNavigationStore(
-      (state) => state.setSelectedNavItem
-    );
+    (state) => state.setSelectedNavItem
+  );
 
   const fromAccountNoRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
@@ -285,12 +287,40 @@ const LoanDetailsRange = () => {
       <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden mx-2 sm:mx-4 md:mx-6">
         <div className="p-3 sm:p-4 md:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-0 text-orange-500">
-              Crediter / Debiter
-            </h1>
+            <div className="flex items-center gap-2">
+              
+              {isDarkMode ? (
+                <Image
+                  src="/GFLogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                />
+              ) : (
+                <Image
+                  src="/lightlogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                />
+              )}
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-0 text-orange-500">
+                Crediter / Debiter
+              </h1>
+              <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 p-2.5 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
+            >
+              <Search size={20} />
+            </button>
+            </div>
+
             <span className="hidden">
               {accounts.length}
-              {isDarkMode}
               {selectedAccountNo}
             </span>
             <TimeDisplay></TimeDisplay>

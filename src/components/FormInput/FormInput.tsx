@@ -164,13 +164,14 @@ const FormInput: React.FC<FormInputProps> = ({
         onBlur={handleBlur}
         placeholder={placeholder}
         autoFocus={name === "accountNo" || autofocus}
-        className={`mt-2 block w-full rounded-md border font-bold text-xl focus:border-orange-500 ${
+        className={`mt-2 block w-full rounded-md border font-bold text-xl focus:border-orange-500 uppercase ${
           error ? "border-red-500" : "border-gray-300 dark:border-orange-600"
         } px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
           error
             ? "focus:border-red-500 focus:ring-red-500"
             : "focus:border-orange-500 focus:ring-orange-500"
         }`}
+
       />
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
     </div>

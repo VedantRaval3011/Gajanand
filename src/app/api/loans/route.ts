@@ -38,13 +38,7 @@ export async function PUT(req: Request) {
     await dbConnect();
     const data = await req.json();
 
-    // Calculate installment amount based on isDaily flag
-    if (data.isDaily) {
-      data.instAmount = data.amount / data.period; // Daily installment
-    } else {
-      data.instAmount = data.amount / (data.period / 30); // Monthly installment
-    }
-
+    
     const loan = await LoanSchema.findOneAndUpdate(
       { accountNo: data.accountNo },
       data,
