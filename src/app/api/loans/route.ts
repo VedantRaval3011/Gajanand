@@ -251,10 +251,12 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
-    const startDate = new Date(fromDate);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(toDate);
-    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date(fromDate as string);
+    startDate.setUTCHours(0, 0, 0, 0);
+  
+    const endDate = new Date(toDate as string);
+    endDate.setUTCHours(23, 59, 59, 999);
+  
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return NextResponse.json(
         { message: 'Invalid date format' },

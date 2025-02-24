@@ -83,63 +83,56 @@ const LoanLedger: React.FC = () => {
   }, []);
 
   const fetchLoans = async () => {
-    // Prevent duplicate API calls if already loading
     if (loading) return;
-
-    // Check if both fromDate and toDate are provided
+  
     if (!fromDate || !toDate) {
       alert("Please enter both fromDate and toDate.");
       return;
     }
-
-    // Validate fromDate and toDate
-    const fromDateObj = new Date(fromDate);
-    const toDateObj = new Date(toDate);
-
-    if (isNaN(fromDateObj.getTime()) || isNaN(toDateObj.getTime())) {
-      alert("Invalid date format. Please enter valid dates.");
-      return;
-    }
-
-    // Reset loans and total amount before fetching new data
-    setLoans([]); // Clear existing loans
-    setTotalAmount(0); // Reset total amount
-    setLoading(true); // Set loading state
-
+  
+    // Format dates to ensure consistent ISO format
+    const formatDate = (date: string) => {
+      const d = new Date(date);
+      // Ensure UTC date to avoid timezone issues
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    };
+  
+    const formattedFromDate = formatDate(fromDate);
+    const formattedToDate = formatDate(toDate);
+  
+    setLoans([]);
+    setTotalAmount(0);
+    setLoading(true);
+  
     try {
-      // Add a timestamp to prevent caching
       const timestamp = new Date().getTime();
       const response = await fetch(
-        `/api/loans?fromDate=${fromDate}&toDate=${toDate}&timestamp=${timestamp}`,
+        `/api/loans?fromDate=${formattedFromDate}&toDate=${formattedToDate}&timestamp=${timestamp}`,
         {
           method: "GET",
           headers: {
-            "Cache-Control": "no-cache", // Prevent caching of API response
+            "Cache-Control": "no-cache",
           },
         }
       );
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to fetch loans");
       }
-
+  
       const data = await response.json();
-      // Update the loans state with the new data
       setLoans(data);
-      // Calculate the total amount for the new loans
       const total = data.reduce(
         (sum: number, loan: LoanDetails) => sum + loan.amount,
         0
       );
       setTotalAmount(total);
-
-      // Reset expanded account to avoid showing old guarantor details
       setExpandedAccount(null);
     } catch (error) {
       toast.error("Error fetching loans: " + (error as Error).message);
     } finally {
-      setLoading(false); // Ensure loading state is reset
+      setLoading(false);
     }
   };
 
