@@ -90,15 +90,16 @@ const LoanLedger: React.FC = () => {
       return;
     }
   
-    // Format dates to ensure consistent ISO format
-    const formatDate = (date: string) => {
-      const d = new Date(date);
-      // Ensure UTC date to avoid timezone issues
-      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    // Format dates to include timezone offset
+    const formatDateForAPI = (dateStr: string) => {
+      const date = new Date(dateStr);
+      // Set time to start of day for fromDate
+      date.setHours(0, 0, 0, 0);
+      return date.toISOString();
     };
   
-    const formattedFromDate = formatDate(fromDate);
-    const formattedToDate = formatDate(toDate);
+    const formattedFromDate = formatDateForAPI(fromDate);
+    const formattedToDate = formatDateForAPI(toDate);
   
     setLoans([]);
     setTotalAmount(0);
@@ -107,7 +108,7 @@ const LoanLedger: React.FC = () => {
     try {
       const timestamp = new Date().getTime();
       const response = await fetch(
-        `/api/loans?fromDate=${formattedFromDate}&toDate=${formattedToDate}&timestamp=${timestamp}`,
+        `/api/loans?fromDate=${encodeURIComponent(formattedFromDate)}&toDate=${encodeURIComponent(formattedToDate)}&timestamp=${timestamp}`,
         {
           method: "GET",
           headers: {
@@ -135,6 +136,7 @@ const LoanLedger: React.FC = () => {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     if (fromDate && toDate) {
@@ -256,7 +258,12 @@ const LoanLedger: React.FC = () => {
               id="fromDate"
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => {
+                const date = new Date(e.target.value);
+                // Format date as YYYY-MM-DD for internal use
+                const formattedDate = date.toISOString().split('T')[0];
+                setFromDate(formattedDate);
+              }}
               onKeyDown={handleKeyDown}
               autoFocus
               className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-base sm:text-lg lg:text-xl font-bold"
