@@ -12,13 +12,12 @@ export const metadata: Metadata = {
   title: "Gajanand",
   description: "This is a finance software",
   icons: {
-    icon: "/ganpati.ico", // Use .ico format for best compatibility
-    apple: {
-      url: "/ganpati.png", // A PNG is better for Apple devices
-      sizes: "180x180",
-      type: "image/png",
-    },
-    shortcut: "/ganpati.png", // For home screen shortcuts
+    icon: [
+      {
+        url: "/gajanand.ico",
+        href: "/gajanand.ico",
+      },
+    ], // Use .ico format for best compatibility
   },
 };
 
@@ -27,12 +26,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html lang="en">
-      <body className={`${ubuntu.variable} antialiased`}>
-        {children}
-      </body>
+      <body className={`${ubuntu.variable} antialiased`}>{children}</body>
     </html>
   );
 }
