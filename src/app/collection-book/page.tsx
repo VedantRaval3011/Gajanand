@@ -11,6 +11,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import AccountFinder from "@/components/accountFinder/AccountFinder";
 import { useNavigationStore } from "@/store/NavigationStore";
 import Image from "next/image";
+import { debounce } from 'lodash';
 import CustomAlertDialog from "@/components/customAlertDialog/CustomAlertDialog";
 
 interface LoanDetails {
@@ -78,6 +79,7 @@ const LoanManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Current time state
 
@@ -525,7 +527,7 @@ const LoanManagement: React.FC = () => {
     if (loanDetails && payments[currentRow]?.accountNo) {
       
 
-      calculateLateAmount(loanDetails, payments[currentRow].accountNo);
+      debouncedCalculateLateAmount(loanDetails, payments[currentRow].accountNo);
     }
   }, [
     selectedDate,
@@ -750,10 +752,7 @@ const LoanManagement: React.FC = () => {
     setLateAmounts({});
   };
 
-  const calculateLateAmount = async (
-    details: LoanDetails,
-    accountNo: string
-  ) => {
+  const debouncedCalculateLateAmount = debounce(async (details, accountNo) => {
     if (!details || !selectedDate) {
       return;
     }
@@ -769,25 +768,20 @@ const LoanManagement: React.FC = () => {
       let expectedPayments = 0;
 
       if (details.isDaily) {
-        // Daily period calculation
         const daysDiff = Math.floor(
           (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         const daysFromLoan = Math.max(0, daysDiff + 1);
         expectedPayments = daysFromLoan * details.instAmount;
       } else {
-        // Monthly period calculation
         const monthsDiff =
           (today.getFullYear() - loanDate.getFullYear()) * 12 +
           (today.getMonth() - loanDate.getMonth());
-
-        // Add 1 if we've passed the date within the current month
         const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
         const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
         expectedPayments = monthsFromLoan * details.instAmount;
       }
 
-      // Calculate actual payments
       const sortedPayments = paymentHistory.sort(
         (a: Payment, b: Payment) =>
           new Date(a.paymentDate as Date).getTime() -
@@ -801,10 +795,8 @@ const LoanManagement: React.FC = () => {
         0
       );
 
-      // Calculate late amount
       const lateAmount = expectedPayments - cumulativePayments;
 
-      // Update states
       setLateAmounts((prev) => ({
         ...prev,
         [accountNo]: lateAmount,
@@ -825,8 +817,11 @@ const LoanManagement: React.FC = () => {
       );
     } catch (error) {
       console.error("Error Calculating payment details", error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, 300);
+
 
   // Fetch loan details
   const fetchLoanDetails = async (
@@ -841,7 +836,7 @@ const LoanManagement: React.FC = () => {
 
       const data = await response.json();
       setLoanDetails(data);
-      await calculateLateAmount(data, accountNo);
+      await debouncedCalculateLateAmount(data, accountNo);
       return data;
     } catch (error) {
       toast.error("Error fetching loan details: " + (error as Error).message);
@@ -895,6 +890,11 @@ const LoanManagement: React.FC = () => {
     <div
       className={`${ubuntu.className} min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-2 md:p-4 transition-colors`}
     >
+    {isLoading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 bg-opacity-75">
+          <p className="text-lg text-gray-700 dark:text-gray-300">Loading...</p>
+        </div>
+      )}
       {/* Header Section */}
       <div className="mb-4 md:mb-8 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 border border-gray-200/60 dark:border-gray-700">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
