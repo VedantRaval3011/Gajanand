@@ -820,7 +820,7 @@ const LoanManagement: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, 300);
+  }, 50);
 
 
   // Fetch loan details
