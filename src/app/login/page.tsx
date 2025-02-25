@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react"; // Assuming you're using Lucide React icons
+import { Eye, EyeOff } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 
@@ -18,6 +18,29 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  // Check for existing token on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Check if auth cookie exists by making a request to verify token
+        const res = await fetch("/api/auth/verify", {
+          method: "GET",
+          credentials: "include", // Important to include cookies
+        });
+
+        if (res.ok) {
+          // If token is valid, redirect to home page
+          router.push("/");
+        }
+      } catch (error) {
+        // If error occurs, stay on login page (no need to show error)
+        console.error("Auth check error:", error);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,17 +72,16 @@ export default function LoginPage() {
     <div
       className={`flex justify-center items-center min-h-screen bg-gradient-to-r from-amber-500 to-orange-500 ${ubuntu.className}`}
     >
-     <form
-  onSubmit={handleSubmit}
-  className="bg-white shadow-xl rounded-3xl p-6 w-80 md:p-16 lg:p-7 max-w-lg sm:w-96 md:w-full lg:max-w-lg "
->
-
-        <h1 className="text-3xl sm:text-4xl  font-bold text-center mb-6 sm:mb-8 text-amber-600">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-xl rounded-3xl p-6 w-80 md:p-16 lg:p-7 max-w-lg sm:w-96 md:w-full lg:max-w-lg"
+      >
+        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-6 sm:mb-8 text-amber-600">
           Welcome to Gajanand!
         </h1>
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
-        <div className="mb-4 sm:mb-6 ">
+        <div className="mb-4 sm:mb-6">
           <label
             className="block text-gray-700 text-lg sm:text-2xl font-bold mb-2 sm:mb-3"
             htmlFor="username"
