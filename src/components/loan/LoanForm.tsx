@@ -669,7 +669,6 @@ export default function LoanForm() {
     }
   };
 
-  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const handleAccountNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setFormData((prev) => ({ ...prev, accountNo: value, loanNo: value }));
