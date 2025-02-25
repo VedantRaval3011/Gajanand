@@ -216,6 +216,29 @@ export default function LoanForm() {
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      if (field === "accountNo") {
+        // Trigger the handleAccountNoChange function when Enter is pressed
+        const syntheticEvent = {
+          target: { value: formData.accountNo },
+        } as React.ChangeEvent<HTMLInputElement>;
+        handleAccountNoChange(syntheticEvent);
+      } else if (field === "telephone2") {
+        // Focus the Add Guarantor button using ref
+        addGuarantorButtonRef.current?.focus();
+  
+        // Simulate button click when Enter is pressed while focused
+        addGuarantorButtonRef.current?.addEventListener(
+          "keydown",
+          (buttonEvent) => {
+            if (buttonEvent.key === "Enter") {
+              buttonEvent.preventDefault();
+              addGuarantorButtonRef.current?.click();
+            }
+          }
+        );
+      } else {
+        focusNextField(field);
+      }
       if (field === "telephone2") {
         // Focus the Add Guarantor button using ref
         addGuarantorButtonRef.current?.focus();
@@ -650,15 +673,16 @@ export default function LoanForm() {
   const handleAccountNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setFormData((prev) => ({ ...prev, accountNo: value, loanNo: value }));
+  };
 
-    if (timeoutIdRef.current) {
-      clearTimeout(timeoutIdRef.current);
-    }
-
-    timeoutIdRef.current = setTimeout(async () => {
-      if (value.trim()) {
+  const handleAccountNoKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const accountNo = formData.accountNo.trim();
+  
+      if (accountNo) {
         try {
-          const response = await axios.get(`/api/loans/${value}`);
+          const response = await axios.get(`/api/loans/${accountNo}`);
           if (response.data) {
             setFormData({
               ...response.data,
@@ -670,25 +694,16 @@ export default function LoanForm() {
         } catch (error) {
           if (axios.isAxiosError(error) && error.response?.status === 404) {
             setIsExisting(false);
-            if (value === nextAccountNo) {
-              setFormData({
-                ...initialFormState,
-                accountNo: value,
-                loanNo: value,
-                date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
-              });
-            } else {
-              setFormData(() => ({
-                ...initialFormState,
-                accountNo: value,
-                loanNo: value,
-                date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
-              }));
-            }
+            setFormData({
+              ...initialFormState,
+              accountNo: accountNo,
+              loanNo: accountNo,
+              date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
+            });
           }
         }
       }
-    }, 0);
+    }
   };
 
   // Add initial focus effect
@@ -796,11 +811,14 @@ export default function LoanForm() {
                 <FormInput
                   label="Account No."
                   name="accountNo"
-                  type="text"
+                  type="number"
                   value={formData.accountNo}
                   onChange={handleAccountNoChange}
                   autoSelect={true}
-                  onKeyDown={(e) => handleKeyDown(e, "accountNo")}
+                  onKeyDown={(e) => {
+                    handleKeyDown(e, "accountNo");
+                    handleAccountNoKeyDown(e);
+                  }}
                   error={errors.accountNo}
                   inputRef={(el) => {
                     inputRefs.current["accountNo"] = el;

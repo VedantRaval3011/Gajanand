@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     // Convert _id to string explicitly
     const token = await new SignJWT({ userId: user._id.toString() })
       .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime('12h')
+      .setExpirationTime('12h') // or alternatively: `${12 * 60 * 60}s` for 12 hours in seconds
       .setIssuedAt()
       .sign(secret);
 
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60
+      maxAge: 12 * 60 * 60, // 12 hours in seconds
     });
 
     return response;

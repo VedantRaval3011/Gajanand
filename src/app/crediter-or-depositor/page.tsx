@@ -465,107 +465,95 @@ const LoanDetailsRange = () => {
 
           {/* Responsive table */}
           {loans.length > 0 && (
-            <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <div className="inline-block min-w-full align-middle">
-                <div className="overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-auto">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Acc No.
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Loan Date
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Mat. Date
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Inst.(M)
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Inst.(D)
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Holder
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Mat. Amt
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Received
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Outstanding
-                        </th>
-                        <th className="px-2 sm:px-4 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Late Amt
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {loans.map((loan, index) => {
-                        const details = accountDetails[loan.accountNo] || {};
-                        return (
-                          <tr
-                            key={index}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                          >
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {loan.accountNo}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {new Date(loan.date).toLocaleDateString("en-GB")}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {new Date(loan.mDate).toLocaleDateString("en-GB")}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {loan.isDaily
-                                ? "-"
-                                : loan.instAmount?.toFixed(2) || "-"}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {loan.isDaily
-                                ? loan.instAmount?.toFixed(2) || "-"
-                                : "-"}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-2 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold max-w-[100px] sm:max-w-[150px] ">
-                              {loan.holderName}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {loan.amount?.toFixed(2) || "-"}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-gray-800 dark:text-gray-200 text-sm sm:text-base md:text-lg font-bold">
-                              {loan.mAmount?.toFixed(2) || "-"}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-green-600 text-sm sm:text-base md:text-lg font-bold">
-                              {details.receivedAmount?.toFixed(2) || "-"}
-                            </td>
-                            <td className="px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-orange-600 text-sm sm:text-base md:text-lg font-bold">
-                              {details.remainingAmount?.toFixed(2) || "-"}
-                            </td>
-                            <td
-                              className={`px-2 sm:px-4 md:px-6 py-2 sm:py-4 whitespace-nowrap text-sm sm:text-base md:text-lg font-bold ${
-                                details.lateAmount < 0
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {details.lateAmount?.toFixed(2) || "-"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+  <div className="w-full overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 uppercase font-semibold">
+      <thead className="bg-gray-50 dark:bg-gray-700">
+        <tr>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Acc No.
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Loan Date
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Mat. Date
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Inst.(M)
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Inst.(D)
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Holder Name
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Amount
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Mat. Amt
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Received
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Outstanding
+          </th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+            Late Amt
+          </th>
+        </tr>
+      </thead>
+      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        {loans.map((loan, index) => {
+          const details = accountDetails[loan.accountNo] || {};
+          return (
+            <tr
+              key={index}
+              className="hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">
+                {loan.accountNo}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {new Date(loan.date).toLocaleDateString("en-GB")}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {new Date(loan.mDate).toLocaleDateString("en-GB")}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {loan.isDaily ? "-" : loan.instAmount?.toFixed(2) || "-"}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {loan.isDaily ? loan.instAmount?.toFixed(2) || "-" : "-"}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200 max-w-xs truncate">
+                {loan.holderName}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {loan.amount?.toFixed(2) || "-"}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                {loan.mAmount?.toFixed(2) || "-"}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-green-600">
+                {details.receivedAmount?.toFixed(2) || "-"}
+              </td>
+              <td className="px-3 py-4 whitespace-nowrap text-sm text-orange-600">
+                {details.remainingAmount?.toFixed(2) || "-"}
+              </td>
+              <td className={`px-3 py-4 whitespace-nowrap text-sm font-medium ${
+                details.lateAmount < 0 ? "text-green-600" : "text-red-600"
+              }`}>
+                {details.lateAmount?.toFixed(2) || "-"}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
         </div>
       </div>
       <AccountFinder
