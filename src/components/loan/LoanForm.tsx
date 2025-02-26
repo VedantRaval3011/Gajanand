@@ -674,38 +674,66 @@ export default function LoanForm() {
     setFormData((prev) => ({ ...prev, accountNo: value, loanNo: value }));
   };
 
-  const handleAccountNoKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const accountNo = formData.accountNo.trim();
+  // const handleAccountNoKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
+  //   if (e.key === 'Enter') {
+  //     e.preventDefault();
+  //     const accountNo = formData.accountNo.trim();
   
-      if (accountNo) {
-        try {
-          const response = await axios.get(`/api/loans/${accountNo}`);
-          if (response.data) {
-            setFormData({
-              ...response.data,
-              date: formatDate(new Date(response.data.date), "input"), // Convert to YYYY-MM-DD
-              mDate: formatDate(new Date(response.data.mDate), "display"), // Keep as DD/MM/YYYY
-            });
-            setIsExisting(true);
-          }
-        } catch (error) {
-          if (axios.isAxiosError(error) && error.response?.status === 404) {
-            setIsExisting(false);
-            setFormData({
-              ...initialFormState,
-              accountNo: accountNo,
-              loanNo: accountNo,
-              date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
-            });
-          }
+  //     if (accountNo) {
+  //       try {
+  //         const response = await axios.get(`/api/loans/${accountNo}`);
+  //         if (response.data) {
+  //           setFormData({
+  //             ...response.data,
+  //             date: formatDate(new Date(response.data.date), "input"), // Convert to YYYY-MM-DD
+  //             mDate: formatDate(new Date(response.data.mDate), "display"), // Keep as DD/MM/YYYY
+  //           });
+  //           setIsExisting(true);
+  //         }
+  //       } catch (error) {
+  //         if (axios.isAxiosError(error) && error.response?.status === 404) {
+  //           setIsExisting(false);
+  //           setFormData({
+  //             ...initialFormState,
+  //             accountNo: accountNo,
+  //             loanNo: accountNo,
+  //             date: formatDate(new Date(), "input"), // Set today's date in YYYY-MM-DD
+  //           });
+  //         }
+  //       }
+  //     }
+  //   }
+  // };
+
+  // Add initial focus effect
+  const handleAccountNoBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const accountNo = e.target.value.trim();
+  
+    if (accountNo) {
+      try {
+        const response = await axios.get(`/api/loans/${accountNo}`);
+        if (response.data) {
+          setFormData({
+            ...response.data,
+            date: formatDate(new Date(response.data.date), "input"), // Convert to YYYY-MM-DD
+            mDate: formatDate(new Date(response.data.mDate), "display"), // Keep as DD/MM/YYYY
+          });
+          setIsExisting(true);
+        }
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          setIsExisting(false);
+          setFormData({
+            ...initialFormState,
+            accountNo: accountNo,
+            loanNo: accountNo,
+            date: formatDate(new Date()), // Set today's date in YYYY-MM-DD
+          });
         }
       }
     }
   };
-
-  // Add initial focus effect
+  
   useEffect(() => {
     if (nextAccountNo) {
       setTimeout(() => {
@@ -813,10 +841,11 @@ export default function LoanForm() {
                   type="number"
                   value={formData.accountNo}
                   onChange={handleAccountNoChange}
+                  onBlur={handleAccountNoBlur}
                   autoSelect={true}
                   onKeyDown={(e) => {
                     handleKeyDown(e, "accountNo");
-                    handleAccountNoKeyDown(e);
+                    
                   }}
                   error={errors.accountNo}
                   inputRef={(el) => {

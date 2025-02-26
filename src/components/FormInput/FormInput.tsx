@@ -86,6 +86,7 @@ interface FormInputProps {
   autofocus?: boolean;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   autoSelect?: boolean;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; // Updated to accept FocusEvent
 }
 
 const FormInput: React.FC<FormInputProps> = ({
@@ -102,6 +103,7 @@ const FormInput: React.FC<FormInputProps> = ({
   autofocus,
   onFocus,
   autoSelect,
+  onBlur, // Add onBlur to the destructured props
 }) => {
   const innerRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
@@ -137,9 +139,12 @@ const FormInput: React.FC<FormInputProps> = ({
     }
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     if (name === "accountNo") {
       hasFocusedRef.current = false;
+    }
+    if (onBlur) {
+      onBlur(e); // Call the onBlur prop if it exists
     }
   };
 
@@ -161,7 +166,7 @@ const FormInput: React.FC<FormInputProps> = ({
         onChange={onChange}
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}
-        onBlur={handleBlur}
+        onBlur={handleBlur} // Pass the handleBlur function
         placeholder={placeholder}
         autoFocus={name === "accountNo" || autofocus}
         className={`mt-2 block w-full rounded-md border font-bold text-xl focus:border-orange-500 uppercase ${
@@ -171,7 +176,6 @@ const FormInput: React.FC<FormInputProps> = ({
             ? "focus:border-red-500 focus:ring-red-500"
             : "focus:border-orange-500 focus:ring-orange-500"
         }`}
-
       />
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
     </div>
