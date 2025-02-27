@@ -1217,7 +1217,7 @@ export default function LoanForm() {
                         onKeyDown={(e) =>
                           handleGuarantorKeyDown(e, index, "holderName", index)
                         }
-                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase"
                         required
                       />
                     </div>
@@ -1247,7 +1247,7 @@ export default function LoanForm() {
                         onKeyDown={(e) =>
                           handleGuarantorKeyDown(e, index, "address", index)
                         }
-                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase"
                       />
                     </div>
 
@@ -1277,7 +1277,7 @@ export default function LoanForm() {
                         onKeyDown={(e) =>
                           handleGuarantorKeyDown(e, index, "telephone", index)
                         }
-                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase"
                       />
                     </div>
 
@@ -1306,7 +1306,7 @@ export default function LoanForm() {
                         onKeyDown={(e) =>
                           handleGuarantorKeyDown(e, index, "city", index)
                         }
-                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        className="mt-2 block font-bold w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-3 text-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase"
                       />
                     </div>
                   </div>
