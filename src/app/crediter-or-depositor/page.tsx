@@ -41,6 +41,15 @@ interface AccountDetail {
 
 interface PaymentHistory {
   amountPaid: number;
+  date?: string;
+}
+
+interface AccountDetails {
+  [accountNo: string]: AccountDetail;
+}
+
+interface PaymentHistories {
+  [accountNo: string]: PaymentHistory[];
 }
 
 const LoanDetailsRange = () => {
@@ -51,9 +60,7 @@ const LoanDetailsRange = () => {
   const [error, setError] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [accountDetails, setAccountDetails] = useState<
-    Record<string, AccountDetail>
-  >({});
+  const [accountDetails, setAccountDetails] = useState<AccountDetails>({});
   const setSelectedNavItem = useNavigationStore(
     (state) => state.setSelectedNavItem
   );
@@ -64,6 +71,7 @@ const LoanDetailsRange = () => {
   const toInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountNo, setSelectedAccountNo] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [paymentHistories, setPaymentHistories] = useState<PaymentHistories>({});
 
   // New state for totals
   const [totals, setTotals] = useState({
@@ -93,46 +101,55 @@ const LoanDetailsRange = () => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [router, setSelectedNavItem]);
 
   // Calculate totals when loans or accountDetails change
   useEffect(() => {
     if (loans.length > 0) {
-      const newTotals = loans.reduce(
-        (acc, loan) => {
-          const details = accountDetails[loan.accountNo] || {};
-          const lateAmount = Math.max(details.lateAmount || 0, 0);
-
-          // Calculate monthly and daily installments separately
-          const monthlyInstAmount = loan.isDaily ? 0 : loan.instAmount || 0;
-          const dailyInstAmount = loan.isDaily ? loan.instAmount || 0 : 0;
-
-          return {
-            totalAmount: acc.totalAmount + (loan.amount || 0),
-            totalMaturityAmount: acc.totalMaturityAmount + (loan.mAmount || 0),
-            totalReceivedAmount:
-              acc.totalReceivedAmount + (details.receivedAmount || 0),
-            totalRemainingAmount:
-              acc.totalRemainingAmount + (details.remainingAmount || 0),
-            totalInstAmountMonthly:
-              acc.totalInstAmountMonthly + monthlyInstAmount,
-            totalInstAmountDaily: acc.totalInstAmountDaily + dailyInstAmount,
-            totalLateAmount: acc.totalLateAmount + lateAmount,
-          };
-        },
-        {
-          totalAmount: 0,
-          totalMaturityAmount: 0,
-          totalReceivedAmount: 0,
-          totalRemainingAmount: 0,
-          totalInstAmountMonthly: 0,
-          totalInstAmountDaily: 0,
-          totalLateAmount: 0,
-        }
-      );
-      setTotals(newTotals);
+      calculateTotals(loans, accountDetails);
     }
   }, [loans, accountDetails]);
+
+  // Optimized calculation of totals
+  const calculateTotals = (loans: Account[], details: AccountDetails) => {
+    const newTotals = loans.reduce(
+      (acc, loan) => {
+        const detail = details[loan.accountNo] || {
+          lateAmount: 0,
+          receivedAmount: 0,
+          remainingAmount: 0,
+        };
+        const lateAmount = Math.max(detail.lateAmount || 0, 0);
+
+        // Calculate monthly and daily installments separately
+        const monthlyInstAmount = loan.isDaily ? 0 : loan.instAmount || 0;
+        const dailyInstAmount = loan.isDaily ? loan.instAmount || 0 : 0;
+
+        return {
+          totalAmount: acc.totalAmount + (loan.amount || 0),
+          totalMaturityAmount: acc.totalMaturityAmount + (loan.mAmount || 0),
+          totalReceivedAmount:
+            acc.totalReceivedAmount + (detail.receivedAmount || 0),
+          totalRemainingAmount:
+            acc.totalRemainingAmount + (detail.remainingAmount || 0),
+          totalInstAmountMonthly:
+            acc.totalInstAmountMonthly + monthlyInstAmount,
+          totalInstAmountDaily: acc.totalInstAmountDaily + dailyInstAmount,
+          totalLateAmount: acc.totalLateAmount + lateAmount,
+        };
+      },
+      {
+        totalAmount: 0,
+        totalMaturityAmount: 0,
+        totalReceivedAmount: 0,
+        totalRemainingAmount: 0,
+        totalInstAmountMonthly: 0,
+        totalInstAmountDaily: 0,
+        totalLateAmount: 0,
+      }
+    );
+    setTotals(newTotals);
+  };
 
   // Handle keyboard events
   const handleKeyDown = (
@@ -175,67 +192,97 @@ const LoanDetailsRange = () => {
     }
   }, []);
 
-  // Rest of your existing functions remain the same
-  const fetchLoanDetails = async () => {
-    if (!fromAccountNo || !toAccountNo) {
-      setError("Please provide both 'From Account No.' and 'To Account No.'");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const response = await axios.get("/api/loans?allAccounts=true");
-      const allAccounts = response.data;
+  // Optimized loan details fetching
+ // Modify your fetchLoanDetails function like this:
+const fetchLoanDetails = async () => {
+  if (!fromAccountNo || !toAccountNo) {
+    setError("Please provide both 'From Account No.' and 'To Account No.'");
+    return;
+  }
+  setLoading(true);
+  setError("");
+  try {
+    const response = await axios.get("/api/loans?allAccounts=true");
+    const allAccounts = response.data;
 
-      const filteredLoans: Account[] = allAccounts.filter(
-        (loan: Account): boolean =>
-          parseInt(loan.accountNo) >= parseInt(fromAccountNo) &&
-          parseInt(loan.accountNo) <= parseInt(toAccountNo)
-      );
-
-      if (filteredLoans.length === 0) {
-        setError("No loans found for the given account range.");
-      } else {
-        setLoans(filteredLoans);
-      }
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An error occurred while fetching loan details.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Your existing helper functions remain the same
-  const fetchPaymentHistory = async (accountNo: string) => {
-    try {
-      const response = await fetch(`/api/payment-history/${accountNo}`);
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching payment history:", error);
-      return [];
-    }
-  };
-
-  const calculateReceivedAmount = (
-    paymentHistory: PaymentHistory[]
-  ): number => {
-    return paymentHistory.reduce(
-      (sum, payment) => sum + (payment.amountPaid || 0),
-      0
+    const filteredLoans: Account[] = allAccounts.filter(
+      (loan: Account): boolean =>
+        parseInt(loan.accountNo) >= parseInt(fromAccountNo) &&
+        parseInt(loan.accountNo) <= parseInt(toAccountNo)
     );
+
+    if (filteredLoans.length === 0) {
+      setError("No loans found for the given account range.");
+    } else {
+      setLoans(filteredLoans);
+      
+      // Fetch payment histories for the filtered loans
+      const accountNosToFetch = filteredLoans.map(loan => loan.accountNo);
+      const histories = await fetchBatchPaymentHistories(accountNosToFetch);
+      
+      // First update payment histories state
+      setPaymentHistories(histories);
+      
+      // Create account details using the fetched histories directly
+      const details: AccountDetails = { ...accountDetails };
+      
+      for (const account of filteredLoans) {
+        const history = histories[account.accountNo] || [];
+        const receivedAmount = calculateReceivedAmount(history);
+        const lateAmount = calculateLateAmount(account, history);
+        const remainingAmount = account.mAmount - receivedAmount;
+        
+        details[account.accountNo] = {
+          lateAmount,
+          receivedAmount,
+          remainingAmount,
+        };
+      }
+      
+      // Update account details with the newly calculated values
+      setAccountDetails(details);
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      setError(err.message);
+    } else {
+      setError("An error occurred while fetching loan details.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+  // New optimized function to fetch payment histories in batches
+  const fetchBatchPaymentHistories = async (accountNos: string[]) => {
+    try {
+      const response = await fetch(`/api/payment-histories?accountNos=${accountNos.join(',')}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch batch payment histories');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching batch payment histories:", error);
+      throw error;
+    }
   };
 
+  // Optimized function to calculate received amount
+  const calculateReceivedAmount = (paymentHistory: PaymentHistory[]): number => {
+    if (!paymentHistory || !Array.isArray(paymentHistory)) {
+      return 0;
+    }
+    return paymentHistory.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+  };
+
+  // Optimized function to calculate late amount
   const calculateLateAmount = (
     account: Account,
     paymentHistory: PaymentHistory[]
   ): number => {
     const today = new Date();
     const loanDate = new Date(account.date);
-    const totalReceived = calculateReceivedAmount(paymentHistory);
+    const totalReceived = calculateReceivedAmount(paymentHistory || []);
     let expectedPayments = 0;
 
     if (account.isDaily) {
@@ -254,28 +301,39 @@ const LoanDetailsRange = () => {
     return expectedPayments - totalReceived;
   };
 
+  // Optimized fetchAllAccounts function
   const fetchAllAccounts = async () => {
+    setLoading(true);
     try {
       const accountsResponse = await fetch("/api/loans?allAccounts=true");
       const accountsData = await accountsResponse.json();
       setAccounts(accountsData);
 
-      const details: Record<string, AccountDetail> = {};
+      // Get all account numbers for batch fetching
+      const accountNos = accountsData.map((account: Account) => account.accountNo);
+      
+      // Batch fetch all payment histories at once
+      await fetchBatchPaymentHistories(accountNos);
+      
+      // Once we have all payment histories, calculate all account details
+      const details: AccountDetails = {};
       for (const account of accountsData) {
-        const paymentHistory = await fetchPaymentHistory(account.accountNo);
-        const lateAmount = calculateLateAmount(account, paymentHistory);
-        const receivedAmount = calculateReceivedAmount(paymentHistory);
+        const history = paymentHistories[account.accountNo] || [];
+        const receivedAmount = calculateReceivedAmount(history);
+        const lateAmount = calculateLateAmount(account, history);
         const remainingAmount = account.mAmount - receivedAmount;
+        
         details[account.accountNo] = {
           lateAmount,
           receivedAmount,
           remainingAmount,
         };
       }
+      
       setAccountDetails(details);
-      setLoading(false);
     } catch (error) {
       console.error("Error fetching accounts:", error);
+    } finally {
       setLoading(false);
     }
   };
@@ -506,7 +564,7 @@ const LoanDetailsRange = () => {
       </thead>
       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
         {loans.map((loan, index) => {
-          const details = accountDetails[loan.accountNo] || {};
+          const details = accountDetails[loan.accountNo] || { lateAmount: 0, receivedAmount: 0, remainingAmount: 0 };
           return (
             <tr
               key={index}
