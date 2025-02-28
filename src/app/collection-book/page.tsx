@@ -79,24 +79,42 @@ const LoanManagement: React.FC = () => {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
 
+  const [paymentHistoryCache, setPaymentHistoryCache] = useState<{
+    [key: string]: Payment[];
+  }>({});
 
-  // Fetch payment history and calculate amounts
-  const fetchPaymentHistory = async (accountNo: string) => {
+  const [loanDetailsCache, setLoanDetailsCache] = useState<{
+    [key: string]: LoanDetails;
+  }>({});
+  
+  // Improved payment history fetching with caching
+const fetchPaymentHistory = async (accountNo: string) => {
     try {
+      // Return cached data if available
+      if (paymentHistoryCache[accountNo]) {
+        return paymentHistoryCache[accountNo];
+      }
+  
       const response = await fetch(`/api/payment-history/${accountNo}`);
       const history = await response.json();
-
+  
       // Calculate total received amount
       const totalReceived = history.reduce(
         (sum: number, payment: Payment) => sum + payment.amountPaid,
         0
       );
-
+  
       setReceivedAmounts((prev) => ({
         ...prev,
         [accountNo]: totalReceived,
       }));
-
+  
+      // Cache the fetched history
+      setPaymentHistoryCache((prev) => ({
+        ...prev,
+        [accountNo]: history,
+      }));
+  
       return history;
     } catch (error) {
       console.error("Error fetching payment history:", error);
@@ -186,17 +204,11 @@ const LoanManagement: React.FC = () => {
           // Check for duplicates before proceeding
           if (currentColumn === "accountNo") {
             const trimmedValue = payments[currentRow]?.accountNo.trim();
-            
-            if (!trimmedValue) {
-              // If empty, just stay on the same field
-              inputRefs.current[`accountNo-${currentRow}`]?.focus();
-              return;
-            }
   
             // Check for duplicates in the payments array (excluding current index)
             const isDuplicate = payments.some(
               (payment, idx) =>
-                idx !== currentRow && payment.accountNo.trim() === trimmedValue
+                idx !== currentRow && payment.accountNo === trimmedValue
             );
   
             if (isDuplicate) {
@@ -204,10 +216,6 @@ const LoanManagement: React.FC = () => {
                 "This account number is already entered in another row."
               );
               setAlertOpen(true);
-              // Clear the duplicate entry
-              const updatedPayments = [...payments];
-              updatedPayments[currentRow].accountNo = "";
-              setPayments(updatedPayments);
               // Keep focus on the current input field
               inputRefs.current[`accountNo-${currentRow}`]?.focus();
               return; // Stop further processing
@@ -241,21 +249,25 @@ const LoanManagement: React.FC = () => {
         setCurrentRow(newRow);
         const accountNo = payments[newRow]?.accountNo;
         if (accountNo) {
-          await fetchLoanDetails(accountNo);
+          // Use cache if available
+          if (loanDetailsCache[accountNo]) {
+            setLoanDetails(loanDetailsCache[accountNo]);
+          } else {
+            await fetchLoanDetails(accountNo);
+          }
         }
       }
     }
   };
-
   const handleAccountNoBlur = async (index: number) => {
     const currentPayment = payments[index];
     const trimmedValue = currentPayment.accountNo.trim();
-
+  
     // Check for duplicates in the payments array (excluding current index)
     const isDuplicate = payments.some(
       (payment, idx) => idx !== index && payment.accountNo === trimmedValue
     );
-
+  
     if (isDuplicate) {
       toast.error("This account number is already entered in another row.");
       // Reset the account number for this payment
@@ -264,11 +276,21 @@ const LoanManagement: React.FC = () => {
       setPayments(updatedPayments);
       return;
     }
-
+  
     // Validate the account number only if it's not empty
     if (trimmedValue) {
       try {
-        const loanData = await fetchLoanDetails(trimmedValue);
+        // Check cache first
+        let loanData = loanDetailsCache[trimmedValue];
+        
+        // If not in cache, fetch it
+        if (!loanData) {
+          const fetchedLoanData = await fetchLoanDetails(trimmedValue);
+          if (fetchedLoanData) {
+            loanData = fetchedLoanData;
+          }
+        }
+        
         if (!loanData) {
           toast.error("Account number does not exist.");
           // Reset the account number as it's invalid
@@ -285,6 +307,7 @@ const LoanManagement: React.FC = () => {
       }
     }
   };
+  
 
   // Handle account number change
   const handleAccountNoChange = async (value: string, index: number) => {
@@ -303,34 +326,8 @@ const LoanManagement: React.FC = () => {
     // If the trimmed value is empty, stop further processing
     if (!trimmedValue) return;
   
-    // Check for duplicates in existing payments
-    const isDuplicate = payments.some(
-      (payment, idx) => idx !== index && payment.accountNo.trim() === trimmedValue
-    );
-  
-    if (isDuplicate) {
-      toast.error("This account number is already entered in another row.");
-      
-      // Optionally, you can clear the duplicate entry immediately
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        updatedPayments[index] = {
-          ...updatedPayments[index],
-          accountNo: "",
-        };
-        return updatedPayments;
-      });
-      
-      // Set focus back to the input field
-      setTimeout(() => {
-        inputRefs.current[`accountNo-${index}`]?.focus();
-      }, 0);
-      
-      return;
-    }
-  
     try {
-      // Fetch loan details for the entered account number
+      // Fetch loan details for the entered account number (will use cache if available)
       const loanData = await fetchLoanDetails(trimmedValue);
   
       if (loanData) {
@@ -344,6 +341,11 @@ const LoanManagement: React.FC = () => {
           };
           return updatedPayments;
         });
+  
+        // Fetch payment history if not already cached
+        if (!paymentHistoryCache[trimmedValue]) {
+          await fetchPaymentHistory(trimmedValue);
+        }
       }
     } catch (error) {
       console.error("Error validating account number:", error);
@@ -393,32 +395,22 @@ const LoanManagement: React.FC = () => {
   // Save payments
   const savePayments = async () => {
     if (!loanDetails) {
+      // alert("No loan selected");
       setAlertMessage("No loan selected");
       setAlertOpen(true);
       return;
     }
-  
+
     const validPayments = payments.filter(
       (p) => p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
     );
-  
+
     if (validPayments.length === 0) {
       setAlertMessage("No valid payments to save");
       setAlertOpen(true);
       return;
     }
-  
-    // Check for duplicate account numbers before saving
-    const accountNos = validPayments.map(p => p.accountNo.trim());
-    const uniqueAccountNos = new Set(accountNos);
-    
-    if (accountNos.length !== uniqueAccountNos.size) {
-      // Find the duplicates for a more specific error message
-      const duplicates = accountNos.filter((item, index) => accountNos.indexOf(item) !== index);
-      alert(`Duplicate account numbers found: ${duplicates.join(', ')}. Please remove duplicates before saving.`);
-      return; // Prevent save operation
-    }
-  
+
     try {
       const paymentData = {
         loanId: loanDetails._id,
@@ -431,7 +423,7 @@ const LoanManagement: React.FC = () => {
           _id: p._id,
         })),
       };
-  
+
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: {
@@ -439,23 +431,23 @@ const LoanManagement: React.FC = () => {
         },
         body: JSON.stringify(paymentData),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to save payments");
       }
-  
+
       const responseData = await response.json();
       setAlertMessage("Payment saved successfully");
       setAlertOpen(true);
-  
+
       setPayments(
         responseData.payments.map((payment: Payment, index: number) => ({
           ...payment,
           index: index + 1,
         }))
       );
-  
+
       await fetchExistingPayments();
       const lastIndex = responseData.payments.length - 1;
       setTimeout(() => {
@@ -467,34 +459,41 @@ const LoanManagement: React.FC = () => {
       setAlertOpen(true);
     }
   };
-  
 
   // Delete payment
   const handleDeletePayment = async (index: number) => {
     const paymentToDelete = payments[index];
-
+  
     if (confirm("Are you sure you want to delete this payment?")) {
       try {
         if (paymentToDelete._id) {
           const response = await fetch(`/api/payments/${paymentToDelete._id}`, {
             method: "DELETE",
           });
-
+  
           if (response.ok) {
             setAlertMessage("Payment deleted successfully");
             setAlertOpen(true);
-
+  
             const updatedPayments = payments.filter((_, i) => i !== index);
-            const updatedReceivedAmounts: { [key: string]: number } = {
-              ...receivedAmounts,
-            };
-            const updatedLateAmounts: { [key: string]: number } = {
-              ...lateAmounts,
-            };
-
-            delete updatedReceivedAmounts[paymentToDelete.accountNo];
-            delete updatedLateAmounts[paymentToDelete.accountNo];
-
+            const updatedReceivedAmounts = { ...receivedAmounts };
+            const updatedLateAmounts = { ...lateAmounts };
+            
+            // Update payment history cache by removing the deleted payment
+            const updatedCache = { ...paymentHistoryCache };
+            if (updatedCache[paymentToDelete.accountNo]) {
+              updatedCache[paymentToDelete.accountNo] = updatedCache[paymentToDelete.accountNo].filter(
+                payment => payment._id !== paymentToDelete._id
+              );
+              
+              // Recalculate received amount
+              updatedReceivedAmounts[paymentToDelete.accountNo] = updatedCache[paymentToDelete.accountNo].reduce(
+                (sum, payment) => sum + (payment.amountPaid || 0), 0
+              );
+            }
+            
+            setPaymentHistoryCache(updatedCache);
+  
             if (updatedPayments.length === 0) {
               setPayments([
                 {
@@ -569,15 +568,27 @@ const LoanManagement: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (loanDetails && payments[currentRow]?.accountNo) {
-      calculateLateAmount(loanDetails, payments[currentRow].accountNo);
+    // Clear caches when date changes to ensure fresh data
+    setLoanDetailsCache({});
+    setPaymentHistoryCache({});
+  }, [selectedDate]);
+  
+
+  useEffect(() => {
+    const currentPayment = payments[currentRow];
+    if (currentPayment?.accountNo && loanDetails) {
+      // Only calculate late amount if account number and loan details are available
+      calculateLateAmount(loanDetails, currentPayment.accountNo);
     }
   }, [
-    selectedDate,
-    loanDetails,
-    payments[currentRow]?.accountNo,
-    payments[currentRow]?.amountPaid,
+    selectedDate, // Only recalculate when date changes
+    loanDetails, // Only recalculate when loan details change
+    currentRow, // Only recalculate when selected row changes
   ]);
+
+  useEffect(() => {
+    setPaymentHistoryCache({});
+  }, [selectedDate]);  
 
   useEffect(() => {
     const handleThemeToggle = (e: KeyboardEvent) => {
@@ -600,7 +611,12 @@ const LoanManagement: React.FC = () => {
   useEffect(() => {
     const currentPayment = payments[currentRow];
     if (currentPayment?.accountNo) {
-      fetchLoanDetails(currentPayment.accountNo);
+      // Use cache if available, otherwise fetch
+      if (loanDetailsCache[currentPayment.accountNo]) {
+        setLoanDetails(loanDetailsCache[currentPayment.accountNo]);
+      } else {
+        fetchLoanDetails(currentPayment.accountNo);
+      }
     }
   }, [currentRow]);
 
@@ -684,10 +700,10 @@ const LoanManagement: React.FC = () => {
       const formattedDate = formatDateForInput(selectedDate);
       const url = new URL("/api/payments", window.location.origin);
       url.searchParams.set("date", formattedDate);
-
+  
       const response = await fetch(url.toString());
       const data = await response.json();
-
+  
       if (data.payments && data.payments.length > 0) {
         const formattedPayments = data.payments.map(
           (payment: Payment, index: number) => ({
@@ -702,26 +718,41 @@ const LoanManagement: React.FC = () => {
             isDefaultAmount: false,
           })
         );
-
+  
         setExistingPayments(formattedPayments);
         setPayments(formattedPayments);
-
+  
         // Calculate received amounts by summing up all payments for each account
         const receivedAmountsMap: { [key: string]: number } = {};
+        const newPaymentHistoryCache: { [key: string]: Payment[] } = {};
+        
+        // Group payments by account number for caching
         formattedPayments.forEach((payment: Payment) => {
           const accountNo = payment.accountNo;
+          
+          // Update received amounts
           receivedAmountsMap[accountNo] =
             (receivedAmountsMap[accountNo] || 0) + (payment.amountPaid || 0);
+          
+          // Create or update payment history cache entry
+          if (!newPaymentHistoryCache[accountNo]) {
+            newPaymentHistoryCache[accountNo] = [];
+          }
+          newPaymentHistoryCache[accountNo].push(payment);
         });
+        
         setReceivedAmounts(receivedAmountsMap);
-
+        
+        // Update cache with grouped payments
+        setPaymentHistoryCache(newPaymentHistoryCache);
+  
         if (formattedPayments[0].accountNo) {
           await fetchLoanDetails(formattedPayments[0].accountNo);
         }
       } else {
         resetState();
       }
-    } catch {
+    } catch (error) {
       toast.error("Error fetching existing payments");
       resetState();
     }
@@ -779,42 +810,48 @@ const LoanManagement: React.FC = () => {
 
   // Reset state to initial values
   const resetState = () => {
-    setExistingPayments([]);
-    setPayments([
-      {
-        index: 1,
-        accountNo: "",
-        amountPaid: 0,
-        paymentDate: selectedDate,
-        lateAmount: 0,
-        isDefaultAmount: false,
-      },
-    ]);
-    setLoanDetails(null);
-    setReceivedAmounts({});
-    setLateAmounts({});
-  };
-
+  setExistingPayments([]);
+  setPayments([
+    {
+      index: 1,
+      accountNo: "",
+      amountPaid: 0,
+      paymentDate: selectedDate,
+      lateAmount: 0,
+      isDefaultAmount: false,
+    },
+  ]);
+  setLoanDetails(null);
+  setReceivedAmounts({});
+  setLateAmounts({});
+  // Clear caches
+  setPaymentHistoryCache({});
+  setLoanDetailsCache({});
+};
 
 
   const calculateLateAmount = async (
     details: LoanDetails,
     accountNo: string
   ) => {
-    if (!details || !selectedDate) {
+    if (!details || !selectedDate || !accountNo) {
       return;
     }
+  
     try {
-      const paymentHistory = await fetchPaymentHistory(accountNo);
+      // Only fetch payment history if not in cache
+      const paymentHistory = paymentHistoryCache[accountNo] || 
+                            await fetchPaymentHistory(accountNo);
+      
       const loanDate = new Date(details.date);
       const today = new Date(selectedDate);
-
+  
       if (isNaN(loanDate.getTime())) {
         return;
       }
-
+  
       let expectedPayments = 0;
-
+  
       if (details.isDaily) {
         // Daily period calculation
         const daysDiff = Math.floor(
@@ -827,36 +864,36 @@ const LoanManagement: React.FC = () => {
         const monthsDiff =
           (today.getFullYear() - loanDate.getFullYear()) * 12 +
           (today.getMonth() - loanDate.getMonth());
-
+  
         // Add 1 if we've passed the date within the current month
         const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
         const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
         expectedPayments = monthsFromLoan * details.instAmount;
       }
-
+  
       // Calculate actual payments
       const sortedPayments = paymentHistory.sort(
         (a: Payment, b: Payment) =>
           new Date(a.paymentDate as Date).getTime() -
           new Date(b.paymentDate as Date).getTime()
       );
-
+  
       const cumulativePayments = sortedPayments.reduce(
         (sum: number, payment: Payment) => {
           return sum + (payment.amountPaid || 0);
         },
         0
       );
-
+  
       // Calculate late amount
       const lateAmount = expectedPayments - cumulativePayments;
-
+  
       // Update states
       setLateAmounts((prev) => ({
         ...prev,
         [accountNo]: lateAmount,
       }));
-
+  
       setPayments((prevPayments) =>
         prevPayments.map((payment) =>
           payment.accountNo === accountNo
@@ -871,23 +908,39 @@ const LoanManagement: React.FC = () => {
         )
       );
     } catch (error) {
-      console.error("Error Calculating payment details", error);
+      console.error("Error calculating payment details", error);
     }
   };
 
-  // Fetch loan details
+  
+  
+  // Improved loan details fetching with caching
   const fetchLoanDetails = async (
     accountNo: string
   ): Promise<LoanDetails | null> => {
     try {
+      // Check cache first
+      if (loanDetailsCache[accountNo]) {
+        // Use cached loan details
+        setLoanDetails(loanDetailsCache[accountNo]);
+        return loanDetailsCache[accountNo];
+      }
+  
       const response = await fetch(`/api/loans/${accountNo}`);
-
+  
       if (!response.ok) {
         throw new Error("Loan not found");
       }
-
+  
       const data = await response.json();
+      
+      // Update cache and state
+      setLoanDetailsCache(prev => ({
+        ...prev,
+        [accountNo]: data
+      }));
       setLoanDetails(data);
+      
       return data;
     } catch (error) {
       toast.error("Error fetching loan details: " + (error as Error).message);
@@ -895,12 +948,19 @@ const LoanManagement: React.FC = () => {
       return null;
     }
   };
+  
 
   const handleRowClick = async (index: number, accountNo: string) => {
     if (accountNo) {
       setCurrentRow(index);
       setSelectedCell({ row: index, column: "accountNo" });
-      await fetchLoanDetails(accountNo);
+      
+      // Check cache first
+      if (loanDetailsCache[accountNo]) {
+        setLoanDetails(loanDetailsCache[accountNo]);
+      } else {
+        await fetchLoanDetails(accountNo);
+      }
     }
   };
 

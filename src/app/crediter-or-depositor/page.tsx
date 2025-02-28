@@ -244,6 +244,7 @@ const LoanDetailsRange = () => {
         throw new Error("Failed to fetch batch payment histories");
       }
       const data = await response.json();
+      setPaymentHistories(data);
       return data;
     } catch (error) {
       console.error("Error fetching batch payment histories:", error);
@@ -306,10 +307,12 @@ const LoanDetailsRange = () => {
       // Batch fetch all payment histories at once
       await fetchBatchPaymentHistories(accountNos);
 
+      const histories = await fetchBatchPaymentHistories(accountNos);
+
       // Once we have all payment histories, calculate all account details
       const details: AccountDetails = {};
       for (const account of accountsData) {
-        const history = paymentHistories[account.accountNo] || [];
+        const history = histories[account.accountNo] || [];
         const receivedAmount = calculateReceivedAmount(history);
         const lateAmount = calculateLateAmount(account, history);
         const remainingAmount = account.mAmount - receivedAmount;
@@ -466,6 +469,7 @@ const LoanDetailsRange = () => {
                     </h1>
                   </div>
                   <Clock className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-red-600 dark:text-red-400" />
+                  <p className="hidden">{Object.keys(paymentHistories).length}</p>
                 </div>
               </div>
 
@@ -565,7 +569,7 @@ const LoanDetailsRange = () => {
                     return (
                       <tr
                         key={index}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="hover:bg-gray-200 dark:hover:bg-gray-700"
                       >
                         <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">
                           {index + 1}
