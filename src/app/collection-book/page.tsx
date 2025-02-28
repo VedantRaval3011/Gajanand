@@ -752,8 +752,8 @@ const fetchPaymentHistory = async (accountNo: string) => {
       } else {
         resetState();
       }
-    } catch (error) {
-      toast.error("Error fetching existing payments");
+    } catch  {
+      alert("Error fetching existing payments");
       resetState();
     }
   };
