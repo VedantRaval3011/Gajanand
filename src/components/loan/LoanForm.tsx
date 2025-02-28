@@ -21,6 +21,8 @@ const ubuntu = Ubuntu({
 
 export default function LoanForm() {
   const fetchNextAccountNo = async () => {
+
+     if (nextAccountNo) return;
     try {
       const response = await axios({
         method: "get",
@@ -214,6 +216,11 @@ export default function LoanForm() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: string) => {
+    if (e.key === "s" && e.altKey) {
+      e.preventDefault();
+      handleSubmit(e as unknown as React.FormEvent);
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       if (field === "accountNo") {
@@ -260,11 +267,7 @@ export default function LoanForm() {
       e.preventDefault();
       addGuarantor();
     }
-    // Add Ctrl+S for form submission
-    else if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-      e.preventDefault();
-      handleSubmit(e as unknown as React.FormEvent);
-    }
+   
   };
 
   const initializeApp = async () => {
@@ -511,7 +514,8 @@ export default function LoanForm() {
         }
       }
     } catch {
-      console.error("Error submitting data");
+      setAlertMessage("Error submitting data");
+      setAlertOpen(true)
     } finally {
       setIsSubmitting(false);
     }
@@ -811,11 +815,7 @@ export default function LoanForm() {
           <form
             onSubmit={handleSubmit}
             onKeyDown={(e) => {
-              // Global shortcut for form submission
-              if (e.altKey && e.key === "s") {
-                e.preventDefault();
-                handleSubmit(e as unknown as React.FormEvent);
-              }
+             
 
               if (e.ctrlKey && e.key.toLowerCase() === "r") {
                 e.preventDefault();
