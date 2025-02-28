@@ -229,37 +229,12 @@ export default function LoanForm() {
           target: { value: formData.accountNo },
         } as React.ChangeEvent<HTMLInputElement>;
         handleAccountNoChange(syntheticEvent);
-      } else if (field === "telephone2") {
-        // Focus the Add Guarantor button using ref
-        addGuarantorButtonRef.current?.focus();
-  
-        // Simulate button click when Enter is pressed while focused
-        addGuarantorButtonRef.current?.addEventListener(
-          "keydown",
-          (buttonEvent) => {
-            if (buttonEvent.key === "Enter") {
-              buttonEvent.preventDefault();
-              addGuarantorButtonRef.current?.click();
-            }
-          }
-        );
-      } else {
-        focusNextField(field);
-      }
+      } 
       if (field === "telephone2") {
         // Focus the Add Guarantor button using ref
         addGuarantorButtonRef.current?.focus();
 
-        // Simulate button click when Enter is pressed while focused
-        addGuarantorButtonRef.current?.addEventListener(
-          "keydown",
-          (buttonEvent) => {
-            if (buttonEvent.key === "Enter") {
-              buttonEvent.preventDefault();
-              addGuarantorButtonRef.current?.click();
-            }
-          }
-        );
+        
       } else {
         focusNextField(field);
       }

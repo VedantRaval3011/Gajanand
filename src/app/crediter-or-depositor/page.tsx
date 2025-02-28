@@ -71,7 +71,9 @@ const LoanDetailsRange = () => {
   const toInputRef = useRef<HTMLInputElement>(null);
   const [selectedAccountNo, setSelectedAccountNo] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [paymentHistories, setPaymentHistories] = useState<PaymentHistories>({});
+  const [paymentHistories, setPaymentHistories] = useState<PaymentHistories>(
+    {}
+  );
 
   // New state for totals
   const [totals, setTotals] = useState({
@@ -193,71 +195,53 @@ const LoanDetailsRange = () => {
   }, []);
 
   // Optimized loan details fetching
- // Modify your fetchLoanDetails function like this:
-const fetchLoanDetails = async () => {
-  if (!fromAccountNo || !toAccountNo) {
-    setError("Please provide both 'From Account No.' and 'To Account No.'");
-    return;
-  }
-  setLoading(true);
-  setError("");
-  try {
-    const response = await axios.get("/api/loans?allAccounts=true");
-    const allAccounts = response.data;
+  // Modify your fetchLoanDetails function like this:
+  const fetchLoanDetails = async () => {
+    if (!fromAccountNo || !toAccountNo) {
+      setError("Please provide both 'From Account No.' and 'To Account No.'");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await axios.get("/api/loans?allAccounts=true");
+      const allAccounts = response.data;
 
-    const filteredLoans: Account[] = allAccounts.filter(
-      (loan: Account): boolean =>
-        parseInt(loan.accountNo) >= parseInt(fromAccountNo) &&
-        parseInt(loan.accountNo) <= parseInt(toAccountNo)
-    );
+      let filteredLoans: Account[] = allAccounts.filter(
+        (loan: Account): boolean =>
+          parseInt(loan.accountNo) >= parseInt(fromAccountNo) &&
+          parseInt(loan.accountNo) <= parseInt(toAccountNo)
+      );
 
-    if (filteredLoans.length === 0) {
-      setError("No loans found for the given account range.");
-    } else {
-      setLoans(filteredLoans);
-      
-      // Fetch payment histories for the filtered loans
-      const accountNosToFetch = filteredLoans.map(loan => loan.accountNo);
-      const histories = await fetchBatchPaymentHistories(accountNosToFetch);
-      
-      // First update payment histories state
-      setPaymentHistories(histories);
-      
-      // Create account details using the fetched histories directly
-      const details: AccountDetails = { ...accountDetails };
-      
-      for (const account of filteredLoans) {
-        const history = histories[account.accountNo] || [];
-        const receivedAmount = calculateReceivedAmount(history);
-        const lateAmount = calculateLateAmount(account, history);
-        const remainingAmount = account.mAmount - receivedAmount;
-        
-        details[account.accountNo] = {
-          lateAmount,
-          receivedAmount,
-          remainingAmount,
-        };
+      // Sort loans by accountNo in ascending order
+      filteredLoans = filteredLoans.sort(
+        (a, b) => parseInt(a.accountNo) - parseInt(b.accountNo)
+      );
+
+      if (filteredLoans.length === 0) {
+        setError("No loans found for the given account range.");
+      } else {
+        setLoans(filteredLoans);
       }
-      
-      // Update account details with the newly calculated values
-      setAccountDetails(details);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred while fetching loan details.");
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    if (err instanceof Error) {
-      setError(err.message);
-    } else {
-      setError("An error occurred while fetching loan details.");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   // New optimized function to fetch payment histories in batches
   const fetchBatchPaymentHistories = async (accountNos: string[]) => {
     try {
-      const response = await fetch(`/api/payment-histories?accountNos=${accountNos.join(',')}`);
+      const response = await fetch(
+        `/api/payment-histories?accountNos=${accountNos.join(",")}`
+      );
       if (!response.ok) {
-        throw new Error('Failed to fetch batch payment histories');
+        throw new Error("Failed to fetch batch payment histories");
       }
       const data = await response.json();
       return data;
@@ -268,11 +252,16 @@ const fetchLoanDetails = async () => {
   };
 
   // Optimized function to calculate received amount
-  const calculateReceivedAmount = (paymentHistory: PaymentHistory[]): number => {
+  const calculateReceivedAmount = (
+    paymentHistory: PaymentHistory[]
+  ): number => {
     if (!paymentHistory || !Array.isArray(paymentHistory)) {
       return 0;
     }
-    return paymentHistory.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+    return paymentHistory.reduce(
+      (sum, payment) => sum + (payment.amountPaid || 0),
+      0
+    );
   };
 
   // Optimized function to calculate late amount
@@ -310,11 +299,13 @@ const fetchLoanDetails = async () => {
       setAccounts(accountsData);
 
       // Get all account numbers for batch fetching
-      const accountNos = accountsData.map((account: Account) => account.accountNo);
-      
+      const accountNos = accountsData.map(
+        (account: Account) => account.accountNo
+      );
+
       // Batch fetch all payment histories at once
       await fetchBatchPaymentHistories(accountNos);
-      
+
       // Once we have all payment histories, calculate all account details
       const details: AccountDetails = {};
       for (const account of accountsData) {
@@ -322,14 +313,14 @@ const fetchLoanDetails = async () => {
         const receivedAmount = calculateReceivedAmount(history);
         const lateAmount = calculateLateAmount(account, history);
         const remainingAmount = account.mAmount - receivedAmount;
-        
+
         details[account.accountNo] = {
           lateAmount,
           receivedAmount,
           remainingAmount,
         };
       }
-      
+
       setAccountDetails(details);
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -346,7 +337,6 @@ const fetchLoanDetails = async () => {
         <div className="p-3 sm:p-4 md:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6">
             <div className="flex items-center gap-2">
-              
               {isDarkMode ? (
                 <Image
                   src="/GFLogo.png"
@@ -370,11 +360,11 @@ const fetchLoanDetails = async () => {
                 Crediter / Debiter
               </h1>
               <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 p-2.5 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
-            >
-              <Search size={20} />
-            </button>
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 p-2.5 bg-orange-500 hover:bg-orange-600 lg:hidden text-white rounded-full transition-colors"
+              >
+                <Search size={20} />
+              </button>
             </div>
 
             <span className="hidden">
@@ -523,95 +513,113 @@ const fetchLoanDetails = async () => {
 
           {/* Responsive table */}
           {loans.length > 0 && (
-  <div className="w-full overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 uppercase font-semibold">
-      <thead className="bg-gray-50 dark:bg-gray-700">
-        <tr>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Acc No.
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Loan Date
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Mat. Date
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Inst.(M)
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Inst.(D)
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Holder Name
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Amount
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Mat. Amt
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Received
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Outstanding
-          </th>
-          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Late Amt
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-        {loans.map((loan, index) => {
-          const details = accountDetails[loan.accountNo] || { lateAmount: 0, receivedAmount: 0, remainingAmount: 0 };
-          return (
-            <tr
-              key={index}
-              className="hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">
-                {loan.accountNo}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {new Date(loan.date).toLocaleDateString("en-GB")}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {new Date(loan.mDate).toLocaleDateString("en-GB")}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {loan.isDaily ? "-" : loan.instAmount?.toFixed(2) || "-"}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {loan.isDaily ? loan.instAmount?.toFixed(2) || "-" : "-"}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200 max-w-xs truncate">
-                {loan.holderName}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {loan.amount?.toFixed(2) || "-"}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                {loan.mAmount?.toFixed(2) || "-"}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-green-600">
-                {details.receivedAmount?.toFixed(2) || "-"}
-              </td>
-              <td className="px-3 py-4 whitespace-nowrap text-sm text-orange-600">
-                {details.remainingAmount?.toFixed(2) || "-"}
-              </td>
-              <td className={`px-3 py-4 whitespace-nowrap text-sm font-medium ${
-                details.lateAmount < 0 ? "text-green-600" : "text-red-600"
-              }`}>
-                {details.lateAmount?.toFixed(2) || "-"}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-)}
+            <div className="w-full overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 uppercase font-semibold">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      SR No.
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Acc No.
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Loan Date
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Mat. Date
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Inst.(M)
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Inst.(D)
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Holder Name
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Mat. Amt
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Received
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Outstanding
+                    </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Late Amt
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {loans.map((loan, index) => {
+                    const details = accountDetails[loan.accountNo] || {
+                      lateAmount: 0,
+                      receivedAmount: 0,
+                      remainingAmount: 0,
+                    };
+                    return (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {index + 1}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {loan.accountNo}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {new Date(loan.date).toLocaleDateString("en-GB")}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {new Date(loan.mDate).toLocaleDateString("en-GB")}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {loan.isDaily
+                            ? "-"
+                            : loan.instAmount?.toFixed(2) || "-"}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {loan.isDaily
+                            ? loan.instAmount?.toFixed(2) || "-"
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200 max-w-xs truncate">
+                          {loan.holderName}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {loan.amount?.toFixed(2) || "-"}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {loan.mAmount?.toFixed(2) || "-"}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-green-600">
+                          {details.receivedAmount?.toFixed(2) || "-"}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm text-orange-600">
+                          {details.remainingAmount?.toFixed(2) || "-"}
+                        </td>
+                        <td
+                          className={`px-3 py-4 whitespace-nowrap text-sm font-medium ${
+                            details.lateAmount < 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {details.lateAmount?.toFixed(2) || "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
       <AccountFinder

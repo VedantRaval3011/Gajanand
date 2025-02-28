@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-hot-toast";
-import { Calendar } from "lucide-react";
+import { Calendar, Filter } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import TimeDisplay from "@/ui/TimeDisplay";
 import { useRouter } from "next/navigation";
@@ -42,9 +42,11 @@ const LoanLedger: React.FC = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [loans, setLoans] = useState<LoanDetails[]>([]);
+  const [allLoans, setAllLoans] = useState<LoanDetails[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [loanType, setLoanType] = useState<"all" | "monthly" | "daily">("all");
   const fromDateRef = useRef<HTMLInputElement | null>(null);
   const [totalAmount, setTotalAmount] = useState(0);
   const toDateRef = useRef<HTMLInputElement | null>(null);
@@ -102,6 +104,7 @@ const LoanLedger: React.FC = () => {
     const formattedToDate = formatDateForAPI(toDate);
   
     setLoans([]);
+    setAllLoans([]);
     setTotalAmount(0);
     setLoading(true);
   
@@ -123,12 +126,8 @@ const LoanLedger: React.FC = () => {
       }
   
       const data = await response.json();
-      setLoans(data);
-      const total = data.reduce(
-        (sum: number, loan: LoanDetails) => sum + loan.amount,
-        0
-      );
-      setTotalAmount(total);
+      setAllLoans(data);
+      filterLoans(data, loanType);
       setExpandedAccount(null);
     } catch (error) {
       toast.error("Error fetching loans: " + (error as Error).message);
@@ -137,12 +136,38 @@ const LoanLedger: React.FC = () => {
     }
   };
   
+  // Function to filter loans based on type
+  const filterLoans = (loansData: LoanDetails[], type: "all" | "monthly" | "daily") => {
+    let filteredLoans;
+    
+    if (type === "all") {
+      filteredLoans = loansData;
+    } else if (type === "monthly") {
+      filteredLoans = loansData.filter(loan => !loan.isDaily);
+    } else { // daily
+      filteredLoans = loansData.filter(loan => loan.isDaily);
+    }
+    
+    setLoans(filteredLoans);
+    const total = filteredLoans.reduce(
+      (sum: number, loan: LoanDetails) => sum + loan.amount,
+      0
+    );
+    setTotalAmount(total);
+  };
 
   useEffect(() => {
     if (fromDate && toDate) {
       fetchLoans();
     }
   }, [fromDate, toDate]);
+
+  // Apply filter when loan type changes
+  useEffect(() => {
+    if (allLoans.length > 0) {
+      filterLoans(allLoans, loanType);
+    }
+  }, [loanType]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -164,6 +189,11 @@ const LoanLedger: React.FC = () => {
       }
       const data = await response.json();
       setLoans((prevLoans) =>
+        prevLoans.map((loan) =>
+          loan.accountNo === accountNo ? { ...loan, ...data } : loan
+        )
+      );
+      setAllLoans((prevLoans) =>
         prevLoans.map((loan) =>
           loan.accountNo === accountNo ? { ...loan, ...data } : loan
         )
@@ -287,6 +317,52 @@ const LoanLedger: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Loan Type Filter */}
+        {allLoans.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex items-center gap-2">
+                <Filter size={18} className="text-orange-500" />
+                <span className="text-base sm:text-lg lg:text-xl font-bold text-gray-700 dark:text-gray-300">
+                  Filter by:
+                </span>
+              </div>
+              <div className="flex gap-2 sm:gap-4">
+                <button
+                  onClick={() => setLoanType("all")}
+                  className={`px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all text-sm sm:text-base lg:text-lg font-bold ${
+                    loanType === "all"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  All Loans
+                </button>
+                <button
+                  onClick={() => setLoanType("monthly")}
+                  className={`px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all text-sm sm:text-base lg:text-lg font-bold ${
+                    loanType === "monthly"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setLoanType("daily")}
+                  className={`px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all text-sm sm:text-base lg:text-lg font-bold ${
+                    loanType === "daily"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  Daily
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loans.length > 0 && (
           <div className="mb-4 p-3 sm:p-4 bg-orange-50 dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-gray-700 overflow-x-auto">
