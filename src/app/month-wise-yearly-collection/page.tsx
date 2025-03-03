@@ -25,6 +25,51 @@ export default function PaymentHistory() {
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Theme management effect
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (!savedTheme) {
+      localStorage.setItem("theme", "light");
+      document.documentElement.classList.remove("dark");
+      setIsDarkMode(false);
+    } else {
+      setIsDarkMode(savedTheme === "dark");
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, []);
+
+  // Theme toggle function
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const newMode = !prev;
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return newMode;
+    });
+  };
+
+  // Keyboard shortcut for theme toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault(); // Prevent default browser behavior
+        toggleDarkMode();   // Trigger theme toggle
+      }
+    };
+    
+    // Add listener to window with capture phase to ensure it catches the event
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, []); // Empty dependency array ensures this runs only once on mount/unmount
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -64,21 +109,6 @@ export default function PaymentHistory() {
       fetchData();
     }
   };
-
-  const toggleDarkMode = () => {
-    setIsDarkMode((prev) => !prev);
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        toggleDarkMode();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -123,32 +153,35 @@ export default function PaymentHistory() {
   return (
     <div
       className={`p-3 sm:p-6 min-h-screen mx-auto ${ubuntu.className} ${
-        isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"
+        isDarkMode ? "dark bg-gray-900 text-white" : "bg-white text-gray-900"
       } text-base sm:text-xl font-bold`}
     >
-      <div className="flex items-center justify-start gap-4 mb-6">
-        {isDarkMode ? (
-          <Image
-            src="/GFLogo.png"
-            alt="logo"
-            height={50}
-            width={50}
-            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
-            onClick={() => router.push("/")}
-          />
-        ) : (
-          <Image
-            src="/lightlogo.png"
-            alt="logo"
-            height={50}
-            width={50}
-            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
-            onClick={() => router.push("/")}
-          />
-        )}
-        <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
-          Month Wise Yearly Collection
-        </h1>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          {isDarkMode ? (
+            <Image
+              src="/GFLogo.png"
+              alt="logo"
+              height={50}
+              width={50}
+              className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+              onClick={() => router.push("/")}
+            />
+          ) : (
+            <Image
+              src="/lightlogo.png"
+              alt="logo"
+              height={50}
+              width={50}
+              className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+              onClick={() => router.push("/")}
+            />
+          )}
+          <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
+            Month Wise Yearly Collection
+          </h1>
+        </div>
+       
       </div>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:space-x-4 mb-4 sm:mb-6">

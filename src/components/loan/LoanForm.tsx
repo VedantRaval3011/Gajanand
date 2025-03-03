@@ -140,6 +140,50 @@ export default function LoanForm() {
   )}`;
   const guarantorSectionRef = useRef<HTMLDivElement>(null);
 
+  // Theme management effect - similar to your root layout
+  useEffect(() => {
+    // Check saved theme on mount
+    const savedTheme = localStorage.getItem("theme");
+    if (!savedTheme) {
+      localStorage.setItem("theme", "light");
+      document.documentElement.classList.remove("dark");
+      setIsDarkMode(false);
+    } else {
+      setIsDarkMode(savedTheme === "dark");
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, []);
+
+  // Theme toggle handler
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => {
+      const newMode = !prev;
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return newMode;
+    });
+  };
+
+  // Keyboard shortcut for theme toggle
+  useEffect(() => {
+    const handleThemeToggle = (e: WindowEventMap["keydown"]) => {
+      if (e.key.toLowerCase() === "d" && (e.altKey || e.metaKey)) {
+        e.preventDefault();
+        toggleTheme();
+      }
+    };
+    window.addEventListener("keydown", handleThemeToggle);
+    return () => window.removeEventListener("keydown", handleThemeToggle);
+  }, []);
+
   // Parse DD/MM/YYYY back to a Date object
   const parseDate = (dateStr: string): Date => {
     if (dateStr.includes("-")) {

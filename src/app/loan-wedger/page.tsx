@@ -55,24 +55,51 @@ const LoanLedger: React.FC = () => {
     (state) => state.setSelectedNavItem
   );
 
+  // Theme management effect
   useEffect(() => {
-    const handleThemeToggle = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "d" && (e.altKey || e.metaKey)) {
-        e.preventDefault();
-        setIsDarkMode((prev) => !prev);
-        // Toggle dark class on document
-        if (document.documentElement.classList.contains("dark")) {
-          document.documentElement.classList.remove("dark");
-        } else {
-          document.documentElement.classList.add("dark");
-        }
+    const savedTheme = localStorage.getItem("theme");
+    if (!savedTheme) {
+      localStorage.setItem("theme", "light");
+      document.documentElement.classList.remove("dark");
+      setIsDarkMode(false);
+    } else {
+      setIsDarkMode(savedTheme === "dark");
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
       }
-    };
-
-    window.addEventListener("keydown", handleThemeToggle);
-    return () => window.removeEventListener("keydown", handleThemeToggle);
+    }
   }, []);
 
+  // Theme toggle function
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const newMode = !prev;
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return newMode;
+    });
+  };
+
+  // Keyboard shortcut for theme toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault(); // Prevent default browser behavior
+        toggleDarkMode();   // Trigger theme toggle
+      }
+    };
+    
+    // Add listener to window with capture phase to ensure it catches the event
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, []); 
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

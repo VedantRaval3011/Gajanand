@@ -54,8 +54,39 @@ export default function Home() {
     (state) => state.setSelectedNavItem
   );
 
-  const toggleDarkMode = () => {
-    setDarkMode((prev) => !prev);
+  // Load theme from localStorage on component mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    // Only switch to dark mode if specifically set to "dark"
+    if (savedTheme === "dark") {
+      setDarkMode(true);
+      document.documentElement.classList.add("dark");
+    } else {
+      // Default to light mode if no theme or any other value
+      setDarkMode(false);
+      document.documentElement.classList.remove("dark");
+      // Ensure light theme is saved as default if no theme exists
+      if (!savedTheme) {
+        localStorage.setItem("theme", "light");
+      }
+    }
+  }, []);
+
+    const toggleDarkMode = () => {
+    setDarkMode((prev) => {
+      const newMode = !prev;
+      // Save to localStorage when toggling
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      
+      // Apply to document for global styling
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      
+      return newMode;
+    });
   };
 
   useEffect(() => {
@@ -158,6 +189,7 @@ export default function Home() {
   const getDaysInMonth = (year: string, month: string): number => {
     return new Date(parseInt(year), parseInt(month), 0).getDate();
   };
+  
   useNavigation({
     onEscape: () => {}, // We don't need to handle anything here since Navbar will handle the selection
   });

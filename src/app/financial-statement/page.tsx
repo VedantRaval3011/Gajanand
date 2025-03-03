@@ -54,13 +54,50 @@ const FinancialStatement = () => {
     return () => document.removeEventListener("keydown", handleKeyPress);
   }, [router]);
 
+  // Theme management effect
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
+    const savedTheme = localStorage.getItem("theme");
+    if (!savedTheme) {
+      localStorage.setItem("theme", "light");
       document.documentElement.classList.remove("dark");
+      setIsDarkMode(false);
+    } else {
+      setIsDarkMode(savedTheme === "dark");
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
     }
-  }, [isDarkMode]);
+  }, []);
+
+  // Theme toggle function
+  const toggleDarkMode = () => {
+    setIsDarkMode((prev) => {
+      const newMode = !prev;
+      localStorage.setItem("theme", newMode ? "dark" : "light");
+      if (newMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      return newMode;
+    });
+  };
+
+  // Keyboard shortcut for theme toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault(); // Prevent default browser behavior
+        toggleDarkMode(); // Trigger theme toggle
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,10 +140,6 @@ const FinancialStatement = () => {
     fetchData();
   }, []);
 
-  
-
- 
-
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen dark:bg-gray-900">
@@ -131,33 +164,37 @@ const FinancialStatement = () => {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8 gap-3">
           <div className="flex items-center gap-2">
-          {isDarkMode ? (
-          <Image
-            src="/GFLogo.png"
-            alt="logo"
-            height={50}
-            width={50}
-            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
-            onClick={() => router.push("/")}
-          />
-        ) : (
-          <Image
-            src="/lightlogo.png"
-            alt="logo"
-            height={50}
-            width={50}
-            className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
-            onClick={() => router.push("/")}
-          />
-        )}
-          <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
-            Financial Statement
-          </h1>
+            {isDarkMode ? (
+              <Image
+                src="/GFLogo.png"
+                alt="logo"
+                height={50}
+                width={50}
+                className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                onClick={() => router.push("/")}
+              />
+            ) : (
+              <Image
+                src="/lightlogo.png"
+                alt="logo"
+                height={50}
+                width={50}
+                className="w-12 lg:w-14 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                onClick={() => router.push("/")}
+              />
+            )}
+            <h1 className="text-2xl sm:text-3xl font-bold text-orange-500">
+              Financial Statement
+            </h1>
           </div>
           <TimeDisplay />
-          <span className="hidden">{monthlyTotal?.toLocaleString()} {dailyTotal?.toLocaleString()} {monthlyAccountCount?.toLocaleString()} {dailyAccountCount?.toLocaleString()} </span>
+          <span className="hidden">
+            {monthlyTotal?.toLocaleString()} {dailyTotal?.toLocaleString()}{" "}
+            {monthlyAccountCount?.toLocaleString()}{" "}
+            {dailyAccountCount?.toLocaleString()}{" "}
+          </span>
         </div>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 p-4 sm:p-6 rounded-xl shadow-lg border border-emerald-200 dark:border-emerald-800">
             <div className="flex items-center justify-between">
@@ -170,7 +207,7 @@ const FinancialStatement = () => {
               ₹{totalLoanAmount?.toLocaleString() || "0"}
             </p>
           </div>
-  
+
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 sm:p-6 rounded-xl shadow-lg border border-blue-200 dark:border-blue-800">
             <div className="flex items-center justify-between">
               <h2 className="text-base sm:text-lg font-semibold text-blue-800 dark:text-blue-200 uppercase">
@@ -182,7 +219,7 @@ const FinancialStatement = () => {
               ₹{totalReceivedAmount?.toLocaleString() || "0"}
             </p>
           </div>
-  
+
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-4 sm:p-6 rounded-xl shadow-lg border border-orange-200 dark:border-orange-800">
             <div className="flex items-center justify-between">
               <h2 className="text-base sm:text-lg font-semibold text-orange-800 dark:text-orange-200 uppercase">
@@ -195,13 +232,13 @@ const FinancialStatement = () => {
             </p>
           </div>
         </div>
-  
+
         <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 w-full">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 sm:mb-6 flex items-center">
             Overall Totals
             <ArrowUpRight className="ml-2 w-4 h-4 text-gray-400" />
           </h2>
-         
+
           <div className="grid grid-cols-1 gap-3 sm:gap-4">
             {[
               {

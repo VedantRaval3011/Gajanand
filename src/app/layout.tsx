@@ -108,7 +108,9 @@ export default async function RootLayout({
           content="mstile-310x310.png"
         />
       </head>
-      <body className={`${ubuntu.variable} antialiased`}>{children}</body>
+      <body className={`${ubuntu.variable} antialiased`}>
+          {children}
+      </body>
     </html>
   );
 }
