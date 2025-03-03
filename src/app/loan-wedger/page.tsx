@@ -520,7 +520,7 @@ const LoanLedger: React.FC = () => {
                       <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {loan.period}
                       </td>
-                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                      <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 max-w-xs truncate uppercase">
                         {loan.holderAddress}
                       </td>
                       <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -549,7 +549,7 @@ const LoanLedger: React.FC = () => {
                               {loan.guarantors.map((guarantor, idx) => (
                                 <div
                                   key={idx}
-                                  className="p-2 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                                  className="p-2 uppercase sm:p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                                 >
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                                     <div>
@@ -572,7 +572,7 @@ const LoanLedger: React.FC = () => {
                                       <span className="text-sm sm:text-lg lg:text-xl font-bold text-gray-500 dark:text-gray-400">
                                         Address
                                       </span>
-                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100 break-words">
+                                      <p className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
                                         {guarantor.address}
                                       </p>
                                     </div>

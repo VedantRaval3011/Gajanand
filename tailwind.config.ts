@@ -9,50 +9,31 @@ export default {
   ],
   theme: {
   	extend: {
-  		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
-  			navbar: '#D6DBE1',
-  			yellowBorder: '#FFD700',
-  			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
-  			},
-  			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
-  			},
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
-  			},
-  			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
-  			},
-  			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
-  			},
-  			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
-  			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
-  			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
-  			}
-  		},
+		colors: {
+			yellow: {
+			  100: '#fff7ed',
+			  300: '#e8b903', // Rich yellow
+			  400: '#FFD700', // Gold
+			  500: '#FFD700', // Gold
+			  600: '#e8b903', // Slightly darker gold
+			  700: '#d4a602', // Darker gold
+			},
+			orange: {
+			  100: '#ffedd5',
+			  600: '#ea580c', // Vibrant orange
+			  700: '#c2410c', // Darker orange
+			  800: '#9a3412', // Even darker orange
+			},
+			gray: {
+			  100: '#f3f4f6',
+			  200: '#e5e7eb',
+			  300: '#d1d5db',
+			  500: '#6b7280',
+			  600: '#4b5563',
+			  700: '#374151',
+			  800: '#1f2937',
+			},
+		  },
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
