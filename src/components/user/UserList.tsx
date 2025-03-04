@@ -61,7 +61,7 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
               <h2 className="font-bold text-orange-100 dark:text-orange-100 text-2xl">File #{fileNumber}</h2>
               <motion.svg
                 animate={{ rotate: expandedFiles.includes(fileNumber) ? 180 : 0 }}
-                className="w-6 h-6 text-orange-100 "
+                className="w-6 h-6 text-orange-100"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -86,17 +86,21 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                       transition={{ duration: 0.3 }}
                       className="bg-gradient-to-r from-orange-100 to-orange-100 dark:from-orange-200 dark:to-orange-300 p-4 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300"
                     >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl "> {user.holderName}</p>
-                          <p className="text-orange-600 dark:text-orange-800 text-xl ">{user.name}</p>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl truncate">
+                            {user.holderName}
+                          </p>
+                          <p className="text-orange-600 dark:text-orange-800 text-xl truncate">
+                            {user.name}
+                          </p>
                         </div>
-                        <div className="space-x-2">
+                        <div className="flex space-x-2 shrink-0">
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedUser(user)}
-                            className="px-4 py-2 bg-orange-500 dark:bg-orange-600 text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 transition-colors"
+                            className="px-3 py-1 sm:px-4 sm:py-2 bg-orange-500 dark:bg-orange-600 text-white rounded-lg hover:bg-orange-600 dark:hover:bg-orange-700 transition-colors text-sm sm:text-base whitespace-nowrap"
                           >
                             Update
                           </motion.button>
@@ -104,7 +108,7 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleDelete(user._id)}
-                            className="px-4 py-2 bg-orange-600 dark:bg-orange-700 text-white rounded-lg hover:bg-orange-700 dark:hover:bg-orange-800 transition-colors"
+                            className="px-3 py-1 sm:px-4 sm:py-2 bg-orange-600 dark:bg-orange-700 text-white rounded-lg hover:bg-orange-700 dark:hover:bg-orange-800 transition-colors text-sm sm:text-base whitespace-nowrap"
                           >
                             Delete
                           </motion.button>
