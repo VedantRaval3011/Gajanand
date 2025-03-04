@@ -29,10 +29,10 @@ const Alert: React.FC<AlertProps> = ({
 
   return (
     <AlertDialog open={isOpen}>
-      <AlertDialogContent>
+      <AlertDialogContent className='bg-white dark:bg-gray-800'>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogTitle className='text-gray-600 dark:text-gray-200'>{title}</AlertDialogTitle>
+          <AlertDialogDescription className='text-gray-600 dark:text-gray-400'>
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
