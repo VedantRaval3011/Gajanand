@@ -95,9 +95,47 @@ const LoanManagement: React.FC = () => {
   // Moved useEffect to top level
   useEffect(() => {
     if (!isLoading && payments.length > 0 && lastRowRef.current) {
-      lastRowRef.current.focus();
-      lastRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      setSelectedCell({ row: payments.length - 1, column: "accountNo" });
+      const focusAndScroll = () => {
+        lastRowRef.current?.focus();
+  
+        // Check if the device is mobile (screen width <= 768px)
+        const isMobile = window.innerWidth <= 768;
+  
+        if (isMobile && lastRowRef.current) {
+          // Scroll the input into view with smooth behavior on mobile
+          lastRowRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center", // Center the input in the viewport
+            inline: "nearest",
+          });
+  
+          // Additional scroll adjustment to ensure visibility on mobile
+          setTimeout(() => {
+            const tableBody = document.getElementById("payments-table-body");
+            if (tableBody && lastRowRef.current) {
+              const inputPosition =
+                lastRowRef.current.getBoundingClientRect().top +
+                window.scrollY -
+                100; // Adjust offset for better visibility
+              window.scrollTo({
+                top: inputPosition,
+                behavior: "smooth",
+              });
+            }
+          }, 300); // Delay to ensure smooth scroll after initial render
+        } else {
+          // Desktop behavior
+          lastRowRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+  
+        setSelectedCell({ row: payments.length - 1, column: "accountNo" });
+      };
+  
+      // Execute immediately and ensure it runs after DOM updates
+      setTimeout(focusAndScroll, 0);
     }
   }, [isLoading, payments.length]);
 
@@ -1299,7 +1337,7 @@ const LoanManagement: React.FC = () => {
 
         <div className="w-full lg:w-2/3 flex flex-col">
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700 overflow-hidden flex flex-col min-h-0 max-h-[61vh]">
-            <div className="flex-1 overflow-x-auto overflow-y-auto relative">
+            <div className="flex-1 overflow-x-auto overflow-y-auto relative" id="payments-table-body">
               {isLoading ? (
                 <div className="relative w-full h-full">
                   <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center z-20">
