@@ -13,11 +13,6 @@ import { useNavigationStore } from "@/store/NavigationStore";
 import Image from "next/image";
 import CustomAlertDialog from "@/components/customAlertDialog/CustomAlertDialog";
 
-interface InputState {
-  value: string;
-  isCustom: boolean;
-}
-
 interface LoanDetails {
   _id: string;
   holderName: string;
@@ -64,9 +59,11 @@ const LoanManagement: React.FC = () => {
       amountPaid: 0,
       paymentDate: new Date(),
       lateAmount: 0,
-      isDefaultAmount: true, // Changed to true initially
+      isDefaultAmount: true,
     },
   ]);
+
+  const lastRowRef = useRef<HTMLInputElement | null>(null);
   const setSelectedNavItem = useNavigationStore(
     (state) => state.setSelectedNavItem
   );
@@ -94,6 +91,15 @@ const LoanManagement: React.FC = () => {
   const [loanDetailsCache, setLoanDetailsCache] = useState<{
     [key: string]: LoanDetails;
   }>({});
+
+  // Moved useEffect to top level
+  useEffect(() => {
+    if (!isLoading && payments.length > 0 && lastRowRef.current) {
+      lastRowRef.current.focus();
+      lastRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      setSelectedCell({ row: payments.length - 1, column: "accountNo" });
+    }
+  }, [isLoading, payments.length]);
 
   const fetchPaymentHistory = async (accountNo: string) => {
     try {
@@ -137,8 +143,7 @@ const LoanManagement: React.FC = () => {
   };
 
   const handleAmountPaidFocus = (
-    event: React.FocusEvent<HTMLInputElement>,
-    index: number
+    event: React.FocusEvent<HTMLInputElement>
   ) => {
     event.target.select();
   };
@@ -300,7 +305,6 @@ const LoanManagement: React.FC = () => {
   const handleAccountNoChange = async (value: string, index: number) => {
     const trimmedValue = value.trim();
 
-    // Update account number immediately
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
       updatedPayments[index] = {
@@ -311,7 +315,6 @@ const LoanManagement: React.FC = () => {
     });
 
     if (!trimmedValue) {
-      // Reset amount paid to 0 when account number is cleared
       setPayments((prevPayments) => {
         const updatedPayments = [...prevPayments];
         updatedPayments[index] = {
@@ -328,10 +331,8 @@ const LoanManagement: React.FC = () => {
       const loanData = await fetchLoanDetails(trimmedValue);
 
       if (loanData) {
-        // Always set the installment amount as base value when account changes
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
-          // Only update amountPaid if it hasn't been customized or is currently 0
           const currentPayment = updatedPayments[index];
           if (
             currentPayment.isDefaultAmount ||
@@ -350,7 +351,6 @@ const LoanManagement: React.FC = () => {
           await fetchPaymentHistory(trimmedValue);
         }
       } else {
-        // If no loan data found, reset amount paid
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           updatedPayments[index] = {
@@ -383,10 +383,9 @@ const LoanManagement: React.FC = () => {
       updatedPayments[index] = {
         ...updatedPayments[index],
         amountPaid: amount,
-        isDefaultAmount: false, // Mark as custom input when user changes it
+        isDefaultAmount: false,
       };
 
-      // Update received amounts
       const accountNo = currentPayment.accountNo;
       if (accountNo) {
         const previousReceived = receivedAmounts[accountNo] || 0;
@@ -425,7 +424,6 @@ const LoanManagement: React.FC = () => {
       return;
     }
 
-    // Remove duplicates by keeping the last occurrence of each accountNo
     const uniquePaymentsMap = new Map<string, Payment>();
     validPayments.forEach((payment) => {
       uniquePaymentsMap.set(payment.accountNo.trim(), payment);
@@ -466,7 +464,6 @@ const LoanManagement: React.FC = () => {
       setAlertMessage("Payment saved successfully");
       setAlertOpen(true);
 
-      // Update payments with server response, ensuring no duplicates
       const updatedPayments = responseData.payments.map(
         (payment: Payment, index: number) => ({
           ...payment,
@@ -483,23 +480,19 @@ const LoanManagement: React.FC = () => {
       setPayments(updatedPayments);
       setExistingPayments(updatedPayments);
 
-      // Clear caches to force fresh data
       setPaymentHistoryCache({});
 
-      // Set accounts that need refreshing
       const accountsToRefresh: string[] = updatedPayments.map(
         (p: Payment) => p.accountNo
       );
       const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
 
-      // Trigger useEffect to sync values
       setIsSaved({
         status: true,
         accounts: accountsToRefresh,
         currentAccount: currentAccountNo,
       });
 
-      // Focus on the last row
       const lastIndex = updatedPayments.length - 1;
       setTimeout(() => {
         inputRefs.current[`accountNo-${lastIndex}`]?.focus();
@@ -511,8 +504,6 @@ const LoanManagement: React.FC = () => {
     }
   };
 
-  // useEffect to ensure UI updates after save
-  // useEffect to ensure UI updates after save
   useEffect(() => {
     if (isSaved.status) {
       const syncValues = async () => {
@@ -524,7 +515,6 @@ const LoanManagement: React.FC = () => {
           isSaved.accounts.map(async (accountNo) => {
             if (!accountNo) return;
 
-            // Fetch fresh payment history
             const history = await fetchPaymentHistory(accountNo);
             const totalReceived = history.reduce(
               (sum: number, p: Payment) => sum + (p.amountPaid || 0),
@@ -532,12 +522,10 @@ const LoanManagement: React.FC = () => {
             );
             newReceivedAmounts[accountNo] = totalReceived;
 
-            // Fetch fresh loan details
             const loanDetailsData = await fetchLoanDetails(accountNo);
             if (loanDetailsData) {
               newLoanDetailsCache[accountNo] = loanDetailsData;
 
-              // Calculate late amount consistently with calculateLateAmount
               const loanDate = new Date(loanDetailsData.date);
               const today = new Date(selectedDate);
 
@@ -565,7 +553,6 @@ const LoanManagement: React.FC = () => {
                 const lateAmount = expectedPayments - totalReceived;
                 newLateAmounts[accountNo] = lateAmount;
 
-                // Update payments with the new late amount
                 setPayments((prevPayments) =>
                   prevPayments.map((payment) =>
                     payment.accountNo === accountNo
@@ -578,12 +565,10 @@ const LoanManagement: React.FC = () => {
           })
         );
 
-        // Update all states with fresh data
         setReceivedAmounts(newReceivedAmounts);
         setLateAmounts(newLateAmounts);
         setLoanDetailsCache(newLoanDetailsCache);
 
-        // Refresh loan details display for the current account
         if (
           isSaved.currentAccount &&
           newLoanDetailsCache[isSaved.currentAccount]
@@ -591,7 +576,6 @@ const LoanManagement: React.FC = () => {
           setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
         }
 
-        // Reset saved state
         setIsSaved({ status: false, accounts: [], currentAccount: "" });
       };
 
@@ -1029,7 +1013,6 @@ const LoanManagement: React.FC = () => {
       setIsLoading(false);
       if (loanDetailsCache[accountNo]) {
         setLoanDetails(loanDetailsCache[accountNo]);
-        // Update the payment row with installment amount if it's the current row
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           const index = updatedPayments.findIndex(
@@ -1059,7 +1042,6 @@ const LoanManagement: React.FC = () => {
       }));
       setLoanDetails(data);
 
-      // Update the payment row with the fetched installment amount
       setPayments((prevPayments) => {
         const updatedPayments = [...prevPayments];
         const index = updatedPayments.findIndex(
@@ -1320,7 +1302,7 @@ const LoanManagement: React.FC = () => {
             <div className="flex-1 overflow-x-auto overflow-y-auto relative">
               {isLoading ? (
                 <div className="relative w-full h-full">
-                  <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70  flex items-center justify-center z-20">
+                  <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center z-20">
                     <div className="flex flex-col justify-end items-center space-y-3">
                       <div className="w-10 h-10 border-[5px] border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                       <p className="text-orange-600 dark:text-orange-400 font-medium">
@@ -1357,8 +1339,76 @@ const LoanManagement: React.FC = () => {
                               : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                           } transition-colors`}
                         >
-                          {/* Your existing row content */}
-                          {/* ... Keep the same content as your original table */}
+                          <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
+                            {payment.index}
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <input
+                              ref={(el) => {
+                                inputRefs.current[`accountNo-${index}`] = el;
+                                if (index === payments.length - 1)
+                                  lastRowRef.current = el;
+                              }}
+                              type="number"
+                              value={payment.accountNo}
+                              onChange={(e) =>
+                                handleAccountNoChange(e.target.value, index)
+                              }
+                              onBlur={() => handleAccountNoBlur(index)}
+                              onKeyDown={handleKeyDown}
+                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
+                                ${
+                                  selectedCell.row === index &&
+                                  selectedCell.column === "accountNo"
+                                    ? "border-orange-500 ring-2 ring-orange-500/20"
+                                    : "border-gray-300 dark:border-gray-600"
+                                }
+                                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              placeholder="Enter Account No."
+                            />
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <input
+                              ref={(el) => {
+                                inputRefs.current[`amountPaid-${index}`] = el;
+                              }}
+                              type="number"
+                              value={
+                                payment.amountPaid === 0 &&
+                                !payment.isDefaultAmount
+                                  ? ""
+                                  : payment.amountPaid
+                              }
+                              onChange={(e) =>
+                                handleAmountPaidChange(e.target.value, index)
+                              }
+                              onFocus={(e) => handleAmountPaidFocus(e)}
+                              onKeyDown={handleKeyDown}
+                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                                ${
+                                  selectedCell.row === index &&
+                                  selectedCell.column === "amountPaid"
+                                    ? "border-orange-500 ring-2 ring-orange-500/20"
+                                    : "border-gray-300 dark:border-gray-600"
+                                }
+                                ${
+                                  payment.isDefaultAmount &&
+                                  payment.amountPaid !== 0
+                                    ? "text-orange-600 dark:text-orange-400"
+                                    : ""
+                                }
+                                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              placeholder="Enter Amount"
+                            />
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <button
+                              onClick={() => handleDeletePayment(index)}
+                              className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1366,7 +1416,7 @@ const LoanManagement: React.FC = () => {
                 </div>
               ) : (
                 <table className="w-full min-w-[640px]">
-                  <thead className=" bg-orange-50 dark:bg-orange-950 shadow-md">
+                  <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
                     <tr>
                       {["Index", "Account No.", "Amount Paid", "Actions"].map(
                         (header) => (
@@ -1399,7 +1449,8 @@ const LoanManagement: React.FC = () => {
                           <input
                             ref={(el) => {
                               inputRefs.current[`accountNo-${index}`] = el;
-                              if (index === 0) firstAccountNoRef.current = el;
+                              if (index === payments.length - 1)
+                                lastRowRef.current = el;
                             }}
                             type="number"
                             value={payment.accountNo}
@@ -1409,12 +1460,13 @@ const LoanManagement: React.FC = () => {
                             onBlur={() => handleAccountNoBlur(index)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-          ${
-            selectedCell.row === index && selectedCell.column === "accountNo"
-              ? "border-orange-500 ring-2 ring-orange-500/20"
-              : "border-gray-300 dark:border-gray-600"
-          }
-          bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              ${
+                                selectedCell.row === index &&
+                                selectedCell.column === "accountNo"
+                                  ? "border-orange-500 ring-2 ring-orange-500/20"
+                                  : "border-gray-300 dark:border-gray-600"
+                              }
+                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Account No."
                           />
                         </td>
@@ -1433,20 +1485,22 @@ const LoanManagement: React.FC = () => {
                             onChange={(e) =>
                               handleAmountPaidChange(e.target.value, index)
                             }
-                            onFocus={(e) => handleAmountPaidFocus(e, index)}
+                            onFocus={(e) => handleAmountPaidFocus(e)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-          ${
-            selectedCell.row === index && selectedCell.column === "amountPaid"
-              ? "border-orange-500 ring-2 ring-orange-500/20"
-              : "border-gray-300 dark:border-gray-600"
-          }
-          ${
-            payment.isDefaultAmount && payment.amountPaid !== 0
-              ? "text-orange-600 dark:text-orange-400"
-              : ""
-          }
-          bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              ${
+                                selectedCell.row === index &&
+                                selectedCell.column === "amountPaid"
+                                  ? "border-orange-500 ring-2 ring-orange-500/20"
+                                  : "border-gray-300 dark:border-gray-600"
+                              }
+                              ${
+                                payment.isDefaultAmount &&
+                                payment.amountPaid !== 0
+                                  ? "text-orange-600 dark:text-orange-400"
+                                  : ""
+                              }
+                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Amount"
                           />
                         </td>
