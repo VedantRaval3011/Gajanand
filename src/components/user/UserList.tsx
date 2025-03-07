@@ -78,7 +78,7 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                   transition={{ duration: 0.3 }}
                   className="mt-4 space-y-4"
                 >
-                  {groupedUsers[fileNumber].map((user) => (
+                  {groupedUsers[fileNumber].map((user, index) => (
                     <motion.div
                       key={user._id}
                       initial={{ opacity: 0 }}
@@ -88,7 +88,9 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                     >
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl uppercase">
+                          
+                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl uppercase flex  items-center">
+                          <span className='inline-flex items-center justify-center bg-orange-500 text-white rounded-full text-base w-7 h-7  mr-2'>{index + 1}</span>
                             {user.holderName}
                           </p>
                           <p className="text-orange-600 dark:text-orange-800 text-xl uppercase">
