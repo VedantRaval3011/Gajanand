@@ -860,7 +860,6 @@ const LoanManagement: React.FC = () => {
   };
 
   const fetchExistingPayments = async () => {
-    setIsLoading(true);
     try {
       const formattedDate = formatDateForInput(selectedDate);
       const url = new URL("/api/payments", window.location.origin);
@@ -910,9 +909,7 @@ const LoanManagement: React.FC = () => {
     } catch {
       alert("Error fetching existing payments");
       resetState();
-    } finally {
-      setIsLoading(false);
-    }
+    } 
   };
 
   useEffect(() => {
