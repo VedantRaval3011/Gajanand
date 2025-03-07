@@ -88,10 +88,10 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                     >
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl truncate">
+                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl uppercase">
                             {user.holderName}
                           </p>
-                          <p className="text-orange-600 dark:text-orange-800 text-xl truncate">
+                          <p className="text-orange-600 dark:text-orange-800 text-xl uppercase">
                             {user.name}
                           </p>
                         </div>

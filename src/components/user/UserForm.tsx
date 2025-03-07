@@ -71,7 +71,7 @@ const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
           value={formData.holderName}
           onChange={(e) => setFormData({ ...formData, holderName: e.target.value })}
           onKeyDown={(e) => handleKeyDown(e, 'holderName')}
-          className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+          className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700 uppercase"
           required
         />
         <input
@@ -81,7 +81,7 @@ const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           onKeyDown={(e) => handleKeyDown(e, 'name')}
-          className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+          className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700 uppercase"
           required
         />
         <input
