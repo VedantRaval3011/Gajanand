@@ -47,7 +47,7 @@ const LoanManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     row: number;
     column: "accountNo" | "amountPaid";
@@ -861,13 +861,14 @@ const LoanManagement: React.FC = () => {
 
   const fetchExistingPayments = async () => {
     try {
+      setIsLoading(true); // Only set to true when we start fetching
       const formattedDate = formatDateForInput(selectedDate);
       const url = new URL("/api/payments", window.location.origin);
       url.searchParams.set("date", formattedDate);
-
+  
       const response = await fetch(url.toString());
       const data = await response.json();
-
+  
       if (data.payments && data.payments.length > 0) {
         const formattedPayments = data.payments.map(
           (payment: Payment, index: number) => ({
@@ -882,12 +883,12 @@ const LoanManagement: React.FC = () => {
             isDefaultAmount: false,
           })
         );
-
+  
         setExistingPayments(formattedPayments);
         setPayments(formattedPayments);
-
+  
         const receivedAmountsMap: { [key: string]: number } = {};
-
+  
         await Promise.all(
           formattedPayments.map(async (payment: Payment) => {
             const history = await fetchPaymentHistory(payment.accountNo);
@@ -897,9 +898,9 @@ const LoanManagement: React.FC = () => {
             );
           })
         );
-
+  
         setReceivedAmounts(receivedAmountsMap);
-
+  
         if (formattedPayments[0].accountNo) {
           await fetchLoanDetails(formattedPayments[0].accountNo);
         }
@@ -909,7 +910,9 @@ const LoanManagement: React.FC = () => {
     } catch {
       alert("Error fetching existing payments");
       resetState();
-    } 
+    } finally {
+      setIsLoading(false); // Always reset loading state when done
+    }
   };
 
   useEffect(() => {
