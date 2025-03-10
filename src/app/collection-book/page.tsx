@@ -97,10 +97,10 @@ const LoanManagement: React.FC = () => {
     if (!isLoading && payments.length > 0 && lastRowRef.current) {
       const focusAndScroll = () => {
         lastRowRef.current?.focus();
-  
+
         // Check if the device is mobile (screen width <= 768px)
         const isMobile = window.innerWidth <= 768;
-  
+
         if (isMobile && lastRowRef.current) {
           // Scroll the input into view with smooth behavior on mobile
           lastRowRef.current.scrollIntoView({
@@ -108,7 +108,7 @@ const LoanManagement: React.FC = () => {
             block: "center", // Center the input in the viewport
             inline: "nearest",
           });
-  
+
           // Additional scroll adjustment to ensure visibility on mobile
           setTimeout(() => {
             const tableBody = document.getElementById("payments-table-body");
@@ -130,10 +130,10 @@ const LoanManagement: React.FC = () => {
             block: "center",
           });
         }
-  
+
         setSelectedCell({ row: payments.length - 1, column: "accountNo" });
       };
-  
+
       // Execute immediately and ensure it runs after DOM updates
       setTimeout(focusAndScroll, 0);
     }
@@ -180,9 +180,7 @@ const LoanManagement: React.FC = () => {
     }, 0);
   };
 
-  const handleAmountPaidFocus = (
-    event: React.FocusEvent<HTMLInputElement>
-  ) => {
+  const handleAmountPaidFocus = (event: React.FocusEvent<HTMLInputElement>) => {
     event.target.select();
   };
 
@@ -255,10 +253,12 @@ const LoanManagement: React.FC = () => {
             );
 
             if (isDuplicate) {
-              setAlertMessage(
-                "This account number is already entered in another row."
-              );
-              setAlertOpen(true);
+              alert("Duplicate accountNos are not allowed");
+              setPayments((prevPayments) => {
+                const updatedPayments = [...prevPayments];
+                updatedPayments[currentRow].accountNo = "";
+                return updatedPayments;
+              });
               inputRefs.current[`accountNo-${currentRow}`]?.focus();
               return;
             }
@@ -451,23 +451,50 @@ const LoanManagement: React.FC = () => {
       setAlertOpen(true);
       return;
     }
-
+  
     const validPayments = payments.filter(
       (p) => p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
     );
-
+  
     if (validPayments.length === 0) {
       setAlertMessage("No valid payments to save");
       setAlertOpen(true);
       return;
     }
-
+  
+    // Log the valid payments for debugging
+    console.log("Valid Payments:", validPayments);
+  
+    // Check for duplicates
+    const accountNoSet = new Set<string>();
+    const duplicates: string[] = [];
+    const hasDuplicates = validPayments.some((payment) => {
+      const trimmedAccountNo = payment.accountNo.trim();
+      if (accountNoSet.has(trimmedAccountNo)) {
+        duplicates.push(trimmedAccountNo); // Track duplicates for logging
+        return true;
+      }
+      accountNoSet.add(trimmedAccountNo);
+      return false;
+    });
+  
+    // Log duplicate detection result
+    console.log("Has Duplicates:", hasDuplicates);
+    console.log("Duplicate Account Nos:", duplicates);
+  
+    if (hasDuplicates) {
+      alert("Duplicate account No are not allowed");
+      console.log("Alert should have been triggered");
+      return; // Prevent save and exit
+    }
+  
+    // Proceed with saving unique payments
     const uniquePaymentsMap = new Map<string, Payment>();
     validPayments.forEach((payment) => {
       uniquePaymentsMap.set(payment.accountNo.trim(), payment);
     });
     const uniquePayments = Array.from(uniquePaymentsMap.values());
-
+  
     try {
       const paymentData = {
         loanId: loanDetails._id,
@@ -484,7 +511,7 @@ const LoanManagement: React.FC = () => {
           };
         }),
       };
-
+  
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: {
@@ -492,16 +519,16 @@ const LoanManagement: React.FC = () => {
         },
         body: JSON.stringify(paymentData),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to save payments");
       }
-
+  
       const responseData = await response.json();
       setAlertMessage("Payment saved successfully");
       setAlertOpen(true);
-
+  
       const updatedPayments = responseData.payments.map(
         (payment: Payment, index: number) => ({
           ...payment,
@@ -517,20 +544,20 @@ const LoanManagement: React.FC = () => {
       );
       setPayments(updatedPayments);
       setExistingPayments(updatedPayments);
-
+  
       setPaymentHistoryCache({});
-
+  
       const accountsToRefresh: string[] = updatedPayments.map(
         (p: Payment) => p.accountNo
       );
       const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
-
+  
       setIsSaved({
         status: true,
         accounts: accountsToRefresh,
         currentAccount: currentAccountNo,
       });
-
+  
       const lastIndex = updatedPayments.length - 1;
       setTimeout(() => {
         inputRefs.current[`accountNo-${lastIndex}`]?.focus();
@@ -865,10 +892,10 @@ const LoanManagement: React.FC = () => {
       const formattedDate = formatDateForInput(selectedDate);
       const url = new URL("/api/payments", window.location.origin);
       url.searchParams.set("date", formattedDate);
-  
+
       const response = await fetch(url.toString());
       const data = await response.json();
-  
+
       if (data.payments && data.payments.length > 0) {
         const formattedPayments = data.payments.map(
           (payment: Payment, index: number) => ({
@@ -883,12 +910,12 @@ const LoanManagement: React.FC = () => {
             isDefaultAmount: false,
           })
         );
-  
+
         setExistingPayments(formattedPayments);
         setPayments(formattedPayments);
-  
+
         const receivedAmountsMap: { [key: string]: number } = {};
-  
+
         await Promise.all(
           formattedPayments.map(async (payment: Payment) => {
             const history = await fetchPaymentHistory(payment.accountNo);
@@ -898,9 +925,9 @@ const LoanManagement: React.FC = () => {
             );
           })
         );
-  
+
         setReceivedAmounts(receivedAmountsMap);
-  
+
         if (formattedPayments[0].accountNo) {
           await fetchLoanDetails(formattedPayments[0].accountNo);
         }
@@ -1337,7 +1364,10 @@ const LoanManagement: React.FC = () => {
 
         <div className="w-full lg:w-2/3 flex flex-col">
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700 overflow-hidden flex flex-col min-h-0 max-h-[61vh]">
-            <div className="flex-1 overflow-x-auto overflow-y-auto relative" id="payments-table-body">
+            <div
+              className="flex-1 overflow-x-auto overflow-y-auto relative"
+              id="payments-table-body"
+            >
               {isLoading ? (
                 <div className="relative w-full h-full">
                   <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center z-20">
