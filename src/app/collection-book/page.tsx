@@ -928,7 +928,7 @@ const LoanManagement: React.FC = () => {
       const lastIndex = payments.length - 1;
       inputRefs.current[`accountNo-${lastIndex}`]?.focus();
     }
-  }, [payments, isLoading]);
+  }, [ isLoading]);
 
   // Effect to fetch payments when date changes
   useEffect(() => {
