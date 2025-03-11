@@ -1,46 +1,25 @@
+// app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import UserForm from "@/components/user/UserForm";
-import UserList from "@/components/user/UserList";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { Toaster, toast } from "react-hot-toast";
+import ChequeForm from "@/components/chequeForm/ChequeForm";
+import ChequeList from "@/components/chequeList/ChequeList";
+import type { Cheque } from "@/types/cheque";
 import { useNavigationStore } from "@/store/NavigationStore";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-interface User {
-  _id: string;
-  holderName: string;
-  name: string;
-  fileNumber: string;
-}
-
 export default function Home() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [cheques, setCheques] = useState<Cheque[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [editingCheque, setEditingCheque] = useState<Cheque | null>(null);
   const setSelectedNavItem = useNavigationStore(
     (state) => state.setSelectedNavItem
   );
   const router = useRouter();
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    const response = await fetch("/api/users");
-    const data = await response.json();
-    if (data.success) {
-      setUsers(data.data);
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  // Theme management
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     if (!savedTheme) {
@@ -57,7 +36,7 @@ export default function Home() {
     }
   }, []);
 
-  const toggleTheme = () => {
+  const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
       localStorage.setItem("theme", newMode ? "dark" : "light");
@@ -71,187 +50,164 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const handleThemeToggle = (e: WindowEventMap["keydown"]) => {
-      if (e.key.toLowerCase() === "d" && (e.altKey || e.metaKey)) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        toggleTheme();
+        toggleDarkMode();
       }
     };
-    window.addEventListener("keydown", handleThemeToggle);
-    return () => window.removeEventListener("keydown", handleThemeToggle);
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, []);
 
-  // Escape key navigation
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setSelectedNavItem("Master", 2);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
         router.push("/");
+        setSelectedNavItem("Master", 3);
       }
     };
-    document.addEventListener("keydown", handleKeyPress);
-    return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [router, setSelectedNavItem]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
-  // Group users by fileNumber
-  const groupedUsers = users.reduce((acc: { [key: string]: User[] }, user) => {
-    acc[user.fileNumber] = [...(acc[user.fileNumber] || []), user];
-    return acc;
-  }, {});
+  useEffect(() => {
+    fetchCheques();
+  }, []);
 
-  // Filter users based on search query
-  const filteredGroupedUsers = Object.keys(groupedUsers).reduce(
-    (acc: { [key: string]: User[] }, fileNumber) => {
-      const filtered = groupedUsers[fileNumber].filter(
-        (user) =>
-          user.holderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.fileNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  const fetchCheques = async () => {
+    try {
+      const response = await fetch("/api/cheques");
+      if (!response.ok) throw new Error("Failed to fetch cheques");
+      const data = await response.json();
+      setCheques(data);
+    } catch (error) {
+      console.error("Error fetching cheques:", error);
+      toast.error("Failed to load cheques");
+    }
+  };
+
+  const addCheque = async (cheque: Omit<Cheque, "_id">) => {
+    try {
+      const response = await fetch("/api/cheques", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cheque),
+      });
+      if (!response.ok) throw new Error("Failed to add cheque");
+      const newCheque = await response.json();
+      setCheques([...cheques, newCheque]);
+      toast.success("Cheque added successfully!");
+    } catch (error) {
+      console.error("Error adding cheque:", error);
+      toast.error("Failed to add cheque");
+    }
+  };
+
+  const updateCheque = async (id: string, chequeData: Partial<Cheque>) => {
+    try {
+      const response = await fetch(`/api/cheques/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chequeData),
+      });
+      if (!response.ok) throw new Error("Failed to update cheque");
+      const updatedCheque = await response.json();
+      setCheques(
+        cheques.map((cheque) => (cheque._id === id ? updatedCheque : cheque))
       );
-      if (filtered.length > 0) {
-        acc[fileNumber] = filtered;
-      }
-      return acc;
-    },
-    {}
-  );
+      setEditingCheque(null);
+      toast.success("Cheque updated successfully!");
+    } catch (error) {
+      console.error("Error updating cheque:", error);
+      toast.error("Failed to update cheque");
+    }
+  };
+
+  const deleteCheque = async (id: string) => {
+    try {
+      const response = await fetch(`/api/cheques/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete cheque");
+      setCheques(cheques.filter((cheque) => cheque._id !== id));
+      toast.success("Cheque deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting cheque:", error);
+      toast.error("Failed to delete cheque");
+    }
+  };
 
   return (
-    <main className="bg-[#fff2e0] dark:bg-[#181717] text-gray-900 dark:text-gray-100 transition-colors duration-300 min-h-screen">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header Section */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="mb-4">
-            {isDarkMode ? (
-              <Image
-                src="/GFLogo.png"
-                alt="logo"
-                height={50}
-                width={50}
-                className="w-12 lg:w-16 drop-shadow-lg transition-all duration-300 cursor-pointer hover:scale-105"
-                onClick={() => router.push("/")}
-              />
-            ) : (
-              <Image
-                src="/lightlogo.png"
-                alt="logo"
-                height={50}
-                width={50}
-                className="w-12 lg:w-16 drop-shadow-lg transition-all duration-300 cursor-pointer hover:scale-105"
-                onClick={() => router.push("/")}
-              />
-            )}
-          </div>
-          <motion.h1
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-4xl md:text-5xl font-bold text-orange-500 dark:text-orange-400 text-center"
-          >
-            Document Details
-          </motion.h1>
-        </div>
-
-        {/* Search and Action Section */}
-        <div className="max-w-4xl mx-auto mb-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-6"
-          >
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search by Name, Holder Name, or File Number"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full p-5 md:pl-12 pl-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-orange-300 dark:focus:ring-orange-500 shadow-lg transition-all duration-300 hover:shadow-xl"
-              />
-              <svg
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-orange-500 dark:text-orange-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+    <main className="min-h-screen bg-orange-50 dark:bg-gray-900 py-10 transition-colors duration-300">
+      <Toaster position="top-right" />
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="container mx-auto px-4"
+      >
+        <div className="flex justify-between items-center mb-8 uppercase">
+          <h1 className="text-2xl font-bold text-orange-600 dark:text-orange-400 text-center flex justify-center gap-3 items-center w-full">
+            <div className="cursor-pointer hover:scale-110 transition-transform">
+              {isDarkMode ? (
+                <Image
+                  src="/GFLogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-10 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
                 />
-              </svg>
+              ) : (
+                <Image
+                  src="/lightlogo.png"
+                  alt="logo"
+                  height={50}
+                  width={50}
+                  className="w-10 drop-shadow-[0_0_0_0.5] transition-opacity cursor-pointer"
+                  onClick={() => router.push("/")}
+                />
+              )}
             </div>
+            Manage Cheques
+          </h1>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <motion.div
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
+          >
+            <h2 className="text-2xl font-semibold text-orange-500 dark:text-orange-400 mb-6">
+              {editingCheque ? "Edit Cheque" : "Add New Cheque"}
+            </h2>
+            <ChequeForm
+              onSubmit={addCheque}
+              onUpdate={updateCheque}
+              cheque={editingCheque}
+              onCancel={() => setEditingCheque(null)}
+            />
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex justify-center"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"
           >
-            <button
-              onClick={() => setIsFormOpen(!isFormOpen)}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-full shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-orange-300 dark:focus:ring-orange-500"
-            >
-              {isFormOpen ? "Close Form" : "Add New User"}
-            </button>
+            <h2 className="text-2xl font-semibold text-orange-500 dark:text-orange-400 mb-6">
+              Recorded Cheques
+            </h2>
+            <ChequeList
+              cheques={cheques}
+              onEdit={setEditingCheque}
+              onDelete={deleteCheque}
+            />
           </motion.div>
         </div>
-
-        {/* User Form */}
-        <AnimatePresence>
-          {isFormOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.5 }}
-              className="max-w-4xl mx-auto mb-10"
-            >
-              <UserForm onUserAdded={fetchUsers} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Content Section */}
-        <div className="max-w-6xl mx-auto">
-          {isLoading ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-10"
-            >
-              <svg
-                className="animate-spin h-10 w-10 mx-auto mb-4 text-orange-500 dark:text-orange-400"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8h-8z"
-                />
-              </svg>
-              <p className="text-xl text-gray-600 dark:text-gray-300">Loading Users...</p>
-            </motion.div>
-          ) : (
-            <UserList
-              groupedUsers={filteredGroupedUsers}
-              onUserUpdated={fetchUsers}
-              onUserDeleted={fetchUsers}
-            />
-          )}
-        </div>
-      </div>
+      </motion.div>
     </main>
   );
 }

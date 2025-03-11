@@ -32,8 +32,8 @@ export default function Navbar() {
     Master: [
       { title: "Loan", href: "/loan", shortcut: "1" },
       { title: "Saving A/C", href: "/saving", shortcut: "2" },
-      { title: "Document Details", href: "/document-details", shortcut: "3" },
-      { title: "Guaranter Master", href: "/guaranter-master", shortcut: "4" },
+      { title: "Gajanand Forms", href: "/gajanand-forms", shortcut: "3" },
+      { title: "Document Detials", href: "/document-details", shortcut: "4" },
       { title: "Print Head", href: "/print-head", shortcut: "5" },
       { title: "Keyboard Shortcut", href: "/keyboard-shortcut", shortcut: "6" },
     ],

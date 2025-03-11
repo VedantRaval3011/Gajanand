@@ -145,10 +145,10 @@ const AccountFinder = ({
 
   // Handle account selection via click
   const handleSelectAccount = (selectedAccountNo: string) => {
-    onAccountSelect(selectedAccountNo);
-    setIsModalOpen(false);
+    onAccountSelect(selectedAccountNo); // Call this first
     setSearchTerm("");
     setHighlightedIndex(-1);
+    setIsModalOpen(false); // Close modal last
   };
 
   return (

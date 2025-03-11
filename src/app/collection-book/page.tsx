@@ -926,9 +926,11 @@ const LoanManagement: React.FC = () => {
   useEffect(() => {
     if (!isLoading && payments.length > 0) {
       const lastIndex = payments.length - 1;
+      setCurrentRow(lastIndex);
+      setSelectedCell({ row: lastIndex, column: "accountNo" }); // Ensure selectedCell is updated
       inputRefs.current[`accountNo-${lastIndex}`]?.focus();
     }
-  }, [ isLoading]);
+  }, [isLoading, payments.length]); // Add payments.length as a dependency
 
   // Effect to fetch payments when date changes
   useEffect(() => {
