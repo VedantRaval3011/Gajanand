@@ -47,6 +47,7 @@ const LoanManagement: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
   const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     row: number;
@@ -91,53 +92,6 @@ const LoanManagement: React.FC = () => {
   const [loanDetailsCache, setLoanDetailsCache] = useState<{
     [key: string]: LoanDetails;
   }>({});
-
-  // Moved useEffect to top level
-  useEffect(() => {
-    if (!isLoading && payments.length > 0 && lastRowRef.current) {
-      const focusAndScroll = () => {
-        lastRowRef.current?.focus();
-
-        // Check if the device is mobile (screen width <= 768px)
-        const isMobile = window.innerWidth <= 768;
-
-        if (isMobile && lastRowRef.current) {
-          // Scroll the input into view with smooth behavior on mobile
-          lastRowRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "center", // Center the input in the viewport
-            inline: "nearest",
-          });
-
-          // Additional scroll adjustment to ensure visibility on mobile
-          setTimeout(() => {
-            const tableBody = document.getElementById("payments-table-body");
-            if (tableBody && lastRowRef.current) {
-              const inputPosition =
-                lastRowRef.current.getBoundingClientRect().top +
-                window.scrollY -
-                100; // Adjust offset for better visibility
-              window.scrollTo({
-                top: inputPosition,
-                behavior: "smooth",
-              });
-            }
-          }, 300); // Delay to ensure smooth scroll after initial render
-        } else {
-          // Desktop behavior
-          lastRowRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-
-        setSelectedCell({ row: payments.length - 1, column: "accountNo" });
-      };
-
-      // Execute immediately and ensure it runs after DOM updates
-      setTimeout(focusAndScroll, 0);
-    }
-  }, [isLoading, payments.length]);
 
   const fetchPaymentHistory = async (accountNo: string) => {
     try {
@@ -446,60 +400,48 @@ const LoanManagement: React.FC = () => {
   };
 
   const savePayments = async () => {
+    if (isSaving) return; // Prevent multiple clicks while saving
+
     if (!loanDetails) {
       setAlertMessage("No loan selected");
       setAlertOpen(true);
       return;
     }
-  
+
     const validPayments = payments.filter(
       (p) => p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
     );
-  
+
     if (validPayments.length === 0) {
       setAlertMessage("No valid payments to save");
       setAlertOpen(true);
       return;
     }
-  
-    // Log the valid payments for debugging
-    console.log("Valid Payments:", validPayments);
-  
+
     // Check for duplicates
     const accountNoSet = new Set<string>();
     const duplicates: string[] = [];
     const hasDuplicates = validPayments.some((payment) => {
       const trimmedAccountNo = payment.accountNo.trim();
       if (accountNoSet.has(trimmedAccountNo)) {
-        duplicates.push(trimmedAccountNo); // Track duplicates for logging
+        duplicates.push(trimmedAccountNo);
         return true;
       }
       accountNoSet.add(trimmedAccountNo);
       return false;
     });
-  
-    // Log duplicate detection result
-    console.log("Has Duplicates:", hasDuplicates);
-    console.log("Duplicate Account Nos:", duplicates);
-  
+
     if (hasDuplicates) {
-      alert("Duplicate account No are not allowed");
-      console.log("Alert should have been triggered");
-      return; // Prevent save and exit
+      alert("Duplicate account Nos are not allowed");
+      return;
     }
-  
-    // Proceed with saving unique payments
-    const uniquePaymentsMap = new Map<string, Payment>();
-    validPayments.forEach((payment) => {
-      uniquePaymentsMap.set(payment.accountNo.trim(), payment);
-    });
-    const uniquePayments = Array.from(uniquePaymentsMap.values());
-  
+
+    setIsSaving(true); // Disable the button
     try {
       const paymentData = {
         loanId: loanDetails._id,
         paymentDate: formatDateForInput(selectedDate),
-        payments: uniquePayments.map((p) => {
+        payments: validPayments.map((p) => {
           const previousReceived = receivedAmounts[p.accountNo] || 0;
           const newReceived = previousReceived + Number(p.amountPaid);
           return {
@@ -511,7 +453,7 @@ const LoanManagement: React.FC = () => {
           };
         }),
       };
-  
+
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: {
@@ -519,16 +461,16 @@ const LoanManagement: React.FC = () => {
         },
         body: JSON.stringify(paymentData),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to save payments");
       }
-  
+
       const responseData = await response.json();
       setAlertMessage("Payment saved successfully");
       setAlertOpen(true);
-  
+
       const updatedPayments = responseData.payments.map(
         (payment: Payment, index: number) => ({
           ...payment,
@@ -544,20 +486,20 @@ const LoanManagement: React.FC = () => {
       );
       setPayments(updatedPayments);
       setExistingPayments(updatedPayments);
-  
+
       setPaymentHistoryCache({});
-  
+
       const accountsToRefresh: string[] = updatedPayments.map(
         (p: Payment) => p.accountNo
       );
       const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
-  
+
       setIsSaved({
         status: true,
         accounts: accountsToRefresh,
         currentAccount: currentAccountNo,
       });
-  
+
       const lastIndex = updatedPayments.length - 1;
       setTimeout(() => {
         inputRefs.current[`accountNo-${lastIndex}`]?.focus();
@@ -566,6 +508,8 @@ const LoanManagement: React.FC = () => {
     } catch (error) {
       setAlertMessage("Error Saving Payments: " + (error as Error).message);
       setAlertOpen(true);
+    } finally {
+      setIsSaving(false); // Re-enable the button after the operation
     }
   };
 
@@ -888,7 +832,7 @@ const LoanManagement: React.FC = () => {
 
   const fetchExistingPayments = async () => {
     try {
-      setIsLoading(true); // Only set to true when we start fetching
+      setIsLoading(true);
       const formattedDate = formatDateForInput(selectedDate);
       const url = new URL("/api/payments", window.location.origin);
       url.searchParams.set("date", formattedDate);
@@ -911,11 +855,21 @@ const LoanManagement: React.FC = () => {
           })
         );
 
+        // Add a new empty row after existing payments
+        const newPayment = {
+          index: formattedPayments.length + 1,
+          accountNo: "",
+          amountPaid: 0,
+          paymentDate: selectedDate,
+          lateAmount: 0,
+          isDefaultAmount: false,
+        };
+        const updatedPayments = [...formattedPayments, newPayment];
+
         setExistingPayments(formattedPayments);
-        setPayments(formattedPayments);
+        setPayments(updatedPayments);
 
         const receivedAmountsMap: { [key: string]: number } = {};
-
         await Promise.all(
           formattedPayments.map(async (payment: Payment) => {
             const history = await fetchPaymentHistory(payment.accountNo);
@@ -931,16 +885,55 @@ const LoanManagement: React.FC = () => {
         if (formattedPayments[0].accountNo) {
           await fetchLoanDetails(formattedPayments[0].accountNo);
         }
+
+        // Set focus to the new row
+        setSelectedCell({
+          row: updatedPayments.length - 1,
+          column: "accountNo",
+        });
       } else {
         resetState();
+        // After reset, ensure a new row is added and focused
+        const newPayment = {
+          index: 1,
+          accountNo: "",
+          amountPaid: 0,
+          paymentDate: selectedDate,
+          lateAmount: 0,
+          isDefaultAmount: false,
+        };
+        setPayments([newPayment]);
+        setSelectedCell({ row: 0, column: "accountNo" });
       }
     } catch {
       alert("Error fetching existing payments");
       resetState();
+      const newPayment = {
+        index: 1,
+        accountNo: "",
+        amountPaid: 0,
+        paymentDate: selectedDate,
+        lateAmount: 0,
+        isDefaultAmount: false,
+      };
+      setPayments([newPayment]);
+      setSelectedCell({ row: 0, column: "accountNo" });
     } finally {
-      setIsLoading(false); // Always reset loading state when done
+      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isLoading && payments.length > 0) {
+      const lastIndex = payments.length - 1;
+      inputRefs.current[`accountNo-${lastIndex}`]?.focus();
+    }
+  }, [payments, isLoading]);
+
+  // Effect to fetch payments when date changes
+  useEffect(() => {
+    fetchExistingPayments();
+  }, [selectedDate]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1591,9 +1584,14 @@ const LoanManagement: React.FC = () => {
           <div className="mt-4 md:mt-6 mb-2 md:mb-4 flex flex-col md:flex-row justify-between md:gap-32 text-base md:text-lg items-center gap-4">
             <button
               onClick={savePayments}
-              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all"
+              disabled={isSaving} // Disable the button when isSaving is true
+              className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${
+                isSaving
+                  ? "bg-orange-300 cursor-not-allowed"
+                  : "bg-orange-600 hover:bg-orange-700"
+              }`}
             >
-              Save All Payments (ALT + S)
+              {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
             </button>
             <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full md:w-60 text-center dark:text-white text-xl md:text-2xl">
               Total:{" "}
