@@ -147,9 +147,9 @@ export default function Home() {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-4xl md:text-5xl font-bold text-orange-500 dark:text-orange-400 text-center"
+            className="text-4xl md:text-5xl font-bold text-orange-500 dark:text-orange-400 text-center uppercase"
           >
-            Document Details
+            loan Forms
           </motion.h1>
         </div>
 
