@@ -133,7 +133,7 @@ export default function ChequeList({ cheques, onEdit, onDelete }: ChequeListProp
               className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg border border-orange-300 dark:border-gray-700 shadow-md"
             >
               <div className="flex justify-between sm:items-center gap-3 mb-3 sm:mb-4">
-                <h3 className="text-xl sm:text-2xl font-bold text-orange-700 dark:text-orange-300 tracking-wide sm:tracking-widest uppercase line-clamp-1">
+                <h3 className="text-lg sm:text-2xl font-bold text-orange-700 dark:text-orange-300 tracking-wide sm:tracking-widest uppercase ">
                   {cheque.userName || 'UNNAMED'}
                 </h3>
                 <div className="flex space-x-1 sm:space-x-2 self-end sm:self-auto">
@@ -159,7 +159,7 @@ export default function ChequeList({ cheques, onEdit, onDelete }: ChequeListProp
                   </motion.button>
                 </div>
               </div>
-              <p className="text-base sm:text-lg uppercase text-gray-700 dark:text-gray-300 font-semibold truncate">
+              <p className="text-base sm:text-lg uppercase text-gray-700 dark:text-gray-300 font-semibold ">
                 BANK: {cheque.bankName || 'N/A'}
               </p>
               {cheque.notes && (
