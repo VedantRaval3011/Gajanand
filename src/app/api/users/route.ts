@@ -14,8 +14,6 @@ export async function POST(request: NextRequest) {
   try {
     const body: User = await request.json();
 
-    // Log the incoming request body to verify notes is included
-    console.log('POST request body:', body);
 
     if (!body.holderName || !body.name || !body.fileNumber) {
       return NextResponse.json(
@@ -31,8 +29,7 @@ export async function POST(request: NextRequest) {
       notes: body.notes || '', // Ensure notes is included, default to empty string
     });
 
-    // Log the created user to verify notes is saved
-    console.log('Created user:', user);
+  
 
     return NextResponse.json(
       { success: true, data: user },

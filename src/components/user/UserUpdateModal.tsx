@@ -23,7 +23,6 @@ const UserUpdateModal: React.FC<UserUpdateModalProps> = ({ user, onClose, onUser
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submitting update data:', formData);
     try {
       const response = await fetch(`/api/users/${user._id}`, {
         method: 'PUT',

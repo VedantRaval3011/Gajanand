@@ -18,9 +18,6 @@ export async function PUT(
     const { id } = await params;
     const body: User = await request.json();
 
-    // Log the incoming request body to verify notes is included
-    console.log('PUT request body:', body);
-
     if (!body.holderName && !body.name && !body.fileNumber && body.notes === undefined) {
       return NextResponse.json(
         { success: false, error: 'At least one field must be provided for update' },
@@ -50,8 +47,7 @@ export async function PUT(
       );
     }
 
-    // Log the updated user to verify notes is saved
-    console.log('Updated user:', user);
+  
 
     return NextResponse.json(
       { success: true, data: user },
