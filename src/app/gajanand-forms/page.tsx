@@ -13,6 +13,7 @@ interface User {
   holderName: string;
   name: string;
   fileNumber: string;
+  notes: string; // Add notes to User interface
 }
 
 export default function Home() {
@@ -100,14 +101,15 @@ export default function Home() {
     return acc;
   }, {});
 
-  // Filter users based on search query
+  // Filter users based on search query including notes
   const filteredGroupedUsers = Object.keys(groupedUsers).reduce(
     (acc: { [key: string]: User[] }, fileNumber) => {
       const filtered = groupedUsers[fileNumber].filter(
         (user) =>
           user.holderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.fileNumber.toLowerCase().includes(searchQuery.toLowerCase())
+          user.fileNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (user.notes && user.notes.toLowerCase().includes(searchQuery.toLowerCase()))
       );
       if (filtered.length > 0) {
         acc[fileNumber] = filtered;
@@ -164,7 +166,7 @@ export default function Home() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search by Name, Holder Name, or File Number"
+                placeholder="Search by Name, Holder Name, File Number, or Notes"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full p-5 md:pl-12 pl-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-orange-300 dark:focus:ring-orange-500 shadow-lg transition-all duration-300 hover:shadow-xl"

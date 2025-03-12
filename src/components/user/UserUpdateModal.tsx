@@ -9,6 +9,7 @@ interface User {
   holderName: string;
   name: string;
   fileNumber: string;
+  notes: string; // Add notes to interface
 }
 
 interface UserUpdateModalProps {
@@ -22,6 +23,7 @@ const UserUpdateModal: React.FC<UserUpdateModalProps> = ({ user, onClose, onUser
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submitting update data:', formData);
     try {
       const response = await fetch(`/api/users/${user._id}`, {
         method: 'PUT',
@@ -63,6 +65,12 @@ const UserUpdateModal: React.FC<UserUpdateModalProps> = ({ user, onClose, onUser
               required
             />
           ))}
+          <textarea
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder="Notes"
+            className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-orange-300 dark:focus:ring-orange-500 transition-all duration-300 min-h-[100px] uppercase"
+          />
           <div className="flex space-x-4">
             <motion.button
               whileHover={{ scale: 1.05 }}

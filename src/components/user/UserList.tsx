@@ -1,3 +1,4 @@
+// components/UserList.tsx
 'use client';
 
 import { useState } from 'react';
@@ -10,6 +11,7 @@ interface User {
   holderName: string;
   name: string;
   fileNumber: string;
+  notes: string; // Add notes to interface
 }
 
 interface UserListProps {
@@ -88,14 +90,18 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                     >
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          
-                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl uppercase flex  items-center">
-                          <span className='inline-flex items-center justify-center bg-orange-500 text-white rounded-full text-base w-7 h-7  mr-2'>{index + 1}</span>
+                          <p className="text-orange-700 dark:text-orange-800 font-semibold text-2xl uppercase flex items-center">
+                            <span className='inline-flex items-center justify-center bg-orange-500 text-white rounded-full text-base w-7 h-7 mr-2'>{index + 1}</span>
                             {user.holderName}
                           </p>
                           <p className="text-orange-600 dark:text-orange-800 text-xl uppercase">
                             {user.name}
                           </p>
+                          {user.notes && (
+                            <p className="text-orange-600 dark:text-orange-700 text-base uppercase mt-2 break-words">
+                              Notes: {user.notes}
+                            </p>
+                          )}
                         </div>
                         <div className="flex space-x-2 shrink-0">
                           <motion.button

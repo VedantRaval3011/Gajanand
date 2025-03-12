@@ -2,28 +2,67 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Holder from '@/models/Holders';
 
+interface User {
+  holderName?: string;
+  name?: string;
+  fileNumber?: string;
+  notes?: string;
+}
+
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }  // Fixed context to proper destructuring
+  { params }: { params: Promise<{ id: string }> }
 ) {
   await dbConnect();
   try {
-    const { id } = await params;  // Get the id from params
-    const body = await request.json();  // Get the update data from request body
-    
+    const { id } = await params;
+    const body: User = await request.json();
+
+    // Log the incoming request body to verify notes is included
+    console.log('PUT request body:', body);
+
+    if (!body.holderName && !body.name && !body.fileNumber && body.notes === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'At least one field must be provided for update' },
+        { status: 400 }
+      );
+    }
+
+    if ((body.holderName !== undefined && !body.holderName) ||
+        (body.name !== undefined && !body.name) ||
+        (body.fileNumber !== undefined && !body.fileNumber)) {
+      return NextResponse.json(
+        { success: false, error: 'Required fields cannot be empty' },
+        { status: 400 }
+      );
+    }
+
     const user = await Holder.findByIdAndUpdate(
       id,
-      body,
+      { $set: body }, // Use $set to update only provided fields
       { new: true, runValidators: true }
     );
-    
+
     if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
     }
-    
-    return NextResponse.json({ success: true, data: user }, { status: 200 });
+
+    // Log the updated user to verify notes is saved
+    console.log('Updated user:', user);
+
+    return NextResponse.json(
+      { success: true, data: user },
+      { status: 200 }
+    );
   } catch (error) {
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    console.error('PUT /api/users/[id] error:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 400 }
+    );
   }
 }
 
@@ -35,13 +74,23 @@ export async function DELETE(
   try {
     const { id } = await params;
     const user = await Holder.findByIdAndDelete(id);
-    
+
     if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
     }
-    
-    return NextResponse.json({ success: true, data: {} }, { status: 200 });
+
+    return NextResponse.json(
+      { success: true, data: {} },
+      { status: 200 }
+    );
   } catch (error) {
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    console.error('DELETE /api/users/[id] error:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 400 }
+    );
   }
 }

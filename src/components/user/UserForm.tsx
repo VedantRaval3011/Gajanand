@@ -9,10 +9,16 @@ interface UserFormProps {
 }
 
 const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
-  const [formData, setFormData] = useState({ holderName: '', name: '', fileNumber: '' });
+  const [formData, setFormData] = useState({ 
+    holderName: '', 
+    name: '', 
+    fileNumber: '',
+    notes: '' // Add notes to initial state
+  });
   const holderNameRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const fileNumberRef = useRef<HTMLInputElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null); // Add ref for notes
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -24,17 +30,17 @@ const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
         body: JSON.stringify(formData),
       });
       if (!response.ok) throw new Error('Failed to add user');
-      setFormData({ holderName: '', name: '', fileNumber: '' });
+      setFormData({ holderName: '', name: '', fileNumber: '', notes: '' });
       onUserAdded();
       toast.success('User added successfully!');
-      holderNameRef.current?.focus(); // Return focus to holderName after submit
+      holderNameRef.current?.focus();
     } catch (error) {
       toast.error((error as Error).message);
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: string) => {
-    if (e.key === 'Enter') {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, field: string) => {
+    if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement && e.shiftKey)) {
       e.preventDefault();
       switch (field) {
         case 'holderName':
@@ -44,7 +50,9 @@ const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
           fileNumberRef.current?.focus();
           break;
         case 'fileNumber':
-          // Submit the form properly without using 'any'
+          notesRef.current?.focus();
+          break;
+        case 'notes':
           formRef.current?.requestSubmit();
           break;
         default:
@@ -93,6 +101,14 @@ const UserForm: React.FC<UserFormProps> = ({ onUserAdded }) => {
           onKeyDown={(e) => handleKeyDown(e, 'fileNumber')}
           className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700"
           required
+        />
+        <textarea
+          ref={notesRef}
+          placeholder="Notes"
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          onKeyDown={(e) => handleKeyDown(e, 'notes')}
+          className="w-full p-3 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-600 dark:placeholder-gray-300 focus:outline-none focus:ring-4 focus:ring-yellow-300 dark:focus:ring-yellow-500 transition-all duration-300 hover:bg-gray-200 dark:hover:bg-gray-700 min-h-[100px]"
         />
         <motion.button
           type="submit"

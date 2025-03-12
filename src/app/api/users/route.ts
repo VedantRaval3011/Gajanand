@@ -1,24 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
-import Holders from '@/models/Holders';
+import Holder from '@/models/Holders';
 
-export async function GET() {
-  await dbConnect();
-  try {
-    const users = await Holders.find({});
-    return NextResponse.json({ success: true, data: users }, { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
-  }
+interface User {
+  holderName: string;
+  name: string;
+  fileNumber: string;
+  notes?: string;
 }
 
 export async function POST(request: NextRequest) {
   await dbConnect();
   try {
-    const body = await request.json();
-    const user = await Holders.create(body);
-    return NextResponse.json({ success: true, data: user }, { status: 201 });
+    const body: User = await request.json();
+
+    // Log the incoming request body to verify notes is included
+    console.log('POST request body:', body);
+
+    if (!body.holderName || !body.name || !body.fileNumber) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: holderName, name, and fileNumber are required' },
+        { status: 400 }
+      );
+    }
+
+    const user = await Holder.create({
+      holderName: body.holderName,
+      name: body.name,
+      fileNumber: body.fileNumber,
+      notes: body.notes || '', // Ensure notes is included, default to empty string
+    });
+
+    // Log the created user to verify notes is saved
+    console.log('Created user:', user);
+
+    return NextResponse.json(
+      { success: true, data: user },
+      { status: 201 }
+    );
   } catch (error) {
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 400 });
+    console.error('POST /api/users error:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 400 }
+    );
+  }
+}
+
+export async function GET() {
+  await dbConnect();
+  try {
+    const users = await Holder.find({});
+    return NextResponse.json(
+      { success: true, data: users },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('GET /api/users error:', error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
   }
 }
