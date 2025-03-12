@@ -260,9 +260,10 @@ export default function LoanForm() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: string) => {
-    if (e.key === "s" && e.altKey) {
+    if (e.altKey && e.key === "s") {
+      console.log("Alt + S detected"); // Debugging
       e.preventDefault();
-      handleSubmit(e as unknown as React.FormEvent);
+      handleSubmit(e as unknown as React.FormEvent); // Trigger form submission
       return;
     }
     if (e.key === "Enter") {
@@ -834,7 +835,11 @@ export default function LoanForm() {
           <form
             onSubmit={handleSubmit}
             onKeyDown={(e) => {
-             
+              if (e.altKey && e.key === "s") {
+                console.log("Alt + S detected at form level"); // Debugging
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
 
               if (e.ctrlKey && e.key.toLowerCase() === "r") {
                 e.preventDefault();
