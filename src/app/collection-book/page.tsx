@@ -296,6 +296,12 @@ const LoanManagement: React.FC = () => {
 
   const handleAccountNoChange = async (value: string, index: number) => {
     const trimmedValue = value.trim();
+    const payment = payments[index];
+
+    // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
+    if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
+      return; // Do not allow modification
+    }
 
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
@@ -400,7 +406,7 @@ const LoanManagement: React.FC = () => {
   };
 
   const savePayments = async () => {
-    if (isSaving) return; // Prevent multiple clicks while saving
+    if (isSaving) return;
 
     if (!loanDetails) {
       setAlertMessage("No loan selected");
@@ -418,7 +424,6 @@ const LoanManagement: React.FC = () => {
       return;
     }
 
-    // Check for duplicates
     const accountNoSet = new Set<string>();
     const duplicates: string[] = [];
     const hasDuplicates = validPayments.some((payment) => {
@@ -436,7 +441,7 @@ const LoanManagement: React.FC = () => {
       return;
     }
 
-    setIsSaving(true); // Disable the button
+    setIsSaving(true);
     try {
       const paymentData = {
         loanId: loanDetails._id,
@@ -494,6 +499,7 @@ const LoanManagement: React.FC = () => {
       );
       const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
 
+      // Update isSaved to mark these accounts as saved
       setIsSaved({
         status: true,
         accounts: accountsToRefresh,
@@ -509,7 +515,7 @@ const LoanManagement: React.FC = () => {
       setAlertMessage("Error Saving Payments: " + (error as Error).message);
       setAlertOpen(true);
     } finally {
-      setIsSaving(false); // Re-enable the button after the operation
+      setIsSaving(false);
     }
   };
 
@@ -1373,109 +1379,102 @@ const LoanManagement: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <table className="w-full min-w-[640px] opacity-50">
-                    <thead className="sticky top-0 z-50 bg-orange-50 dark:bg-orange-950 shadow-md">
-                      <tr>
-                        {["Index", "Account No.", "Amount Paid", "Actions"].map(
-                          (header) => (
-                            <th
-                              key={header}
-                              className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                            >
-                              {header}
-                            </th>
-                          )
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
-                      {payments.map((payment, index) => (
-                        <tr
-                          key={index}
-                          id={`payment-row-${index}`}
-                          onClick={() =>
-                            handleRowClick(index, payment.accountNo)
-                          }
-                          className={`${
-                            selectedCell.row === index
-                              ? "bg-orange-200 dark:bg-orange-900"
-                              : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          } transition-colors`}
-                        >
-                          <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
-                            {payment.index}
-                          </td>
-                          <td className="px-4 md:px-8 py-3 md:py-4">
-                            <input
-                              ref={(el) => {
-                                inputRefs.current[`accountNo-${index}`] = el;
-                                if (index === payments.length - 1)
-                                  lastRowRef.current = el;
-                              }}
-                              type="number"
-                              value={payment.accountNo}
-                              onChange={(e) =>
-                                handleAccountNoChange(e.target.value, index)
-                              }
-                              onBlur={() => handleAccountNoBlur(index)}
-                              onKeyDown={handleKeyDown}
-                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                                ${
-                                  selectedCell.row === index &&
-                                  selectedCell.column === "accountNo"
-                                    ? "border-orange-500 ring-2 ring-orange-500/20"
-                                    : "border-gray-300 dark:border-gray-600"
-                                }
-                                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                              placeholder="Enter Account No."
-                            />
-                          </td>
-                          <td className="px-4 md:px-8 py-3 md:py-4">
-                            <input
-                              ref={(el) => {
-                                inputRefs.current[`amountPaid-${index}`] = el;
-                              }}
-                              type="number"
-                              value={
-                                payment.amountPaid === 0 &&
-                                !payment.isDefaultAmount
-                                  ? ""
-                                  : payment.amountPaid
-                              }
-                              onChange={(e) =>
-                                handleAmountPaidChange(e.target.value, index)
-                              }
-                              onFocus={(e) => handleAmountPaidFocus(e)}
-                              onKeyDown={handleKeyDown}
-                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                                ${
-                                  selectedCell.row === index &&
-                                  selectedCell.column === "amountPaid"
-                                    ? "border-orange-500 ring-2 ring-orange-500/20"
-                                    : "border-gray-300 dark:border-gray-600"
-                                }
-                                ${
-                                  payment.isDefaultAmount &&
-                                  payment.amountPaid !== 0
-                                    ? "text-orange-600 dark:text-orange-400"
-                                    : ""
-                                }
-                                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                              placeholder="Enter Amount"
-                            />
-                          </td>
-                          <td className="px-4 md:px-8 py-3 md:py-4">
-                            <button
-                              onClick={() => handleDeletePayment(index)}
-                              className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <table className="w-full min-w-[640px]">
+      <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
+        <tr>
+          {["Index", "Account No.", "Amount Paid", "Actions"].map((header) => (
+            <th
+              key={header}
+              className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+            >
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
+        {payments.map((payment, index) => (
+          <tr
+            key={index}
+            id={`payment-row-${index}`}
+            onClick={() => handleRowClick(index, payment.accountNo)}
+            className={`${
+              selectedCell.row === index
+                ? "bg-orange-200 dark:bg-orange-900"
+                : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+            } transition-colors`}
+          >
+            <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
+              {payment.index}
+            </td>
+            <td className="px-4 md:px-8 py-3 md:py-4">
+              <input
+                ref={(el) => {
+                  inputRefs.current[`accountNo-${index}`] = el;
+                  if (index === payments.length - 1) lastRowRef.current = el;
+                }}
+                type="number"
+                value={payment.accountNo}
+                onChange={(e) => handleAccountNoChange(e.target.value, index)}
+                onBlur={() => handleAccountNoBlur(index)}
+                onKeyDown={handleKeyDown}
+                disabled={!!payment._id || isSaved.accounts.includes(payment.accountNo)} // Disable if saved
+                className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
+                  ${
+                    selectedCell.row === index && selectedCell.column === "accountNo"
+                      ? "border-orange-500 ring-2 ring-orange-500/20"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  ${
+                    payment._id || isSaved.accounts.includes(payment.accountNo)
+                      ? "bg-gray-200 dark:bg-gray-600 cursor-not-allowed"
+                      : "bg-white dark:bg-gray-700"
+                  }
+                  text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                placeholder="Enter Account No."
+              />
+            </td>
+            <td className="px-4 md:px-8 py-3 md:py-4">
+              <input
+                ref={(el) => {
+                  inputRefs.current[`amountPaid-${index}`] = el;
+                }}
+                type="number"
+                value={
+                  payment.amountPaid === 0 && !payment.isDefaultAmount
+                    ? ""
+                    : payment.amountPaid
+                }
+                onChange={(e) => handleAmountPaidChange(e.target.value, index)}
+                onFocus={(e) => handleAmountPaidFocus(e)}
+                onKeyDown={handleKeyDown}
+                className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                  ${
+                    selectedCell.row === index && selectedCell.column === "amountPaid"
+                      ? "border-orange-500 ring-2 ring-orange-500/20"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  ${
+                    payment.isDefaultAmount && payment.amountPaid !== 0
+                      ? "text-orange-600 dark:text-orange-400"
+                      : ""
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                placeholder="Enter Amount"
+              />
+            </td>
+            <td className="px-4 md:px-8 py-3 md:py-4">
+              <button
+                onClick={() => handleDeletePayment(index)}
+                className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
                 </div>
               ) : (
                 <table className="w-full min-w-[640px]">
