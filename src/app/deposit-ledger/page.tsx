@@ -37,7 +37,7 @@ interface LoanDetails {
   holderName: string;
   holderAddress: string;
   telephone1: string;
-  telephone2: string;
+  telephone2?: string;
   name: string;
   hasGuarantor: boolean;
   guarantors: Array<{
@@ -392,6 +392,26 @@ export default function PaymentHistory() {
                   Address
                 </p>
                 <p className="mt-1 break-words">{loanDetails.holderAddress}</p>
+              </div>
+              <div>
+                <p
+                  className={`font-bold ${
+                    isDarkMode ? "text-orange-400" : "text-orange-600"
+                  }`}
+                >
+                  Telephone 1
+                </p>
+                <p className="mt-1">{loanDetails.telephone1}</p>
+              </div>
+              <div>
+                <p
+                  className={`font-bold ${
+                    isDarkMode ? "text-orange-400" : "text-orange-600"
+                  }`}
+                >
+                  Telephone 2
+                </p>
+                <p className="mt-1">{loanDetails.telephone2 || '-'}</p>
               </div>
               <div>
                 <p
