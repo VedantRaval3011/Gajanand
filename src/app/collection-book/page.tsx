@@ -35,6 +35,7 @@ interface Payment {
   amountPaid: number;
   paymentDate?: Date;
   lateAmount?: number;
+  paymentTime?: string;
   isDefaultAmount?: boolean;
 }
 
@@ -51,7 +52,7 @@ const LoanManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     row: number;
-    column: "accountNo" | "amountPaid";
+    column: "accountNo" | "amountPaid" | "paymentTime";
   }>({ row: 0, column: "accountNo" });
   const [payments, setPayments] = useState<Payment[]>([
     {
@@ -92,6 +93,17 @@ const LoanManagement: React.FC = () => {
   const [loanDetailsCache, setLoanDetailsCache] = useState<{
     [key: string]: LoanDetails;
   }>({});
+
+  const handlePaymentTimeChange = (value: string, index: number) => {
+    setPayments((prevPayments) => {
+      const updatedPayments = [...prevPayments];
+      updatedPayments[index] = {
+        ...updatedPayments[index],
+        paymentTime: value,
+      };
+      return updatedPayments;
+    });
+  };
 
   const fetchPaymentHistory = async (accountNo: string) => {
     try {
@@ -182,22 +194,45 @@ const LoanManagement: React.FC = () => {
 
         case "ArrowRight":
         case "Tab":
-          if (!e.shiftKey && currentColumn === "accountNo") {
-            newColumn = "amountPaid";
+          if (!e.shiftKey) {
+            if (currentColumn === "accountNo") {
+              newColumn = "amountPaid";
+            } else if (currentColumn === "amountPaid") {
+              newColumn = "paymentTime"; // Add new column
+            }
             setSelectedCell({ ...selectedCell, column: newColumn });
-            inputRefs.current[`amountPaid-${currentRow}`]?.focus();
+            inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
           }
           break;
 
         case "ArrowLeft":
-          if (currentColumn === "amountPaid") {
+          if (currentColumn === "paymentTime") {
+            // Add new condition
+            newColumn = "amountPaid";
+          } else if (currentColumn === "amountPaid") {
             newColumn = "accountNo";
-            setSelectedCell({ ...selectedCell, column: newColumn });
-            inputRefs.current[`accountNo-${currentRow}`]?.focus();
           }
+          setSelectedCell({ ...selectedCell, column: newColumn });
+          inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
           break;
 
         case "Enter":
+          if (currentColumn === "paymentTime") { // Add new condition
+            const newPayment = {
+              index: payments.length + 1,
+              accountNo: "",
+              amountPaid: 0,
+              paymentDate: selectedDate,
+              paymentTime: new Date().toLocaleTimeString('en-US', { hour12: false }),
+              lateAmount: 0,
+              isDefaultAmount: false,
+            };
+            setPayments([...payments, newPayment]);
+            newRow = payments.length;
+            newColumn = "accountNo";
+            setSelectedCell({ row: newRow, column: newColumn });
+            inputRefs.current[`accountNo-${newRow}`]?.focus();
+          }
           if (currentColumn === "accountNo") {
             const trimmedValue = payments[currentRow]?.accountNo.trim();
 
@@ -452,6 +487,10 @@ const LoanManagement: React.FC = () => {
           return {
             accountNo: p.accountNo.trim(),
             amountPaid: Number(p.amountPaid),
+            paymentDate: p.paymentDate,
+            paymentTime:
+              p.paymentTime ||
+              new Date().toLocaleTimeString("en-US", { hour12: false }), // Include paymentTime
             lateAmount: lateAmounts[p.accountNo] || 0,
             remainingAmount: loanDetails.mAmount - newReceived,
             _id: p._id,
@@ -1369,7 +1408,8 @@ const LoanManagement: React.FC = () => {
               className="flex-1 overflow-x-auto overflow-y-auto relative"
               id="payments-table-body"
             >
-              {isLoading ? (
+              {
+              isLoading ? (
                 <div className="relative w-full h-full">
                   <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center z-20">
                     <div className="flex flex-col justify-end items-center space-y-3">
@@ -1379,130 +1419,25 @@ const LoanManagement: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <table className="w-full min-w-[640px]">
-      <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
-        <tr>
-          {["Index", "Account No.", "Amount Paid", "Actions"].map((header) => (
-            <th
-              key={header}
-              className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-            >
-              {header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
-        {payments.map((payment, index) => (
-          <tr
-            key={index}
-            id={`payment-row-${index}`}
-            onClick={() => handleRowClick(index, payment.accountNo)}
-            className={`${
-              selectedCell.row === index
-                ? "bg-orange-200 dark:bg-orange-900"
-                : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-            } transition-colors`}
-          >
-            <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
-              {payment.index}
-            </td>
-            <td className="px-4 md:px-8 py-3 md:py-4">
-              <input
-                ref={(el) => {
-                  inputRefs.current[`accountNo-${index}`] = el;
-                  if (index === payments.length - 1) lastRowRef.current = el;
-                }}
-                type="number"
-                value={payment.accountNo}
-                onChange={(e) => handleAccountNoChange(e.target.value, index)}
-                onBlur={() => handleAccountNoBlur(index)}
-                onKeyDown={handleKeyDown}
-                disabled={!!payment._id || isSaved.accounts.includes(payment.accountNo)} // Disable if saved
-                className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                  ${
-                    selectedCell.row === index && selectedCell.column === "accountNo"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
-                  ${
-                    payment._id || isSaved.accounts.includes(payment.accountNo)
-                      ? "bg-gray-200 dark:bg-gray-600 cursor-not-allowed"
-                      : "bg-white dark:bg-gray-700"
-                  }
-                  text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                placeholder="Enter Account No."
-              />
-            </td>
-            <td className="px-4 md:px-8 py-3 md:py-4">
-              <input
-                ref={(el) => {
-                  inputRefs.current[`amountPaid-${index}`] = el;
-                }}
-                type="number"
-                value={
-                  payment.amountPaid === 0 && !payment.isDefaultAmount
-                    ? ""
-                    : payment.amountPaid
-                }
-                onChange={(e) => handleAmountPaidChange(e.target.value, index)}
-                onFocus={(e) => handleAmountPaidFocus(e)}
-                onKeyDown={handleKeyDown}
-                className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                  ${
-                    selectedCell.row === index && selectedCell.column === "amountPaid"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
-                  ${
-                    payment.isDefaultAmount && payment.amountPaid !== 0
-                      ? "text-orange-600 dark:text-orange-400"
-                      : ""
-                  }
-                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                placeholder="Enter Amount"
-              />
-            </td>
-            <td className="px-4 md:px-8 py-3 md:py-4">
-              <button
-                onClick={() => handleDeletePayment(index)}
-                className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-                </div>
-              ) : (
-                <table className="w-full min-w-[640px]">
-                  <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
-                    <tr>
-                      {["Index", "Account No.", "Amount Paid", "Actions"].map(
-                        (header) => (
-                          <th
-                            key={header}
-                            className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                          >
-                            {header}
-                          </th>
-                        )
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
+                  <table className="w-full min-w-[800px]"><thead className="bg-orange-50 dark:bg-orange-950 shadow-md"><tr>
+                    {["Index", "Account No.", "Amount Paid", "Payment Time", "Actions"].map((header) => (
+                      <th
+                        key={header}
+                        className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr></thead><tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
                     {payments.map((payment, index) => (
                       <tr
                         key={index}
                         id={`payment-row-${index}`}
                         onClick={() => handleRowClick(index, payment.accountNo)}
-                        className={`${
-                          selectedCell.row === index
-                            ? "bg-orange-200 dark:bg-orange-900"
-                            : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        } transition-colors`}
+                        className={`${selectedCell.row === index
+                          ? "bg-orange-200 dark:bg-orange-900"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          } transition-colors`}
                       >
                         <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
                           {payment.index}
@@ -1511,22 +1446,17 @@ const LoanManagement: React.FC = () => {
                           <input
                             ref={(el) => {
                               inputRefs.current[`accountNo-${index}`] = el;
-                              if (index === payments.length - 1)
-                                lastRowRef.current = el;
+                              if (index === payments.length - 1) lastRowRef.current = el;
                             }}
                             type="number"
                             value={payment.accountNo}
-                            onChange={(e) =>
-                              handleAccountNoChange(e.target.value, index)
-                            }
+                            onChange={(e) => handleAccountNoChange(e.target.value, index)}
                             onBlur={() => handleAccountNoBlur(index)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                              ${
-                                selectedCell.row === index &&
-                                selectedCell.column === "accountNo"
-                                  ? "border-orange-500 ring-2 ring-orange-500/20"
-                                  : "border-gray-300 dark:border-gray-600"
+                              ${selectedCell.row === index && selectedCell.column === "accountNo"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
                               }
                               bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Account No."
@@ -1539,31 +1469,33 @@ const LoanManagement: React.FC = () => {
                             }}
                             type="number"
                             value={
-                              payment.amountPaid === 0 &&
-                              !payment.isDefaultAmount
+                              payment.amountPaid === 0 && !payment.isDefaultAmount
                                 ? ""
                                 : payment.amountPaid
                             }
-                            onChange={(e) =>
-                              handleAmountPaidChange(e.target.value, index)
-                            }
+                            onChange={(e) => handleAmountPaidChange(e.target.value, index)}
                             onFocus={(e) => handleAmountPaidFocus(e)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                              ${
-                                selectedCell.row === index &&
-                                selectedCell.column === "amountPaid"
-                                  ? "border-orange-500 ring-2 ring-orange-500/20"
-                                  : "border-gray-300 dark:border-gray-600"
+                              ${selectedCell.row === index && selectedCell.column === "amountPaid"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
                               }
-                              ${
-                                payment.isDefaultAmount &&
-                                payment.amountPaid !== 0
-                                  ? "text-orange-600 dark:text-orange-400"
-                                  : ""
+                              ${payment.isDefaultAmount && payment.amountPaid !== 0
+                                ? "text-orange-600 dark:text-orange-400"
+                                : ""
                               }
                               bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Amount"
+                          />
+                        </td>
+                        <td className="px-4 md:px-8 py-3 md:py-4">
+                          <input
+                            type="time"
+                            value={payment.paymentTime || ""}
+                            onChange={(e) => handlePaymentTimeChange(e.target.value, index)}
+                            onKeyDown={handleKeyDown}
+                            className="w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
                           />
                         </td>
                         <td className="px-4 md:px-8 py-3 md:py-4">
@@ -1576,9 +1508,101 @@ const LoanManagement: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              )}
+                  </tbody></table>
+                </div>
+              ) : (
+                <table className="w-full min-w-[800px]"><thead className="bg-orange-50 dark:bg-orange-950 shadow-md"><tr>
+                  {["Index", "Account No.", "Amount Paid", "Payment Time", "Actions"].map((header) => (
+                    <th
+                      key={header}
+                      className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr></thead><tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
+                  {payments.map((payment, index) => (
+                    <tr
+                      key={index}
+                      id={`payment-row-${index}`}
+                      onClick={() => handleRowClick(index, payment.accountNo)}
+                      className={`${selectedCell.row === index
+                        ? "bg-orange-200 dark:bg-orange-900"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        } transition-colors`}
+                    >
+                      <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
+                        {payment.index}
+                      </td>
+                      <td className="px-4 md:px-8 py-3 md:py-4">
+                        <input
+                          ref={(el) => {
+                            inputRefs.current[`accountNo-${index}`] = el;
+                            if (index === payments.length - 1) lastRowRef.current = el;
+                          }}
+                          type="number"
+                          value={payment.accountNo}
+                          onChange={(e) => handleAccountNoChange(e.target.value, index)}
+                          onBlur={() => handleAccountNoBlur(index)}
+                          onKeyDown={handleKeyDown}
+                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
+                            ${selectedCell.row === index && selectedCell.column === "accountNo"
+                              ? "border-orange-500 ring-2 ring-orange-500/20"
+                              : "border-gray-300 dark:border-gray-600"
+                            }
+                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                          placeholder="Enter Account No."
+                        />
+                      </td>
+                      <td className="px-4 md:px-8 py-3 md:py-4">
+                        <input
+                          ref={(el) => {
+                            inputRefs.current[`amountPaid-${index}`] = el;
+                          }}
+                          type="number"
+                          value={
+                            payment.amountPaid === 0 && !payment.isDefaultAmount
+                              ? ""
+                              : payment.amountPaid
+                          }
+                          onChange={(e) => handleAmountPaidChange(e.target.value, index)}
+                          onFocus={(e) => handleAmountPaidFocus(e)}
+                          onKeyDown={handleKeyDown}
+                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                            ${selectedCell.row === index && selectedCell.column === "amountPaid"
+                              ? "border-orange-500 ring-2 ring-orange-500/20"
+                              : "border-gray-300 dark:border-gray-600"
+                            }
+                            ${payment.isDefaultAmount && payment.amountPaid !== 0
+                              ? "text-orange-600 dark:text-orange-400"
+                              : ""
+                            }
+                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                          placeholder="Enter Amount"
+                        />
+                      </td>
+                      <td className="px-4 md:px-2 py-3 md:py-4">
+                        <input
+                          type="time"
+                          value={payment.paymentTime || ""}
+                          onChange={(e) => handlePaymentTimeChange(e.target.value, index)}
+                          onKeyDown={handleKeyDown}
+                          className="w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                        />
+                      </td>
+                      <td className="px-4 md:px-8 py-3 md:py-4">
+                        <button
+                          onClick={() => handleDeletePayment(index)}
+                          className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody></table>
+              )
+            }
             </div>
           </div>
 

@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
     if (!paymentDate || !payments || !Array.isArray(payments)) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
     }
+
     const savedPayments = await Promise.all(
-      payments.map(async (payment: PaymentData) => {
-        // Save or update the payment
+      payments.map(async (payment: PaymentData & { paymentTime?: string }) => { // Extend type to include paymentTime
         let savedPayment;
         if (payment._id) {
           savedPayment = await Payment.findByIdAndUpdate(
@@ -128,7 +128,8 @@ export async function POST(request: NextRequest) {
               accountNo: payment.accountNo,
               amountPaid: payment.amountPaid,
               paymentDate,
-              lateAmount: payment.lateAmount
+              lateAmount: payment.lateAmount,
+              paymentTime: payment.paymentTime, // Save paymentTime
             },
             { new: true }
           );
@@ -138,23 +139,28 @@ export async function POST(request: NextRequest) {
             accountNo: payment.accountNo,
             amountPaid: payment.amountPaid,
             paymentDate,
-            lateAmount: payment.lateAmount
+            lateAmount: payment.lateAmount,
+            paymentTime: payment.paymentTime, // Save paymentTime
           });
         }
-        // Update payment history
+
+        // Update payment history with paymentTime
         await PaymentHistory.create({
           accountNo: payment.accountNo,
           date: paymentDate,
           amountPaid: payment.amountPaid,
           lateAmount: payment.lateAmount,
-          remainingAmount: payment.remainingAmount
+          remainingAmount: payment.remainingAmount,
+          paymentTime: payment.paymentTime, // Include paymentTime
         });
+
         return savedPayment;
       })
     );
+
     return NextResponse.json({
       message: 'Payments saved successfully',
-      payments: savedPayments
+      payments: savedPayments.map((p) => p.toObject()), // Ensure all fields (including paymentTime) are returned
     }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

@@ -16,14 +16,12 @@ export async function GET(
 ) {
   try {
     await dbConnect();
-    const { accountNo } = await context.params; // Await params correctly
+    const { accountNo } = await context.params;
 
-    // Get the search params for date filtering if needed
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // Build query
     const query: PaymentQuery = { accountNo };
     if (startDate || endDate) {
       query.date = {};
@@ -36,7 +34,18 @@ export async function GET(
       .sort({ date: -1 })
       .lean();
 
-    return NextResponse.json(payments);
+    // Format the payment timestamp to desired format (e.g., "5:22:26 PM")
+    const formattedPayments = payments.map(payment => ({
+      ...payment,
+      paymentTime: new Date(payment.date).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      })
+    }));
+
+    return NextResponse.json(formattedPayments);
   } catch (error) {
     console.error('Error fetching payment history:', error);
     return NextResponse.json(
@@ -52,9 +61,8 @@ export async function DELETE(
 ) {
   try {
     await dbConnect();
-    const { accountNo } = await context.params; // Await params correctly
+    const { accountNo } = await context.params;
 
-    // Delete all payment history records for the given accountNo
     const result = await Payment.deleteMany({ accountNo });
 
     if (result.deletedCount > 0) {
