@@ -32,13 +32,17 @@
     "mongoose": "^8.10.1",
     "next": "^15.2.2",
     "nodemailer": "^6.10.0",
+    "print-js": "^1.6.0",
     "react": "^19.0.0",
     "react-datepicker": "^8.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
     "react-hot-toast": "^2.5.1",
+    "react-quill": "^2.0.0",
+    "react-to-print": "^3.0.5",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

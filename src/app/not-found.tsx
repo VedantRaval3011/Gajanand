@@ -31,6 +31,6 @@ export default function NotFound() {
           50% { transform: translateY(-20px); }
         }
       `}</style>
-    </div>
+    </div>  
   );
 }

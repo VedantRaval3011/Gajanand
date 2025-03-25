@@ -31,7 +31,7 @@ export default function Navbar() {
   const subNavItems: Record<NavItem, SubNavItem[]> = {
     Master: [
       { title: "Loan", href: "/loan", shortcut: "1" },
-      { title: "Saving A/C", href: "/saving", shortcut: "2" },
+      { title: "Admin A/C", href: "/admin", shortcut: "2" },
       { title: "Loan Forms", href: "/gajanand-forms", shortcut: "3" },
       { title: "Document Detials", href: "/document-details", shortcut: "4" },
       { title: "Print Head", href: "/print-head", shortcut: "5" },
