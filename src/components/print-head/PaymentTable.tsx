@@ -2,8 +2,16 @@ import React, { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
 import PaymentStatusDisplay from "./PaymentStatusDisplay";
 import PrintablePaymentTable from "./PrintablePaymentTable";
-
 import "./styles/print.css";
+
+interface Note {
+  _id: string;
+  date: string;
+  category: string;
+  loanType: string;
+  content: string;
+  createdAt: string;
+}
 
 interface Loan {
   _id: string;
@@ -18,6 +26,8 @@ interface Loan {
   fileCategory: string;
   paymentHistory?: { date: string; amount: number }[];
   index?: number;
+  loanType?: "daily" | "monthly" | "pending";
+  totalToBePaid?: number;
 }
 
 interface PaymentTableProps {
@@ -44,9 +54,13 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [indexUpdating, setIndexUpdating] = useState<{ [key: string]: boolean }>({});
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [noteContent, setNoteContent] = useState<string>("");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [showNotes, setShowNotes] = useState<boolean>(false);
 
   useEffect(() => {
     fetchLoans();
+    fetchNotes();
   }, [loanType, currentCategory, selectedDate]);
 
   const fetchLoans = async () => {
@@ -83,6 +97,73 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       setError("Failed to load loans. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchNotes = async () => {
+    try {
+      const response = await fetch(
+        `/api/notes?date=${selectedDate}&category=${currentCategory || "General"}&loanType=${loanType}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch notes");
+      const data = await response.json();
+      setNotes(data.notes || []);
+      // Load the latest note into the editor if it exists
+      const latestNote = data.notes?.[0];
+      if (latestNote) {
+        setNoteContent(latestNote.content);
+      } else {
+        setNoteContent(""); // Clear if no note exists
+      }
+    } catch (err) {
+      console.error("Error fetching notes:", err);
+      setError("Failed to load notes. Please try again.");
+    }
+  };
+  
+  const handleSaveNote = async () => {
+    if (!noteContent.trim()) {
+      setError("Note content cannot be empty");
+      return;
+    }
+  
+    try {
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: selectedDate,
+          category: currentCategory || "General",
+          loanType,
+          content: noteContent,
+        }),
+      });
+  
+      if (!response.ok) throw new Error("Failed to save note");
+      fetchNotes(); // Refresh notes to reflect the update
+      alert("Note saved successfully!");
+    } catch (err) {
+      console.error("Error saving note:", err);
+      setError("Failed to save note. Please try again.");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm("Are you sure you want to delete this note?")) return;
+
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete note");
+      fetchNotes();
+      // Clear the editor if the deleted note was the latest one
+      if (notes[0]?._id === noteId) {
+        setNoteContent("");
+      }
+    } catch (err) {
+      console.error("Error deleting note:", err);
+      setError("Failed to delete note. Please try again.");
     }
   };
 
@@ -125,7 +206,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       }
   
       await fetchLoans();
-      console.log("Updated loansData after save:", loansData);
     } catch (error) {
       console.error("Error saving payment:", error);
       setError("An error occurred while saving. Please try again.");
@@ -300,7 +380,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           >
             Refresh
           </button>
-        
           <button
             onClick={handleShowPrintPreview}
             disabled={isLoading}
@@ -310,7 +389,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           >
             Print Preview
           </button>
-          
         </div>
       </div>
 
@@ -509,6 +587,71 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* Simple Note Taking Section */}
+      <div className="mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-orange-700">Notes</h3>
+          <button
+            onClick={() => setShowNotes(!showNotes)}
+            className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300 shadow-md"
+          >
+            {showNotes ? "Hide Notes" : "Show Notes"}
+          </button>
+        </div>
+
+        {/* Note Editor */}
+        <div className="bg-orange-50 p-4 rounded-lg shadow-md border border-orange-200">
+          <textarea
+            value={noteContent}
+            onChange={(e) => setNoteContent(e.target.value)}
+            className="w-full min-h-[150px] p-3 bg-white border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-black text-base resize-y"
+            placeholder="Write your note here..."
+          />
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={handleSaveNote}
+              className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors duration-300 shadow-md"
+            >
+              Save Note
+            </button>
+          </div>
+        </div>
+
+        {/* Notes Preview */}
+        {showNotes && (
+          <div className="mt-4">
+            <h4 className="text-lg font-bold text-orange-700 mb-2">Saved Notes</h4>
+            {notes.length === 0 ? (
+              <p className="text-gray-600">No notes available for this date, category, and loan type.</p>
+            ) : (
+              <div className="space-y-4">
+                {notes.map((note) => (
+                  <div
+                    key={note._id}
+                    className="p-4 bg-orange-50 border border-orange-200 rounded-md shadow-sm"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">
+                        {new Date(note.createdAt).toLocaleString()}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteNote(note._id)}
+                        className="px-2 py-1 bg-orange-700 text-white rounded-md hover:bg-orange-800 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <div className="text-black whitespace-pre-wrap">
+                      {note.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

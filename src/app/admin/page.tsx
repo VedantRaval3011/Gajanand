@@ -14,15 +14,20 @@ export default function AdminPage() {
     pending: [...FILE_CATEGORIES.pending],
   });
   const setSelectedNavItem = useNavigationStore(
-      (state) => state.setSelectedNavItem
-    );
+    (state) => state.setSelectedNavItem
+  );
   const router = useRouter();
+
+  // Function to handle navigation to home
+  const navigateToHome = () => {
+    router.push("/");
+    setSelectedNavItem("Master", 1);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        router.push("/");
-        setSelectedNavItem("Master", 1);
+        navigateToHome();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -48,9 +53,18 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-6xl">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-8 sm:mb-10 md:mb-12 animate-fade-in text-center uppercase">
-          Collections
-        </h1>
+        <div className="flex gap-8 justify-center items-center mb-8 sm:mb-10 md:mb-12">
+        <button
+            onClick={navigateToHome}
+            className="px-4 py-2 text-sm sm:text-base font-semibold text-white bg-orange-700 hover:bg-orange-800 transition-colors duration-300 rounded-md"
+          >
+            Home
+          </button>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold animate-fade-in text-center uppercase">
+            Collections
+          </h1>
+         
+        </div>
 
         <div className="flex flex-col sm:flex-row justify-between gap-4 sm:gap-6 md:gap-8">
           {LOAN_TYPES.map((type) => (
