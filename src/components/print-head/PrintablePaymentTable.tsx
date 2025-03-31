@@ -367,7 +367,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           }
           
           .name-col {
-            width: 13%;
+            width: 14%;
           }
           
           .amount-col {
@@ -541,7 +541,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           }
 
           .name-col {
-            width: 13%; 
+            width: 14%; 
           }
 
           .amount-col {
@@ -689,7 +689,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   {leftSide[rowIndex]?.nameGujarati || ""}
                   {leftSide[rowIndex]?.index && (
                     <span className="text-blue ml-1">
-                      \{leftSide[rowIndex]?.index}
+                      \{leftSide[rowIndex]?.accountNo}
                     </span>
                   )}
                 </td>
@@ -718,7 +718,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   {rightSide[rowIndex]?.nameGujarati || ""}
                   {rightSide[rowIndex]?.index && (
                     <span className="text-blue ml-1">
-                      \{rightSide[rowIndex]?.index}
+                      \{rightSide[rowIndex]?.accountNo}
                     </span>
                   )}
                 </td>
