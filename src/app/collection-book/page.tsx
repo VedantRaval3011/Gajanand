@@ -300,36 +300,49 @@ const LoanManagement: React.FC = () => {
   };
 
   const handleAccountNoBlur = async (index: number) => {
+    // Safety check to make sure payments and index are valid
+    if (!payments[index]) {
+      console.error("Invalid payment index:", index);
+      return;
+    }
+  
     const currentPayment = payments[index];
-    const trimmedValue = currentPayment.accountNo.trim();
-
+    // Safety check to ensure currentPayment exists
+    if (!currentPayment) return;
+    
+    const trimmedValue = currentPayment.accountNo?.trim() || "";
+  
     // Update with trimmed value
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
-      updatedPayments[index].accountNo = trimmedValue;
+      if (updatedPayments[index]) {
+        updatedPayments[index].accountNo = trimmedValue;
+      }
       return updatedPayments;
     });
-
+  
     if (!trimmedValue) {
       return;
     }
-
+  
     const isDuplicate = payments.some(
-      (payment, idx) => idx !== index && payment.accountNo === trimmedValue
+      (payment, idx) => idx !== index && payment?.accountNo === trimmedValue
     );
-
+  
     if (isDuplicate) {
       toast.error("This account number is already entered in another row.");
       const updatedPayments = [...payments];
-      updatedPayments[index].accountNo = "";
-      setPayments(updatedPayments);
+      if (updatedPayments[index]) {
+        updatedPayments[index].accountNo = "";
+        setPayments(updatedPayments);
+      }
       return;
     }
-
+  
     try {
       setIsLoading(true);
       let loanData = loanDetailsCache[trimmedValue];
-
+  
       // Instead of immediately updating global state, work with a local variable
       if (!loanData) {
         try {
@@ -338,32 +351,38 @@ const LoanManagement: React.FC = () => {
             throw new Error("Loan not found");
           }
           loanData = await response.json();
-
+  
           // Update cache without updating focus
           setLoanDetailsCache((prev) => ({
             ...prev,
             [trimmedValue]: loanData,
           }));
-
+  
           // Update loan details separately
           setLoanDetails(loanData);
         } catch (error) {
           toast.error(
             "Error fetching loan details: " + (error as Error).message
           );
-          const resetPayments = [...payments];
-          resetPayments[index].accountNo = "";
-          setPayments(resetPayments);
+          setPayments((prevPayments) => {
+            const resetPayments = [...prevPayments];
+            if (resetPayments[index]) {
+              resetPayments[index].accountNo = "";
+            }
+            return resetPayments;
+          });
           return;
         }
       }
-
+  
       if (loanData) {
         // Update amount paid only if it's still the default or zero
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           const currentPayment = updatedPayments[index];
-
+          
+          if (!currentPayment) return updatedPayments;
+  
           if (
             currentPayment.isDefaultAmount ||
             currentPayment.amountPaid === 0
@@ -376,11 +395,11 @@ const LoanManagement: React.FC = () => {
           }
           return updatedPayments;
         });
-
+  
         if (!paymentHistoryCache[trimmedValue]) {
           await fetchPaymentHistory(trimmedValue);
         }
-
+  
         // Important: Move focus to amount paid after processing account number
         setTimeout(() => {
           setSelectedCell({ row: index, column: "amountPaid" });
@@ -388,40 +407,56 @@ const LoanManagement: React.FC = () => {
         }, 100);
       } else {
         toast.error("Account number does not exist.");
-        const resetPayments = [...payments];
-        resetPayments[index].accountNo = "";
-        setPayments(resetPayments);
+        setPayments((prevPayments) => {
+          const resetPayments = [...prevPayments];
+          if (resetPayments[index]) {
+            resetPayments[index].accountNo = "";
+          }
+          return resetPayments;
+        });
       }
     } catch (error) {
       console.error("Error validating account number.", error);
-      const resetPayments = [...payments];
-      resetPayments[index].accountNo = "";
-      setPayments(resetPayments);
+      setPayments((prevPayments) => {
+        const resetPayments = [...prevPayments];
+        if (resetPayments[index]) {
+          resetPayments[index].accountNo = "";
+        }
+        return resetPayments;
+      });
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const handleAccountNoChange = (value: string, index: number) => {
+    // Check if the payment at this index exists
+    if (!payments[index]) {
+      console.error("Invalid payment index in handleAccountNoChange:", index);
+      return;
+    }
+  
     const payment = payments[index];
-
+  
     // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
     if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
       return; // Do not allow modification
     }
-
+  
     // Always update the account number input immediately without triggering loading state
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
-      updatedPayments[index] = {
-        ...updatedPayments[index],
-        accountNo: value, // Use the original value to maintain cursor position
-      };
+      if (updatedPayments[index]) {
+        updatedPayments[index] = {
+          ...updatedPayments[index],
+          accountNo: value, // Use the original value to maintain cursor position
+        };
+      }
       return updatedPayments;
     });
-
+  
     // Don't do anything else while typing - we'll fetch details on blur instead
-  };
+  }
 
   const handleAmountPaidChange = (value: string, index: number) => {
     const amount = parseFloat(value) || 0;
