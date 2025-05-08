@@ -198,32 +198,37 @@ const LoanManagement: React.FC = () => {
             if (currentColumn === "accountNo") {
               newColumn = "amountPaid";
             } else if (currentColumn === "amountPaid") {
-              newColumn = "paymentTime"; // Add new column
+              newColumn = "paymentTime";
             }
-            setSelectedCell({ ...selectedCell, column: newColumn });
-            inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
+            setSelectedCell({ row: currentRow, column: newColumn });
+            setTimeout(() => {
+              inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
+            }, 0);
           }
           break;
 
         case "ArrowLeft":
           if (currentColumn === "paymentTime") {
-            // Add new condition
             newColumn = "amountPaid";
           } else if (currentColumn === "amountPaid") {
             newColumn = "accountNo";
           }
-          setSelectedCell({ ...selectedCell, column: newColumn });
-          inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
+          setSelectedCell({ row: currentRow, column: newColumn });
+          setTimeout(() => {
+            inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
+          }, 0);
           break;
 
         case "Enter":
-          if (currentColumn === "paymentTime") { // Add new condition
+          if (currentColumn === "paymentTime") {
             const newPayment = {
               index: payments.length + 1,
               accountNo: "",
               amountPaid: 0,
               paymentDate: selectedDate,
-              paymentTime: new Date().toLocaleTimeString('en-US', { hour12: false }),
+              paymentTime: new Date().toLocaleTimeString("en-US", {
+                hour12: false,
+              }),
               lateAmount: 0,
               isDefaultAmount: false,
             };
@@ -231,7 +236,9 @@ const LoanManagement: React.FC = () => {
             newRow = payments.length;
             newColumn = "accountNo";
             setSelectedCell({ row: newRow, column: newColumn });
-            inputRefs.current[`accountNo-${newRow}`]?.focus();
+            setTimeout(() => {
+              inputRefs.current[`accountNo-${newRow}`]?.focus();
+            }, 0);
           }
           if (currentColumn === "accountNo") {
             const trimmedValue = payments[currentRow]?.accountNo.trim();
@@ -253,8 +260,10 @@ const LoanManagement: React.FC = () => {
             }
 
             newColumn = "amountPaid";
-            setSelectedCell({ ...selectedCell, column: newColumn });
-            inputRefs.current[`amountPaid-${currentRow}`]?.focus();
+            setSelectedCell({ row: currentRow, column: newColumn });
+            setTimeout(() => {
+              inputRefs.current[`amountPaid-${currentRow}`]?.focus();
+            }, 0);
           } else if (currentColumn === "amountPaid") {
             const newPayment = {
               index: payments.length + 1,
@@ -268,7 +277,9 @@ const LoanManagement: React.FC = () => {
             newRow = payments.length;
             newColumn = "accountNo";
             setSelectedCell({ row: newRow, column: newColumn });
-            inputRefs.current[`accountNo-${newRow}`]?.focus();
+            setTimeout(() => {
+              inputRefs.current[`accountNo-${newRow}`]?.focus();
+            }, 0);
           }
           break;
       }
@@ -280,7 +291,8 @@ const LoanManagement: React.FC = () => {
           if (loanDetailsCache[accountNo]) {
             setLoanDetails(loanDetailsCache[accountNo]);
           } else {
-            await fetchLoanDetails(accountNo);
+            // Don't await here, let it happen in background
+            fetchLoanDetails(accountNo).catch(console.error);
           }
         }
       }
@@ -290,6 +302,17 @@ const LoanManagement: React.FC = () => {
   const handleAccountNoBlur = async (index: number) => {
     const currentPayment = payments[index];
     const trimmedValue = currentPayment.accountNo.trim();
+
+    // Update with trimmed value
+    setPayments((prevPayments) => {
+      const updatedPayments = [...prevPayments];
+      updatedPayments[index].accountNo = trimmedValue;
+      return updatedPayments;
+    });
+
+    if (!trimmedValue) {
+      return;
+    }
 
     const isDuplicate = payments.some(
       (payment, idx) => idx !== index && payment.accountNo === trimmedValue
@@ -303,76 +326,50 @@ const LoanManagement: React.FC = () => {
       return;
     }
 
-    if (trimmedValue) {
-      try {
-        let loanData = loanDetailsCache[trimmedValue];
+    try {
+      setIsLoading(true);
+      let loanData = loanDetailsCache[trimmedValue];
 
-        if (!loanData) {
-          const fetchedLoanData = await fetchLoanDetails(trimmedValue);
-          if (fetchedLoanData) {
-            loanData = fetchedLoanData;
+      // Instead of immediately updating global state, work with a local variable
+      if (!loanData) {
+        try {
+          const response = await fetch(`/api/loans/${trimmedValue}`);
+          if (!response.ok) {
+            throw new Error("Loan not found");
           }
-        }
+          loanData = await response.json();
 
-        if (!loanData) {
-          toast.error("Account number does not exist.");
+          // Update cache without updating focus
+          setLoanDetailsCache((prev) => ({
+            ...prev,
+            [trimmedValue]: loanData,
+          }));
+
+          // Update loan details separately
+          setLoanDetails(loanData);
+        } catch (error) {
+          toast.error(
+            "Error fetching loan details: " + (error as Error).message
+          );
           const resetPayments = [...payments];
           resetPayments[index].accountNo = "";
           setPayments(resetPayments);
+          return;
         }
-      } catch (error) {
-        console.error("Error validating account number.", error);
-        const resetPayments = [...payments];
-        resetPayments[index].accountNo = "";
-        setPayments(resetPayments);
       }
-    }
-  };
-
-  const handleAccountNoChange = async (value: string, index: number) => {
-    const trimmedValue = value.trim();
-    const payment = payments[index];
-
-    // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
-    if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
-      return; // Do not allow modification
-    }
-
-    setPayments((prevPayments) => {
-      const updatedPayments = [...prevPayments];
-      updatedPayments[index] = {
-        ...updatedPayments[index],
-        accountNo: trimmedValue,
-      };
-      return updatedPayments;
-    });
-
-    if (!trimmedValue) {
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        updatedPayments[index] = {
-          ...updatedPayments[index],
-          amountPaid: 0,
-          isDefaultAmount: true,
-        };
-        return updatedPayments;
-      });
-      return;
-    }
-
-    try {
-      const loanData = await fetchLoanDetails(trimmedValue);
 
       if (loanData) {
+        // Update amount paid only if it's still the default or zero
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           const currentPayment = updatedPayments[index];
+
           if (
             currentPayment.isDefaultAmount ||
             currentPayment.amountPaid === 0
           ) {
             updatedPayments[index] = {
-              ...updatedPayments[index],
+              ...currentPayment,
               amountPaid: loanData.instAmount,
               isDefaultAmount: true,
             };
@@ -383,29 +380,48 @@ const LoanManagement: React.FC = () => {
         if (!paymentHistoryCache[trimmedValue]) {
           await fetchPaymentHistory(trimmedValue);
         }
+
+        // Important: Move focus to amount paid after processing account number
+        setTimeout(() => {
+          setSelectedCell({ row: index, column: "amountPaid" });
+          inputRefs.current[`amountPaid-${index}`]?.focus();
+        }, 100);
       } else {
-        setPayments((prevPayments) => {
-          const updatedPayments = [...prevPayments];
-          updatedPayments[index] = {
-            ...updatedPayments[index],
-            amountPaid: 0,
-            isDefaultAmount: true,
-          };
-          return updatedPayments;
-        });
+        toast.error("Account number does not exist.");
+        const resetPayments = [...payments];
+        resetPayments[index].accountNo = "";
+        setPayments(resetPayments);
       }
     } catch (error) {
-      console.error("Error validating account number:", error);
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        updatedPayments[index] = {
-          ...updatedPayments[index],
-          amountPaid: 0,
-          isDefaultAmount: true,
-        };
-        return updatedPayments;
-      });
+      console.error("Error validating account number.", error);
+      const resetPayments = [...payments];
+      resetPayments[index].accountNo = "";
+      setPayments(resetPayments);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleAccountNoChange = (value: string, index: number) => {
+    const trimmedValue = value.trim();
+    const payment = payments[index];
+
+    // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
+    if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
+      return; // Do not allow modification
+    }
+
+    // Always update the account number input immediately without triggering loading state
+    setPayments((prevPayments) => {
+      const updatedPayments = [...prevPayments];
+      updatedPayments[index] = {
+        ...updatedPayments[index],
+        accountNo: value, // Use the original value to maintain cursor position
+      };
+      return updatedPayments;
+    });
+
+    // Don't do anything else while typing - we'll fetch details on blur instead
   };
 
   const handleAmountPaidChange = (value: string, index: number) => {
@@ -1115,22 +1131,13 @@ const LoanManagement: React.FC = () => {
     accountNo: string
   ): Promise<LoanDetails | null> => {
     try {
-      setIsLoading(false);
+      // Check if we already have this loan data in cache
       if (loanDetailsCache[accountNo]) {
-        setLoanDetails(loanDetailsCache[accountNo]);
-        setPayments((prevPayments) => {
-          const updatedPayments = [...prevPayments];
-          const index = updatedPayments.findIndex(
-            (p) => p.accountNo === accountNo
-          );
-          if (index !== -1 && updatedPayments[index].isDefaultAmount) {
-            updatedPayments[index].amountPaid =
-              loanDetailsCache[accountNo].instAmount;
-          }
-          return updatedPayments;
-        });
-        setIsLoading(false);
-        return loanDetailsCache[accountNo];
+        const cachedLoanData = loanDetailsCache[accountNo];
+
+        // Update loan details state without changing focus
+        setLoanDetails(cachedLoanData);
+        return cachedLoanData;
       }
 
       const response = await fetch(`/api/loans/${accountNo}`);
@@ -1141,30 +1148,20 @@ const LoanManagement: React.FC = () => {
 
       const data = await response.json();
 
+      // Update cache
       setLoanDetailsCache((prev) => ({
         ...prev,
         [accountNo]: data,
       }));
-      setLoanDetails(data);
 
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        const index = updatedPayments.findIndex(
-          (p) => p.accountNo === accountNo
-        );
-        if (index !== -1 && updatedPayments[index].isDefaultAmount) {
-          updatedPayments[index].amountPaid = data.instAmount;
-        }
-        return updatedPayments;
-      });
+      // Update loan details state
+      setLoanDetails(data);
 
       return data;
     } catch (error) {
       toast.error("Error fetching loan details: " + (error as Error).message);
       setLoanDetails(null);
       return null;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -1408,8 +1405,8 @@ const LoanManagement: React.FC = () => {
               className="flex-1 overflow-x-auto overflow-y-auto relative"
               id="payments-table-body"
             >
-              {
-              isLoading ? (
+              {isLoading && payments.length <= 1 && !payments[0].accountNo ? (
+                // Only show loading when initially loading the page or when explicitly needed
                 <div className="relative w-full h-full">
                   <div className="absolute inset-0 bg-white/70 dark:bg-gray-800/70 flex items-center justify-center z-20">
                     <div className="flex flex-col justify-end items-center space-y-3">
@@ -1419,25 +1416,165 @@ const LoanManagement: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <table className="w-full min-w-[800px]"><thead className="bg-orange-50 dark:bg-orange-950 shadow-md"><tr>
-                    {["Index", "Account No.", "Amount Paid", "Payment Time", "Actions"].map((header) => (
-                      <th
-                        key={header}
-                        className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr></thead><tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
+                  <table className="w-full min-w-[800px]">
+                    <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
+                      <tr>
+                        {[
+                          "Index",
+                          "Account No.",
+                          "Amount Paid",
+                          "Payment Time",
+                          "Actions",
+                        ].map((header) => (
+                          <th
+                            key={header}
+                            className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
+                      {payments.map((payment, index) => (
+                        <tr
+                          key={index}
+                          id={`payment-row-${index}`}
+                          onClick={() =>
+                            handleRowClick(index, payment.accountNo)
+                          }
+                          className={`${
+                            selectedCell.row === index
+                              ? "bg-orange-200 dark:bg-orange-900"
+                              : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          } transition-colors`}
+                        >
+                          <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
+                            {payment.index}
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <input
+                              ref={(el) => {
+                                inputRefs.current[`accountNo-${index}`] = el;
+                                if (index === payments.length - 1)
+                                  lastRowRef.current = el;
+                              }}
+                              type="number"
+                              value={payment.accountNo}
+                              onChange={(e) =>
+                                handleAccountNoChange(e.target.value, index)
+                              }
+                              onBlur={() => handleAccountNoBlur(index)}
+                              onKeyDown={handleKeyDown}
+                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
+                  ${
+                    selectedCell.row === index &&
+                    selectedCell.column === "accountNo"
+                      ? "border-orange-500 ring-2 ring-orange-500/20"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              placeholder="Enter Account No."
+                            />
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <input
+                              ref={(el) => {
+                                inputRefs.current[`amountPaid-${index}`] = el;
+                              }}
+                              type="number"
+                              value={
+                                payment.amountPaid === 0 &&
+                                !payment.isDefaultAmount
+                                  ? ""
+                                  : payment.amountPaid
+                              }
+                              onChange={(e) =>
+                                handleAmountPaidChange(e.target.value, index)
+                              }
+                              onFocus={(e) => handleAmountPaidFocus(e)}
+                              onKeyDown={handleKeyDown}
+                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                  ${
+                    selectedCell.row === index &&
+                    selectedCell.column === "amountPaid"
+                      ? "border-orange-500 ring-2 ring-orange-500/20"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  ${
+                    payment.isDefaultAmount && payment.amountPaid !== 0
+                      ? "text-orange-600 dark:text-orange-400"
+                      : ""
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                              placeholder="Enter Amount"
+                            />
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <input
+                              ref={(el) => {
+                                inputRefs.current[`paymentTime-${index}`] = el;
+                              }}
+                              type="time"
+                              value={payment.paymentTime || ""}
+                              onChange={(e) =>
+                                handlePaymentTimeChange(e.target.value, index)
+                              }
+                              onKeyDown={handleKeyDown}
+                              className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                  ${
+                    selectedCell.row === index &&
+                    selectedCell.column === "paymentTime"
+                      ? "border-orange-500 ring-2 ring-orange-500/20"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                            />
+                          </td>
+                          <td className="px-4 md:px-8 py-3 md:py-4">
+                            <button
+                              onClick={() => handleDeletePayment(index)}
+                              className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
+                    <tr>
+                      {[
+                        "Index",
+                        "Account No.",
+                        "Amount Paid",
+                        "Payment Time",
+                        "Actions",
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
                     {payments.map((payment, index) => (
                       <tr
                         key={index}
                         id={`payment-row-${index}`}
                         onClick={() => handleRowClick(index, payment.accountNo)}
-                        className={`${selectedCell.row === index
-                          ? "bg-orange-200 dark:bg-orange-900"
-                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          } transition-colors`}
+                        className={`${
+                          selectedCell.row === index
+                            ? "bg-orange-200 dark:bg-orange-900"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        } transition-colors`}
                       >
                         <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
                           {payment.index}
@@ -1446,19 +1583,24 @@ const LoanManagement: React.FC = () => {
                           <input
                             ref={(el) => {
                               inputRefs.current[`accountNo-${index}`] = el;
-                              if (index === payments.length - 1) lastRowRef.current = el;
+                              if (index === payments.length - 1)
+                                lastRowRef.current = el;
                             }}
                             type="number"
                             value={payment.accountNo}
-                            onChange={(e) => handleAccountNoChange(e.target.value, index)}
+                            onChange={(e) =>
+                              handleAccountNoChange(e.target.value, index)
+                            }
                             onBlur={() => handleAccountNoBlur(index)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                              ${selectedCell.row === index && selectedCell.column === "accountNo"
-                                ? "border-orange-500 ring-2 ring-orange-500/20"
-                                : "border-gray-300 dark:border-gray-600"
-                              }
-                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                ${
+                  selectedCell.row === index &&
+                  selectedCell.column === "accountNo"
+                    ? "border-orange-500 ring-2 ring-orange-500/20"
+                    : "border-gray-300 dark:border-gray-600"
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Account No."
                           />
                         </td>
@@ -1469,33 +1611,51 @@ const LoanManagement: React.FC = () => {
                             }}
                             type="number"
                             value={
-                              payment.amountPaid === 0 && !payment.isDefaultAmount
+                              payment.amountPaid === 0 &&
+                              !payment.isDefaultAmount
                                 ? ""
                                 : payment.amountPaid
                             }
-                            onChange={(e) => handleAmountPaidChange(e.target.value, index)}
+                            onChange={(e) =>
+                              handleAmountPaidChange(e.target.value, index)
+                            }
                             onFocus={(e) => handleAmountPaidFocus(e)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                              ${selectedCell.row === index && selectedCell.column === "amountPaid"
-                                ? "border-orange-500 ring-2 ring-orange-500/20"
-                                : "border-gray-300 dark:border-gray-600"
-                              }
-                              ${payment.isDefaultAmount && payment.amountPaid !== 0
-                                ? "text-orange-600 dark:text-orange-400"
-                                : ""
-                              }
-                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
+                ${
+                  selectedCell.row === index &&
+                  selectedCell.column === "amountPaid"
+                    ? "border-orange-500 ring-2 ring-orange-500/20"
+                    : "border-gray-300 dark:border-gray-600"
+                }
+                ${
+                  payment.isDefaultAmount && payment.amountPaid !== 0
+                    ? "text-orange-600 dark:text-orange-400"
+                    : ""
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Amount"
                           />
                         </td>
-                        <td className="px-4 md:px-8 py-3 md:py-4">
+                        <td className="px-4 md:px-2 py-3 md:py-4">
                           <input
+                            ref={(el) => {
+                              inputRefs.current[`paymentTime-${index}`] = el;
+                            }}
                             type="time"
                             value={payment.paymentTime || ""}
-                            onChange={(e) => handlePaymentTimeChange(e.target.value, index)}
+                            onChange={(e) =>
+                              handlePaymentTimeChange(e.target.value, index)
+                            }
                             onKeyDown={handleKeyDown}
-                            className="w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                            className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
+                ${
+                  selectedCell.row === index &&
+                  selectedCell.column === "paymentTime"
+                    ? "border-orange-500 ring-2 ring-orange-500/20"
+                    : "border-gray-300 dark:border-gray-600"
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                           />
                         </td>
                         <td className="px-4 md:px-8 py-3 md:py-4">
@@ -1508,101 +1668,9 @@ const LoanManagement: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                  </tbody></table>
-                </div>
-              ) : (
-                <table className="w-full min-w-[800px]"><thead className="bg-orange-50 dark:bg-orange-950 shadow-md"><tr>
-                  {["Index", "Account No.", "Amount Paid", "Payment Time", "Actions"].map((header) => (
-                    <th
-                      key={header}
-                      className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr></thead><tbody className="divide-y divide-gray-200 dark:divide-gray-700 relative z-0">
-                  {payments.map((payment, index) => (
-                    <tr
-                      key={index}
-                      id={`payment-row-${index}`}
-                      onClick={() => handleRowClick(index, payment.accountNo)}
-                      className={`${selectedCell.row === index
-                        ? "bg-orange-200 dark:bg-orange-900"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        } transition-colors`}
-                    >
-                      <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
-                        {payment.index}
-                      </td>
-                      <td className="px-4 md:px-8 py-3 md:py-4">
-                        <input
-                          ref={(el) => {
-                            inputRefs.current[`accountNo-${index}`] = el;
-                            if (index === payments.length - 1) lastRowRef.current = el;
-                          }}
-                          type="number"
-                          value={payment.accountNo}
-                          onChange={(e) => handleAccountNoChange(e.target.value, index)}
-                          onBlur={() => handleAccountNoBlur(index)}
-                          onKeyDown={handleKeyDown}
-                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                            ${selectedCell.row === index && selectedCell.column === "accountNo"
-                              ? "border-orange-500 ring-2 ring-orange-500/20"
-                              : "border-gray-300 dark:border-gray-600"
-                            }
-                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                          placeholder="Enter Account No."
-                        />
-                      </td>
-                      <td className="px-4 md:px-8 py-3 md:py-4">
-                        <input
-                          ref={(el) => {
-                            inputRefs.current[`amountPaid-${index}`] = el;
-                          }}
-                          type="number"
-                          value={
-                            payment.amountPaid === 0 && !payment.isDefaultAmount
-                              ? ""
-                              : payment.amountPaid
-                          }
-                          onChange={(e) => handleAmountPaidChange(e.target.value, index)}
-                          onFocus={(e) => handleAmountPaidFocus(e)}
-                          onKeyDown={handleKeyDown}
-                          className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                            ${selectedCell.row === index && selectedCell.column === "amountPaid"
-                              ? "border-orange-500 ring-2 ring-orange-500/20"
-                              : "border-gray-300 dark:border-gray-600"
-                            }
-                            ${payment.isDefaultAmount && payment.amountPaid !== 0
-                              ? "text-orange-600 dark:text-orange-400"
-                              : ""
-                            }
-                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
-                          placeholder="Enter Amount"
-                        />
-                      </td>
-                      <td className="px-4 md:px-2 py-3 md:py-4">
-                        <input
-                          type="time"
-                          value={payment.paymentTime || ""}
-                          onChange={(e) => handlePaymentTimeChange(e.target.value, index)}
-                          onKeyDown={handleKeyDown}
-                          className=" md:px-3 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                        />
-                      </td>
-                      <td className="px-4 md:px-8 py-3 md:py-4">
-                        <button
-                          onClick={() => handleDeletePayment(index)}
-                          className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody></table>
-              )
-            }
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
