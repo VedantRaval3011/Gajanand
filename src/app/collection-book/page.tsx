@@ -332,12 +332,13 @@ const LoanManagement: React.FC = () => {
   const handleAccountNoChange = async (value: string, index: number) => {
     const trimmedValue = value.trim();
     const payment = payments[index];
-
+  
     // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
     if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
       return; // Do not allow modification
     }
-
+  
+    // Always update the account number input immediately
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
       updatedPayments[index] = {
@@ -346,7 +347,7 @@ const LoanManagement: React.FC = () => {
       };
       return updatedPayments;
     });
-
+  
     if (!trimmedValue) {
       setPayments((prevPayments) => {
         const updatedPayments = [...prevPayments];
@@ -359,31 +360,50 @@ const LoanManagement: React.FC = () => {
       });
       return;
     }
-
+  
+    // Debounce the fetch to avoid multiple API calls for rapid typing
+    // Use a local variable to track the current account number being processed
+    const currentAccountNo = trimmedValue;
+    
     try {
-      const loanData = await fetchLoanDetails(trimmedValue);
-
-      if (loanData) {
+      // Check cache first before fetching
+      let loanData = loanDetailsCache[currentAccountNo];
+      
+      if (!loanData) {
+        // Set a loading state for this specific row if needed
+        const fetchedData = await fetchLoanDetails(currentAccountNo);
+        if (fetchedData) {
+          loanData = fetchedData;
+        } else {
+          return; // Exit if no loan data is found
+        }
+      }
+  
+      // Only update if the account number hasn't changed during the fetch
+      if (loanData && currentAccountNo === trimmedValue) {
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           const currentPayment = updatedPayments[index];
-          if (
-            currentPayment.isDefaultAmount ||
-            currentPayment.amountPaid === 0
-          ) {
+          
+          // Only update amountPaid if it's still the default or zero
+          if (currentPayment.isDefaultAmount || currentPayment.amountPaid === 0) {
             updatedPayments[index] = {
-              ...updatedPayments[index],
+              ...currentPayment,
               amountPaid: loanData.instAmount,
               isDefaultAmount: true,
             };
           }
           return updatedPayments;
         });
-
-        if (!paymentHistoryCache[trimmedValue]) {
-          await fetchPaymentHistory(trimmedValue);
+  
+        if (!paymentHistoryCache[currentAccountNo]) {
+          await fetchPaymentHistory(currentAccountNo);
         }
-      } else {
+      }
+    } catch (error) {
+      console.error("Error validating account number:", error);
+      // Only reset amount if this is still the current account number
+      if (currentAccountNo === trimmedValue) {
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
           updatedPayments[index] = {
@@ -394,17 +414,6 @@ const LoanManagement: React.FC = () => {
           return updatedPayments;
         });
       }
-    } catch (error) {
-      console.error("Error validating account number:", error);
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        updatedPayments[index] = {
-          ...updatedPayments[index],
-          amountPaid: 0,
-          isDefaultAmount: true,
-        };
-        return updatedPayments;
-      });
     }
   };
 
@@ -1111,53 +1120,44 @@ const LoanManagement: React.FC = () => {
     }
   };
 
-  const fetchLoanDetails = async (
-    accountNo: string
-  ): Promise<LoanDetails | null> => {
+  const fetchLoanDetails = async (accountNo: string): Promise<LoanDetails | null> => {
     try {
-      setIsLoading(false);
+      setIsLoading(true);
+      
+      // Check if we already have this loan data in cache
       if (loanDetailsCache[accountNo]) {
-        setLoanDetails(loanDetailsCache[accountNo]);
-        setPayments((prevPayments) => {
-          const updatedPayments = [...prevPayments];
-          const index = updatedPayments.findIndex(
-            (p) => p.accountNo === accountNo
-          );
-          if (index !== -1 && updatedPayments[index].isDefaultAmount) {
-            updatedPayments[index].amountPaid =
-              loanDetailsCache[accountNo].instAmount;
-          }
-          return updatedPayments;
-        });
+        const cachedLoanData = loanDetailsCache[accountNo];
+        
+        // Update loan details state
+        setLoanDetails(cachedLoanData);
+        
+        // Don't update payments here - let handleAccountNoChange handle that
+        // This avoids the flickering issue
+        
         setIsLoading(false);
-        return loanDetailsCache[accountNo];
+        return cachedLoanData;
       }
-
+  
       const response = await fetch(`/api/loans/${accountNo}`);
-
+  
       if (!response.ok) {
         throw new Error("Loan not found");
       }
-
+  
       const data = await response.json();
-
+  
+      // Update cache
       setLoanDetailsCache((prev) => ({
         ...prev,
         [accountNo]: data,
       }));
+      
+      // Update loan details state
       setLoanDetails(data);
-
-      setPayments((prevPayments) => {
-        const updatedPayments = [...prevPayments];
-        const index = updatedPayments.findIndex(
-          (p) => p.accountNo === accountNo
-        );
-        if (index !== -1 && updatedPayments[index].isDefaultAmount) {
-          updatedPayments[index].amountPaid = data.instAmount;
-        }
-        return updatedPayments;
-      });
-
+  
+      // Don't update payments here - let handleAccountNoChange handle that
+      // This avoids the flickering issue
+      
       return data;
     } catch (error) {
       toast.error("Error fetching loan details: " + (error as Error).message);
