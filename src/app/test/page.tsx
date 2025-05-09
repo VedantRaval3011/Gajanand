@@ -1267,8 +1267,6 @@ const LoanManagement: React.FC = () => {
       
       if (loanData) {
         // Pre-calculate late amount using cached data if available
-        const paymentHistory = paymentHistoryCache[accountNo] || 
-          await fetchPaymentHistory(accountNo);
           
         // Perform calculations before updating UI
         await calculateLateAmount(loanData, accountNo);
