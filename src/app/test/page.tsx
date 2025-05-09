@@ -478,7 +478,6 @@ const LoanManagement: React.FC = () => {
   };
 
   const handleAccountNoChange = (value: string, index: number) => {
-    const trimmedValue = value.trim();
     const payment = payments[index];
 
     // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
