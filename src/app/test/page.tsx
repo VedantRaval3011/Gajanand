@@ -151,237 +151,280 @@ const LoanManagement: React.FC = () => {
     event.target.select();
   };
 
- const handleKeyDown = async (e: React.KeyboardEvent) => {
-  const currentRow = selectedCell.row;
-  const currentColumn = selectedCell.column;
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
+    const currentRow = selectedCell.row;
+    const currentColumn = selectedCell.column;
 
-  if (e.key === "Delete") {
-    e.preventDefault();
-    handleDeletePayment(currentRow);
-    return;
-  }
+    if (e.key === "Delete") {
+      e.preventDefault();
+      handleDeletePayment(currentRow);
+      return;
+    }
 
-  if (
-    [
-      "Tab",
-      "Enter",
-      "ArrowUp",
-      "ArrowDown",
-      "ArrowLeft",
-      "ArrowRight",
-    ].includes(e.key)
-  ) {
-    e.preventDefault();
+    if (
+      [
+        "Tab",
+        "Enter",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+      ].includes(e.key)
+    ) {
+      e.preventDefault();
 
-    let newRow = currentRow;
-    let newColumn = currentColumn;
+      let newRow = currentRow;
+      let newColumn = currentColumn;
 
-    switch (e.key) {
-      case "ArrowDown":
-        if (currentRow < payments.length - 1) {
-          newRow = currentRow + 1;
-          
-          // Prevent navigation if we're still processing a previous row
-          if (processingRow !== null) return;
-          
-          // Mark that we're starting to process this row
-          setProcessingRow(newRow);
-          
-          // Pre-load data before changing focus
-          const nextAccountNo = payments[newRow]?.accountNo;
-          if (nextAccountNo) {
-            try {
-              // First check if we have cached data
-              let loanData = loanDetailsCache[nextAccountNo];
-              
-              if (!loanData) {
-                // If not in cache, fetch it
-                const fetchedLoanData = await fetchLoanDetails(nextAccountNo);
-                if (fetchedLoanData) {
+      switch (e.key) {
+        case "ArrowDown":
+          if (currentRow < payments.length - 1) {
+            newRow = currentRow + 1;
+
+            // Prevent navigation if we're still processing a previous row
+            if (processingRow !== null) return;
+
+            // Mark that we're starting to process this row
+            setProcessingRow(newRow);
+
+            // Pre-load data before changing focus
+            const nextAccountNo = payments[newRow]?.accountNo;
+            if (nextAccountNo) {
+              try {
+                // First check if we have cached data
+                let loanData = loanDetailsCache[nextAccountNo];
+
+                if (!loanData) {
+                  // If not in cache, fetch it
+                  const fetchedLoanData = await fetchLoanDetails(nextAccountNo);
+                  if (fetchedLoanData) {
                     loanData = fetchedLoanData;
+                  }
                 }
-              }
-              
-              if (loanData) {
-                // Make sure we have payment history available
-                if (!paymentHistoryCache[nextAccountNo]) {
-                  await fetchPaymentHistory(nextAccountNo);
+
+                if (loanData) {
+                  // Make sure we have payment history available
+                  if (!paymentHistoryCache[nextAccountNo]) {
+                    await fetchPaymentHistory(nextAccountNo);
+                  }
+
+                  // Pre-calculate late amount in a batch
+                  await calculateLateAmount(loanData, nextAccountNo);
                 }
-                
-                // Pre-calculate late amount in a batch
-                await calculateLateAmount(loanData, nextAccountNo);
+              } catch (error) {
+                console.error("Error pre-loading row data:", error);
               }
-            } catch (error) {
-              console.error("Error pre-loading row data:", error);
+            }
+
+            // Now that data is loaded, update the UI
+            setSelectedCell({ ...selectedCell, row: newRow });
+            setCurrentRow(newRow);
+
+            // Clear processing flag
+            setProcessingRow(null);
+
+            // Focus the appropriate input
+            inputRefs.current[`${currentColumn}-${newRow}`]?.focus();
+          }
+          break;
+
+        case "ArrowUp":
+          if (currentRow > 0) {
+            newRow = currentRow - 1;
+
+            // Prevent navigation if we're still processing a previous row
+            if (processingRow !== null) return;
+
+            // Mark that we're starting to process this row
+            setProcessingRow(newRow);
+
+            // Pre-load data before changing focus
+            const prevAccountNo = payments[newRow]?.accountNo;
+            if (prevAccountNo) {
+              try {
+                // First check if we have cached data
+                let loanData = loanDetailsCache[prevAccountNo];
+
+                if (!loanData) {
+                  // If not in cache, fetch it
+                  const fetchedData = await fetchLoanDetails(prevAccountNo);
+                  if (fetchedData) {
+                    loanData = fetchedData;
+                  }
+                }
+
+                if (loanData) {
+                  // Make sure we have payment history available
+                  if (!paymentHistoryCache[prevAccountNo]) {
+                    await fetchPaymentHistory(prevAccountNo);
+                  }
+
+                  // Pre-calculate late amount in a batch
+                  await calculateLateAmount(loanData, prevAccountNo);
+                }
+              } catch (error) {
+                console.error("Error pre-loading row data:", error);
+              }
+            }
+
+            // Now that data is loaded, update the UI
+            setSelectedCell({ ...selectedCell, row: newRow });
+            setCurrentRow(newRow);
+
+            // Clear processing flag
+            setProcessingRow(null);
+
+            // Focus the appropriate input, but check if it exists first
+            const inputRef = inputRefs.current[`${currentColumn}-${newRow}`];
+            if (inputRef) {
+              inputRef.focus();
             }
           }
-          
-          // Now that data is loaded, update the UI
-          setSelectedCell({ ...selectedCell, row: newRow });
-          setCurrentRow(newRow);
-          
-          // Clear processing flag
-          setProcessingRow(null);
-          
-          // Focus the appropriate input
-          inputRefs.current[`${currentColumn}-${newRow}`]?.focus();
-        }
-        break;
+          break;
 
-      case "ArrowUp":
-        if (currentRow > 0) {
-          newRow = currentRow - 1;
-          
-          // Prevent navigation if we're still processing a previous row
-          if (processingRow !== null) return;
-          
-          // Mark that we're starting to process this row
-          setProcessingRow(newRow);
-          
-          // Pre-load data before changing focus
-          const prevAccountNo = payments[newRow]?.accountNo;
-          if (prevAccountNo) {
-            try {
-              // First check if we have cached data
-              let loanData = loanDetailsCache[prevAccountNo];
-              
-              if (!loanData) {
-                // If not in cache, fetch it
-                const fetchedData = await fetchLoanDetails(prevAccountNo);
-                if (fetchedData) {
-                  loanData = fetchedData;
-                }
-              }
-              
-              if (loanData) {
-                // Make sure we have payment history available
-                if (!paymentHistoryCache[prevAccountNo]) {
-                  await fetchPaymentHistory(prevAccountNo);
-                }
-                
-                // Pre-calculate late amount in a batch
-                await calculateLateAmount(loanData, prevAccountNo);
-              }
-            } catch (error) {
-              console.error("Error pre-loading row data:", error);
+        case "ArrowRight":
+        case "Tab":
+          if (!e.shiftKey) {
+            if (currentColumn === "accountNo") {
+              newColumn = "amountPaid";
+            } else if (currentColumn === "amountPaid") {
+              newColumn = "paymentTime";
             }
+            setSelectedCell({ row: currentRow, column: newColumn });
+            setTimeout(() => {
+              const inputRef = inputRefs.current[`${newColumn}-${currentRow}`];
+              if (inputRef) {
+                inputRef.focus();
+              }
+            }, 0);
           }
-          
-          // Now that data is loaded, update the UI
-          setSelectedCell({ ...selectedCell, row: newRow });
-          setCurrentRow(newRow);
-          
-          // Clear processing flag
-          setProcessingRow(null);
-          
-          // Focus the appropriate input
-          inputRefs.current[`${currentColumn}-${newRow}`]?.focus();
-        }
-        break;
+          break;
 
-      case "ArrowRight":
-      case "Tab":
-        if (!e.shiftKey) {
-          if (currentColumn === "accountNo") {
+        case "ArrowLeft":
+          if (currentColumn === "paymentTime") {
             newColumn = "amountPaid";
           } else if (currentColumn === "amountPaid") {
-            newColumn = "paymentTime";
+            newColumn = "accountNo";
           }
           setSelectedCell({ row: currentRow, column: newColumn });
           setTimeout(() => {
-            inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
+            const inputRef = inputRefs.current[`${newColumn}-${currentRow}`];
+            if (inputRef) {
+              inputRef.focus();
+            }
           }, 0);
-        }
-        break;
+          break;
 
-      case "ArrowLeft":
-        if (currentColumn === "paymentTime") {
-          newColumn = "amountPaid";
-        } else if (currentColumn === "amountPaid") {
-          newColumn = "accountNo";
-        }
-        setSelectedCell({ row: currentRow, column: newColumn });
-        setTimeout(() => {
-          inputRefs.current[`${newColumn}-${currentRow}`]?.focus();
-        }, 0);
-        break;
-
-      case "Enter":
-        if (currentColumn === "paymentTime") {
-          const newPayment = {
-            index: payments.length + 1,
-            accountNo: "",
-            amountPaid: 0,
-            paymentDate: selectedDate,
-            paymentTime: new Date().toLocaleTimeString("en-US", {
-              hour12: false,
-            }),
-            lateAmount: 0,
-            isDefaultAmount: false,
-          };
-          setPayments([...payments, newPayment]);
-          newRow = payments.length;
-          newColumn = "accountNo";
-          setSelectedCell({ row: newRow, column: newColumn });
-          setTimeout(() => {
-            inputRefs.current[`accountNo-${newRow}`]?.focus();
-          }, 0);
-        }
-        if (currentColumn === "accountNo") {
-          const trimmedValue = payments[currentRow]?.accountNo.trim();
-
-          const isDuplicate = payments.some(
-            (payment, idx) =>
-              idx !== currentRow && payment.accountNo === trimmedValue
-          );
-
-          if (isDuplicate) {
-            alert("Duplicate accountNos are not allowed");
-            setPayments((prevPayments) => {
-              const updatedPayments = [...prevPayments];
-              updatedPayments[currentRow].accountNo = "";
-              return updatedPayments;
-            });
-            inputRefs.current[`accountNo-${currentRow}`]?.focus();
-            return;
+        case "Enter":
+          if (currentColumn === "paymentTime") {
+            const newPayment = {
+              index: payments.length + 1,
+              accountNo: "",
+              amountPaid: 0,
+              paymentDate: selectedDate,
+              paymentTime: new Date().toLocaleTimeString("en-US", {
+                hour12: false,
+              }),
+              lateAmount: 0,
+              isDefaultAmount: false,
+            };
+            setPayments([...payments, newPayment]);
+            newRow = payments.length;
+            newColumn = "accountNo";
+            setSelectedCell({ row: newRow, column: newColumn });
+            setTimeout(() => {
+              const inputRef = inputRefs.current[`accountNo-${newRow}`];
+              if (inputRef) {
+                inputRef.focus();
+              }
+            }, 0);
           }
+          if (currentColumn === "accountNo") {
+            const trimmedValue = payments[currentRow]?.accountNo?.trim() || "";
 
-          newColumn = "amountPaid";
-          setSelectedCell({ row: currentRow, column: newColumn });
-          setTimeout(() => {
-            inputRefs.current[`amountPaid-${currentRow}`]?.focus();
-          }, 0);
-        } else if (currentColumn === "amountPaid") {
-          const newPayment = {
-            index: payments.length + 1,
-            accountNo: "",
-            amountPaid: 0,
-            paymentDate: selectedDate,
-            lateAmount: 0,
-            isDefaultAmount: false,
-          };
-          setPayments([...payments, newPayment]);
-          newRow = payments.length;
-          newColumn = "accountNo";
-          setSelectedCell({ row: newRow, column: newColumn });
-          setTimeout(() => {
-            inputRefs.current[`accountNo-${newRow}`]?.focus();
-          }, 0);
-        }
-        break;
+            const isDuplicate = payments.some(
+              (payment, idx) =>
+                idx !== currentRow &&
+                payment.accountNo &&
+                payment.accountNo === trimmedValue
+            );
+
+            if (isDuplicate && trimmedValue !== "") {
+              alert("Duplicate accountNos are not allowed");
+              setPayments((prevPayments) => {
+                const updatedPayments = [...prevPayments];
+                if (updatedPayments[currentRow]) {
+                  updatedPayments[currentRow].accountNo = "";
+                }
+                return updatedPayments;
+              });
+              const inputRef = inputRefs.current[`accountNo-${currentRow}`];
+              if (inputRef) {
+                inputRef.focus();
+              }
+              return;
+            }
+
+            newColumn = "amountPaid";
+            setSelectedCell({ row: currentRow, column: newColumn });
+            setTimeout(() => {
+              const inputRef = inputRefs.current[`amountPaid-${currentRow}`];
+              if (inputRef) {
+                inputRef.focus();
+              }
+            }, 0);
+          } else if (currentColumn === "amountPaid") {
+            const newPayment = {
+              index: payments.length + 1,
+              accountNo: "",
+              amountPaid: 0,
+              paymentDate: selectedDate,
+              lateAmount: 0,
+              isDefaultAmount: false,
+            };
+            setPayments([...payments, newPayment]);
+            newRow = payments.length;
+            newColumn = "accountNo";
+            setSelectedCell({ row: newRow, column: newColumn });
+            setTimeout(() => {
+              const inputRef = inputRefs.current[`accountNo-${newRow}`];
+              if (inputRef) {
+                inputRef.focus();
+              }
+            }, 0);
+          }
+          break;
+      }
     }
-  }
-};
-
+  };
 
   const handleAccountNoBlur = async (index: number) => {
-    const currentPayment = payments[index];
-    const trimmedValue = currentPayment.accountNo.trim();
+    // First, check if the index is valid
+    if (index < 0 || index >= payments.length) {
+      console.error(
+        `Invalid index: ${index} for payments array of length ${payments.length}`
+      );
+      return;
+    }
 
-    // Update with trimmed value
+    const currentPayment = payments[index];
+    if (!currentPayment) {
+      console.error(`Payment at index ${index} is undefined`);
+      return;
+    }
+
+    const trimmedValue = currentPayment.accountNo?.trim() || "";
+
+    // Update with trimmed value - with index validation
     setPayments((prevPayments) => {
       const updatedPayments = [...prevPayments];
-      updatedPayments[index].accountNo = trimmedValue;
+      if (
+        index >= 0 &&
+        index < updatedPayments.length &&
+        updatedPayments[index]
+      ) {
+        updatedPayments[index].accountNo = trimmedValue;
+      }
       return updatedPayments;
     });
 
@@ -396,8 +439,10 @@ const LoanManagement: React.FC = () => {
     if (isDuplicate) {
       toast.error("This account number is already entered in another row.");
       const updatedPayments = [...payments];
-      updatedPayments[index].accountNo = "";
-      setPayments(updatedPayments);
+      if (index >= 0 && index < updatedPayments.length) {
+        updatedPayments[index].accountNo = "";
+        setPayments(updatedPayments);
+      }
       return;
     }
 
@@ -427,8 +472,10 @@ const LoanManagement: React.FC = () => {
             "Error fetching loan details: " + (error as Error).message
           );
           const resetPayments = [...payments];
-          resetPayments[index].accountNo = "";
-          setPayments(resetPayments);
+          if (index >= 0 && index < resetPayments.length) {
+            resetPayments[index].accountNo = "";
+            setPayments(resetPayments);
+          }
           return;
         }
       }
@@ -437,17 +484,19 @@ const LoanManagement: React.FC = () => {
         // Update amount paid only if it's still the default or zero
         setPayments((prevPayments) => {
           const updatedPayments = [...prevPayments];
-          const currentPayment = updatedPayments[index];
+          if (index >= 0 && index < updatedPayments.length) {
+            const currentPayment = updatedPayments[index];
 
-          if (
-            currentPayment.isDefaultAmount ||
-            currentPayment.amountPaid === 0
-          ) {
-            updatedPayments[index] = {
-              ...currentPayment,
-              amountPaid: loanData.instAmount,
-              isDefaultAmount: true,
-            };
+            if (
+              currentPayment.isDefaultAmount ||
+              currentPayment.amountPaid === 0
+            ) {
+              updatedPayments[index] = {
+                ...currentPayment,
+                amountPaid: loanData.instAmount,
+                isDefaultAmount: true,
+              };
+            }
           }
           return updatedPayments;
         });
@@ -464,64 +513,89 @@ const LoanManagement: React.FC = () => {
       } else {
         toast.error("Account number does not exist.");
         const resetPayments = [...payments];
-        resetPayments[index].accountNo = "";
-        setPayments(resetPayments);
+        if (index >= 0 && index < resetPayments.length) {
+          resetPayments[index].accountNo = "";
+          setPayments(resetPayments);
+        }
       }
     } catch (error) {
       console.error("Error validating account number.", error);
       const resetPayments = [...payments];
-      resetPayments[index].accountNo = "";
-      setPayments(resetPayments);
+      if (index >= 0 && index < resetPayments.length) {
+        resetPayments[index].accountNo = "";
+        setPayments(resetPayments);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAccountNoChange = (value: string, index: number) => {
-    const payment = payments[index];
+  // Check if index is valid
+  if (index < 0 || index >= payments.length) {
+    console.error(`Invalid index: ${index} for payments array of length ${payments.length}`);
+    return;
+  }
 
-    // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
-    if (payment._id || isSaved.accounts.includes(payment.accountNo)) {
-      return; // Do not allow modification
-    }
+  const payment = payments[index];
+  if (!payment) {
+    console.error(`Payment at index ${index} is undefined`);
+    return;
+  }
 
-    // Always update the account number input immediately without triggering loading state
-    setPayments((prevPayments) => {
-      const updatedPayments = [...prevPayments];
+  // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
+  if (payment._id || (payment.accountNo && isSaved.accounts.includes(payment.accountNo))) {
+    return; // Do not allow modification
+  }
+
+  // Always update the account number input immediately without triggering loading state
+  setPayments((prevPayments) => {
+    const updatedPayments = [...prevPayments];
+    if (index >= 0 && index < updatedPayments.length) {
       updatedPayments[index] = {
         ...updatedPayments[index],
         accountNo: value, // Use the original value to maintain cursor position
       };
-      return updatedPayments;
-    });
+    }
+    return updatedPayments;
+  });
 
-    // Don't do anything else while typing - we'll fetch details on blur instead
-  };
+  // Don't do anything else while typing - we'll fetch details on blur instead
+};
 
-  const handleAmountPaidChange = (value: string, index: number) => {
-    const amount = parseFloat(value) || 0;
-    setPayments((prevPayments) => {
-      const updatedPayments = [...prevPayments];
+const handleAmountPaidChange = (value: string, index: number) => {
+  // Check if index is valid
+  if (index < 0 || index >= payments.length) {
+    console.error(`Invalid index: ${index} for payments array of length ${payments.length}`);
+    return;
+  }
+
+  const amount = parseFloat(value) || 0;
+  setPayments((prevPayments) => {
+    const updatedPayments = [...prevPayments];
+    if (index >= 0 && index < updatedPayments.length) {
       const currentPayment = updatedPayments[index];
-      updatedPayments[index] = {
-        ...updatedPayments[index],
-        amountPaid: amount,
-        isDefaultAmount: false,
-      };
+      if (currentPayment) {
+        updatedPayments[index] = {
+          ...currentPayment,
+          amountPaid: amount,
+          isDefaultAmount: false,
+        };
 
-      const accountNo = currentPayment.accountNo;
-      if (accountNo) {
-        const previousReceived = receivedAmounts[accountNo] || 0;
-        setReceivedAmounts((prev) => ({
-          ...prev,
-          [accountNo]:
-            previousReceived - (currentPayment.amountPaid || 0) + amount,
-        }));
+        const accountNo = currentPayment.accountNo;
+        if (accountNo) {
+          const previousReceived = receivedAmounts[accountNo] || 0;
+          setReceivedAmounts((prev) => ({
+            ...prev,
+            [accountNo]:
+              previousReceived - (currentPayment.amountPaid || 0) + amount,
+          }));
+        }
       }
-
-      return updatedPayments;
-    });
-  };
+    }
+    return updatedPayments;
+  });
+};
 
   const calculateTotalToBePaid = (accountNo: string) => {
     if (!loanDetails) return 0;
@@ -530,123 +604,149 @@ const LoanManagement: React.FC = () => {
     return mAmount - receivedAmountValue;
   };
 
+  // The issue is in the savePayments function
+  // We need to improve how we handle the array operations and state updates
+
   const savePayments = async () => {
-    if (isSaving) return;
+  if (isSaving) return;
 
-    if (!loanDetails) {
-      setAlertMessage("No loan selected");
-      setAlertOpen(true);
-      return;
+  // First, filter out invalid payments to avoid processing them
+  const validPayments = payments.filter(
+    (p) => p && p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
+  );
+
+  if (validPayments.length === 0) {
+    setAlertMessage("No valid payments to save");
+    setAlertOpen(true);
+    return;
+  }
+
+  // We're only dealing with valid payments now
+  const accountNoSet = new Set<string>();
+  const duplicates: string[] = [];
+  const hasDuplicates = validPayments.some((payment) => {
+    const trimmedAccountNo = payment.accountNo.trim();
+    if (accountNoSet.has(trimmedAccountNo)) {
+      duplicates.push(trimmedAccountNo);
+      return true;
     }
+    accountNoSet.add(trimmedAccountNo);
+    return false;
+  });
 
-    const validPayments = payments.filter(
-      (p) => p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
-    );
+  if (hasDuplicates) {
+    alert("Duplicate account Nos are not allowed");
+    return;
+  }
 
-    if (validPayments.length === 0) {
-      setAlertMessage("No valid payments to save");
-      setAlertOpen(true);
-      return;
-    }
-
-    const accountNoSet = new Set<string>();
-    const duplicates: string[] = [];
-    const hasDuplicates = validPayments.some((payment) => {
-      const trimmedAccountNo = payment.accountNo.trim();
-      if (accountNoSet.has(trimmedAccountNo)) {
-        duplicates.push(trimmedAccountNo);
-        return true;
+  // If we don't have loan details but we have valid payments, try to get details
+  // from the first valid payment
+  if (!loanDetails && validPayments.length > 0) {
+    try {
+      const firstAccountNo = validPayments[0].accountNo.trim();
+      const fetchedDetails = await fetchLoanDetails(firstAccountNo);
+      if (!fetchedDetails) {
+        setAlertMessage("Could not fetch loan details for saving");
+        setAlertOpen(true);
+        return;
       }
-      accountNoSet.add(trimmedAccountNo);
-      return false;
+    } catch (error) {
+      setAlertMessage("Error fetching loan details: " + (error as Error).message);
+      setAlertOpen(true);
+      return;
+    }
+  }
+
+  if (!loanDetails) {
+    setAlertMessage("No loan selected");
+    setAlertOpen(true);
+    return;
+  }
+
+  setIsSaving(true);
+  try {
+    const paymentData = {
+      loanId: loanDetails._id,
+      paymentDate: formatDateForInput(selectedDate),
+      payments: validPayments.map((p) => {
+        const previousReceived = receivedAmounts[p.accountNo] || 0;
+        const newReceived = previousReceived + Number(p.amountPaid);
+        return {
+          accountNo: p.accountNo.trim(),
+          amountPaid: Number(p.amountPaid),
+          paymentDate: p.paymentDate,
+          paymentTime:
+            p.paymentTime ||
+            new Date().toLocaleTimeString("en-US", { hour12: false }),
+          lateAmount: lateAmounts[p.accountNo] || 0,
+          remainingAmount: loanDetails.mAmount - newReceived,
+          _id: p._id,
+        };
+      }),
+    };
+
+    const response = await fetch("/api/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paymentData),
     });
 
-    if (hasDuplicates) {
-      alert("Duplicate account Nos are not allowed");
-      return;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to save payments");
     }
 
-    setIsSaving(true);
-    try {
-      const paymentData = {
-        loanId: loanDetails._id,
-        paymentDate: formatDateForInput(selectedDate),
-        payments: validPayments.map((p) => {
-          const previousReceived = receivedAmounts[p.accountNo] || 0;
-          const newReceived = previousReceived + Number(p.amountPaid);
-          return {
-            accountNo: p.accountNo.trim(),
-            amountPaid: Number(p.amountPaid),
-            paymentDate: p.paymentDate,
-            paymentTime:
-              p.paymentTime ||
-              new Date().toLocaleTimeString("en-US", { hour12: false }), // Include paymentTime
-            lateAmount: lateAmounts[p.accountNo] || 0,
-            remainingAmount: loanDetails.mAmount - newReceived,
-            _id: p._id,
-          };
-        }),
-      };
+    const responseData = await response.json();
+    setAlertMessage("Payment saved successfully");
+    setAlertOpen(true);
 
-      const response = await fetch("/api/payments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(paymentData),
-      });
+    const updatedPayments = responseData.payments.map(
+      (payment: Payment, index: number) => ({
+        ...payment,
+        index: index + 1,
+        paymentDate:
+          payment.paymentDate instanceof Date
+            ? payment.paymentDate
+            : typeof payment.paymentDate === "string"
+            ? parseDateFromInput(payment.paymentDate)
+            : selectedDate,
+        isDefaultAmount: false,
+      })
+    );
+    setPayments(updatedPayments);
+    setExistingPayments(updatedPayments);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to save payments");
-      }
+    setPaymentHistoryCache({});
 
-      const responseData = await response.json();
-      setAlertMessage("Payment saved successfully");
-      setAlertOpen(true);
+    const accountsToRefresh: string[] = updatedPayments.map(
+      (p: Payment) => p.accountNo
+    );
+    const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
 
-      const updatedPayments = responseData.payments.map(
-        (payment: Payment, index: number) => ({
-          ...payment,
-          index: index + 1,
-          paymentDate:
-            payment.paymentDate instanceof Date
-              ? payment.paymentDate
-              : typeof payment.paymentDate === "string"
-              ? parseDateFromInput(payment.paymentDate)
-              : selectedDate,
-          isDefaultAmount: false,
-        })
-      );
-      setPayments(updatedPayments);
-      setExistingPayments(updatedPayments);
+    // Update isSaved to mark these accounts as saved
+    setIsSaved({
+      status: true,
+      accounts: accountsToRefresh,
+      currentAccount: currentAccountNo,
+    });
 
-      setPaymentHistoryCache({});
-
-      const accountsToRefresh: string[] = updatedPayments.map(
-        (p: Payment) => p.accountNo
-      );
-      const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
-
-      // Update isSaved to mark these accounts as saved
-      setIsSaved({
-        status: true,
-        accounts: accountsToRefresh,
-        currentAccount: currentAccountNo,
-      });
-
+    // Make sure we have a valid last index before trying to focus it
+    if (updatedPayments.length > 0) {
       const lastIndex = updatedPayments.length - 1;
       setTimeout(() => {
         inputRefs.current[`accountNo-${lastIndex}`]?.focus();
         setSelectedCell({ row: lastIndex, column: "accountNo" });
       }, 0);
-    } catch (error) {
-      setAlertMessage("Error Saving Payments: " + (error as Error).message);
-      setAlertOpen(true);
-    } finally {
-      setIsSaving(false);
     }
-  };
+  } catch (error) {
+    setAlertMessage("Error Saving Payments: " + (error as Error).message);
+    setAlertOpen(true);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   useEffect(() => {
     if (isSaved.status) {
@@ -1130,84 +1230,83 @@ const LoanManagement: React.FC = () => {
   };
 
   const calculateLateAmount = async (
-  details: LoanDetails,
-  accountNo: string
-): Promise<number> => {
-  if (!details || !selectedDate || !accountNo) {
-    return 0;
-  }
-
-  try {
-    // Get payment history from cache if available, otherwise fetch it
-    const paymentHistory =
-      paymentHistoryCache[accountNo] ||
-      (await fetchPaymentHistory(accountNo));
-    
-    const loanDate = new Date(details.date);
-    const today = new Date(selectedDate);
-
-    if (isNaN(loanDate.getTime())) {
+    details: LoanDetails,
+    accountNo: string
+  ): Promise<number> => {
+    if (!details || !selectedDate || !accountNo) {
       return 0;
     }
 
-    let expectedPayments = 0;
+    try {
+      // Get payment history from cache if available, otherwise fetch it
+      const paymentHistory =
+        paymentHistoryCache[accountNo] ||
+        (await fetchPaymentHistory(accountNo));
 
-    if (details.isDaily) {
-      const daysDiff = Math.floor(
-        (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
+      const loanDate = new Date(details.date);
+      const today = new Date(selectedDate);
+
+      if (isNaN(loanDate.getTime())) {
+        return 0;
+      }
+
+      let expectedPayments = 0;
+
+      if (details.isDaily) {
+        const daysDiff = Math.floor(
+          (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const daysFromLoan = Math.max(0, daysDiff + 1);
+        expectedPayments = daysFromLoan * details.instAmount;
+      } else {
+        const monthsDiff =
+          (today.getFullYear() - loanDate.getFullYear()) * 12 +
+          (today.getMonth() - loanDate.getMonth());
+        const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
+        const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
+        expectedPayments = monthsFromLoan * details.instAmount;
+      }
+
+      // Sort payments by date for accurate calculation
+      const sortedPayments = [...paymentHistory].sort(
+        (a: Payment, b: Payment) =>
+          new Date(a.paymentDate as Date).getTime() -
+          new Date(b.paymentDate as Date).getTime()
       );
-      const daysFromLoan = Math.max(0, daysDiff + 1);
-      expectedPayments = daysFromLoan * details.instAmount;
-    } else {
-      const monthsDiff =
-        (today.getFullYear() - loanDate.getFullYear()) * 12 +
-        (today.getMonth() - loanDate.getMonth());
-      const dayInMonth = today.getDate() >= loanDate.getDate() ? 1 : 0;
-      const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
-      expectedPayments = monthsFromLoan * details.instAmount;
+
+      const cumulativePayments = sortedPayments.reduce(
+        (sum: number, payment: Payment) => sum + (payment.amountPaid || 0),
+        0
+      );
+
+      const lateAmount = expectedPayments - cumulativePayments;
+
+      // Update state in a single batch
+      setLateAmounts((prev) => ({
+        ...prev,
+        [accountNo]: lateAmount,
+      }));
+
+      setPayments((prevPayments) =>
+        prevPayments.map((payment) =>
+          payment.accountNo === accountNo
+            ? {
+                ...payment,
+                lateAmount: lateAmount,
+                amountPaid: payment.isDefaultAmount
+                  ? details.instAmount
+                  : payment.amountPaid,
+              }
+            : payment
+        )
+      );
+
+      return lateAmount;
+    } catch (error) {
+      console.error("Error calculating payment details", error);
+      return 0;
     }
-
-    // Sort payments by date for accurate calculation
-    const sortedPayments = [...paymentHistory].sort(
-      (a: Payment, b: Payment) =>
-        new Date(a.paymentDate as Date).getTime() -
-        new Date(b.paymentDate as Date).getTime()
-    );
-
-    const cumulativePayments = sortedPayments.reduce(
-      (sum: number, payment: Payment) => sum + (payment.amountPaid || 0),
-      0
-    );
-
-    const lateAmount = expectedPayments - cumulativePayments;
-
-    // Update state in a single batch
-    setLateAmounts((prev) => ({
-      ...prev,
-      [accountNo]: lateAmount,
-    }));
-
-    setPayments((prevPayments) =>
-      prevPayments.map((payment) =>
-        payment.accountNo === accountNo
-          ? {
-              ...payment,
-              lateAmount: lateAmount,
-              amountPaid: payment.isDefaultAmount
-                ? details.instAmount
-                : payment.amountPaid,
-            }
-          : payment
-      )
-    );
-
-    return lateAmount;
-  } catch (error) {
-    console.error("Error calculating payment details", error);
-    return 0;
-  }
-};
-
+  };
 
   const fetchLoanDetails = async (
     accountNo: string
@@ -1248,41 +1347,41 @@ const LoanManagement: React.FC = () => {
   };
 
   const handleRowClick = async (index: number, accountNo: string) => {
-  if (accountNo && processingRow === null) {
-    // Mark that we're processing this row
-    setProcessingRow(index);
-    
-    try {
-      // First, check if we have cached data
-      let loanData = loanDetailsCache[accountNo];
-      
-      if (!loanData) {
-        // If not in cache, fetch it
-        const fetchedData = await fetchLoanDetails(accountNo);
-        if (fetchedData) {
-          loanData = fetchedData;
+    if (accountNo && processingRow === null) {
+      // Mark that we're processing this row
+      setProcessingRow(index);
+
+      try {
+        // First, check if we have cached data
+        let loanData = loanDetailsCache[accountNo];
+
+        if (!loanData) {
+          // If not in cache, fetch it
+          const fetchedData = await fetchLoanDetails(accountNo);
+          if (fetchedData) {
+            loanData = fetchedData;
+          }
         }
+
+        if (loanData) {
+          // Pre-calculate late amount using cached data if available
+
+          // Perform calculations before updating UI
+          await calculateLateAmount(loanData, accountNo);
+
+          // Now update UI in a batch
+          setLoanDetails(loanData);
+          setCurrentRow(index);
+          setSelectedCell({ row: index, column: "accountNo" });
+        }
+      } catch (error) {
+        console.error("Error handling row click:", error);
+      } finally {
+        // Always clear the processing flag
+        setProcessingRow(null);
       }
-      
-      if (loanData) {
-        // Pre-calculate late amount using cached data if available
-          
-        // Perform calculations before updating UI
-        await calculateLateAmount(loanData, accountNo);
-        
-        // Now update UI in a batch
-        setLoanDetails(loanData);
-        setCurrentRow(index);
-        setSelectedCell({ row: index, column: "accountNo" });
-      }
-    } catch (error) {
-      console.error("Error handling row click:", error);
-    } finally {
-      // Always clear the processing flag
-      setProcessingRow(null);
     }
-  }
-};
+  };
 
   const parseDateFromInput = (dateString: string): Date => {
     const parts = dateString.split("-");
