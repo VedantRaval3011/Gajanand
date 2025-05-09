@@ -66,19 +66,19 @@ const AccountFinder = ({
 
   // Handle search term changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const term = e.target.value.trim().toLowerCase();
+    const term = e.target.value.toLowerCase(); // Removed trim() to allow spaces
     setSearchTerm(term);
 
     // Filter accounts based on search term
-    if (!term) {
-      setFilteredAccounts(accounts); // Show all accounts if search term is empty
+    if (!term.trim()) {
+      setFilteredAccounts(accounts); // Show all accounts if search term is empty after trimming
     } else {
       const filtered = accounts.filter((account) => {
         // Exact match for accountNo
         if (account.accountNo.toLowerCase() === term) {
           return true;
         }
-        // Partial match for name
+        // Partial match for name - using the trimmed search value
         if (account.holderName.toLowerCase().includes(term)) {
           return true;
         }
