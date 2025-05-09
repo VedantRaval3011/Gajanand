@@ -607,7 +607,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
   // The issue is in the savePayments function
   // We need to improve how we handle the array operations and state updates
 
-  const savePayments = async () => {
+ const savePayments = async () => {
   if (isSaving) return;
 
   // First, filter out invalid payments to avoid processing them
@@ -665,12 +665,18 @@ const handleAmountPaidChange = (value: string, index: number) => {
 
   setIsSaving(true);
   try {
+    // Store the current late amounts before making changes
+    const currentLateAmounts = {...lateAmounts};
+    
     const paymentData = {
       loanId: loanDetails._id,
       paymentDate: formatDateForInput(selectedDate),
       payments: validPayments.map((p) => {
         const previousReceived = receivedAmounts[p.accountNo] || 0;
         const newReceived = previousReceived + Number(p.amountPaid);
+        // Use the stored late amount for this specific account
+        const specificLateAmount = currentLateAmounts[p.accountNo] || 0;
+        
         return {
           accountNo: p.accountNo.trim(),
           amountPaid: Number(p.amountPaid),
@@ -678,7 +684,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
           paymentTime:
             p.paymentTime ||
             new Date().toLocaleTimeString("en-US", { hour12: false }),
-          lateAmount: lateAmounts[p.accountNo] || 0,
+          lateAmount: specificLateAmount,
           remainingAmount: loanDetails.mAmount - newReceived,
           _id: p._id,
         };
@@ -702,24 +708,31 @@ const handleAmountPaidChange = (value: string, index: number) => {
     setAlertMessage("Payment saved successfully");
     setAlertOpen(true);
 
+    // Preserve the late amounts when updating the payments list
     const updatedPayments = responseData.payments.map(
-      (payment: Payment, index: number) => ({
-        ...payment,
-        index: index + 1,
-        paymentDate:
-          payment.paymentDate instanceof Date
-            ? payment.paymentDate
-            : typeof payment.paymentDate === "string"
-            ? parseDateFromInput(payment.paymentDate)
-            : selectedDate,
-        isDefaultAmount: false,
-      })
+      (payment: Payment, index: number) => {
+        // Keep the original late amount for this account
+        const originalLateAmount = currentLateAmounts[payment.accountNo] || payment.lateAmount || 0;
+        
+        return {
+          ...payment,
+          index: index + 1,
+          paymentDate:
+            payment.paymentDate instanceof Date
+              ? payment.paymentDate
+              : typeof payment.paymentDate === "string"
+              ? parseDateFromInput(payment.paymentDate)
+              : selectedDate,
+          isDefaultAmount: false,
+          lateAmount: originalLateAmount, // Use the preserved late amount
+        };
+      }
     );
+    
     setPayments(updatedPayments);
     setExistingPayments(updatedPayments);
 
-    setPaymentHistoryCache({});
-
+    // Don't clear the cache completely, just mark accounts to refresh
     const accountsToRefresh: string[] = updatedPayments.map(
       (p: Payment) => p.accountNo
     );
@@ -748,84 +761,91 @@ const handleAmountPaidChange = (value: string, index: number) => {
   }
 };
 
-  useEffect(() => {
-    if (isSaved.status) {
-      const syncValues = async () => {
-        const newReceivedAmounts = { ...receivedAmounts };
-        const newLateAmounts = { ...lateAmounts };
-        const newLoanDetailsCache = { ...loanDetailsCache };
+ useEffect(() => {
+  if (isSaved.status) {
+    const syncValues = async () => {
+      const newReceivedAmounts = { ...receivedAmounts };
+      const newLateAmounts = { ...lateAmounts }; // Start with current late amounts
+      const newLoanDetailsCache = { ...loanDetailsCache };
 
-        await Promise.all(
-          isSaved.accounts.map(async (accountNo) => {
-            if (!accountNo) return;
+      await Promise.all(
+        isSaved.accounts.map(async (accountNo) => {
+          if (!accountNo) return;
 
-            const history = await fetchPaymentHistory(accountNo);
-            const totalReceived = history.reduce(
-              (sum: number, p: Payment) => sum + (p.amountPaid || 0),
-              0
-            );
-            newReceivedAmounts[accountNo] = totalReceived;
+          const history = await fetchPaymentHistory(accountNo);
+          const totalReceived = history.reduce(
+            (sum: number, p: Payment) => sum + (p.amountPaid || 0),
+            0
+          );
+          newReceivedAmounts[accountNo] = totalReceived;
 
-            const loanDetailsData = await fetchLoanDetails(accountNo);
-            if (loanDetailsData) {
-              newLoanDetailsCache[accountNo] = loanDetailsData;
+          const loanDetailsData = await fetchLoanDetails(accountNo);
+          if (loanDetailsData) {
+            newLoanDetailsCache[accountNo] = loanDetailsData;
 
-              const loanDate = new Date(loanDetailsData.date);
-              const today = new Date(selectedDate);
+            // Calculate late amount but don't update state directly
+            const loanDate = new Date(loanDetailsData.date);
+            const today = new Date(selectedDate);
 
-              if (!isNaN(loanDate.getTime())) {
-                let expectedPayments = 0;
+            if (!isNaN(loanDate.getTime())) {
+              let expectedPayments = 0;
 
-                if (loanDetailsData.isDaily) {
-                  const daysDiff = Math.floor(
-                    (today.getTime() - loanDate.getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  );
-                  const daysFromLoan = Math.max(0, daysDiff + 1);
-                  expectedPayments = daysFromLoan * loanDetailsData.instAmount;
-                } else {
-                  const monthsDiff =
-                    (today.getFullYear() - loanDate.getFullYear()) * 12 +
-                    (today.getMonth() - loanDate.getMonth());
-                  const dayInMonth =
-                    today.getDate() >= loanDate.getDate() ? 1 : 0;
-                  const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
-                  expectedPayments =
-                    monthsFromLoan * loanDetailsData.instAmount;
-                }
-
-                const lateAmount = expectedPayments - totalReceived;
-                newLateAmounts[accountNo] = lateAmount;
-
-                setPayments((prevPayments) =>
-                  prevPayments.map((payment) =>
-                    payment.accountNo === accountNo
-                      ? { ...payment, lateAmount }
-                      : payment
-                  )
+              if (loanDetailsData.isDaily) {
+                const daysDiff = Math.floor(
+                  (today.getTime() - loanDate.getTime()) /
+                    (1000 * 60 * 60 * 24)
                 );
+                const daysFromLoan = Math.max(0, daysDiff + 1);
+                expectedPayments = daysFromLoan * loanDetailsData.instAmount;
+              } else {
+                const monthsDiff =
+                  (today.getFullYear() - loanDate.getFullYear()) * 12 +
+                  (today.getMonth() - loanDate.getMonth());
+                const dayInMonth =
+                  today.getDate() >= loanDate.getDate() ? 1 : 0;
+                const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
+                expectedPayments =
+                  monthsFromLoan * loanDetailsData.instAmount;
               }
+
+              const calculatedLateAmount = expectedPayments - totalReceived;
+              newLateAmounts[accountNo] = calculatedLateAmount;
             }
-          })
-        );
+          }
+        })
+      );
 
-        setReceivedAmounts(newReceivedAmounts);
-        setLateAmounts(newLateAmounts);
-        setLoanDetailsCache(newLoanDetailsCache);
+      // Update all state at once to avoid race conditions
+      setReceivedAmounts(newReceivedAmounts);
+      setLateAmounts(newLateAmounts);
+      setLoanDetailsCache(newLoanDetailsCache);
 
-        if (
-          isSaved.currentAccount &&
-          newLoanDetailsCache[isSaved.currentAccount]
-        ) {
-          setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
-        }
+      // Update payments to reflect new late amounts
+      setPayments((prevPayments) =>
+        prevPayments.map((payment) => {
+          if (payment.accountNo && newLateAmounts[payment.accountNo] !== undefined) {
+            return {
+              ...payment,
+              lateAmount: newLateAmounts[payment.accountNo]
+            };
+          }
+          return payment;
+        })
+      );
 
-        setIsSaved({ status: false, accounts: [], currentAccount: "" });
-      };
+      if (
+        isSaved.currentAccount &&
+        newLoanDetailsCache[isSaved.currentAccount]
+      ) {
+        setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
+      }
 
-      syncValues();
-    }
-  }, [isSaved.status, selectedDate]);
+      setIsSaved({ status: false, accounts: [], currentAccount: "" });
+    };
+
+    syncValues();
+  }
+}, [isSaved.status, selectedDate]);
 
   const handleDeletePayment = async (index: number) => {
     const paymentToDelete = payments[index];
