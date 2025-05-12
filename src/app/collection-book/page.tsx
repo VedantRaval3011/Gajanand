@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Delete, DeleteIcon, Search, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -531,71 +531,78 @@ const LoanManagement: React.FC = () => {
   };
 
   const handleAccountNoChange = (value: string, index: number) => {
-  // Check if index is valid
-  if (index < 0 || index >= payments.length) {
-    console.error(`Invalid index: ${index} for payments array of length ${payments.length}`);
-    return;
-  }
-
-  const payment = payments[index];
-  if (!payment) {
-    console.error(`Payment at index ${index} is undefined`);
-    return;
-  }
-
-  // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
-  if (payment._id || (payment.accountNo && isSaved.accounts.includes(payment.accountNo))) {
-    return; // Do not allow modification
-  }
-
-  // Always update the account number input immediately without triggering loading state
-  setPayments((prevPayments) => {
-    const updatedPayments = [...prevPayments];
-    if (index >= 0 && index < updatedPayments.length) {
-      updatedPayments[index] = {
-        ...updatedPayments[index],
-        accountNo: value, // Use the original value to maintain cursor position
-      };
+    // Check if index is valid
+    if (index < 0 || index >= payments.length) {
+      console.error(
+        `Invalid index: ${index} for payments array of length ${payments.length}`
+      );
+      return;
     }
-    return updatedPayments;
-  });
 
-  // Don't do anything else while typing - we'll fetch details on blur instead
-};
+    const payment = payments[index];
+    if (!payment) {
+      console.error(`Payment at index ${index} is undefined`);
+      return;
+    }
 
-const handleAmountPaidChange = (value: string, index: number) => {
-  // Check if index is valid
-  if (index < 0 || index >= payments.length) {
-    console.error(`Invalid index: ${index} for payments array of length ${payments.length}`);
-    return;
-  }
+    // If the row is saved (has an _id or accountNo is in isSaved.accounts), prevent changes
+    if (
+      payment._id ||
+      (payment.accountNo && isSaved.accounts.includes(payment.accountNo))
+    ) {
+      return; // Do not allow modification
+    }
 
-  const amount = parseFloat(value) || 0;
-  setPayments((prevPayments) => {
-    const updatedPayments = [...prevPayments];
-    if (index >= 0 && index < updatedPayments.length) {
-      const currentPayment = updatedPayments[index];
-      if (currentPayment) {
+    // Always update the account number input immediately without triggering loading state
+    setPayments((prevPayments) => {
+      const updatedPayments = [...prevPayments];
+      if (index >= 0 && index < updatedPayments.length) {
         updatedPayments[index] = {
-          ...currentPayment,
-          amountPaid: amount,
-          isDefaultAmount: false,
+          ...updatedPayments[index],
+          accountNo: value, // Use the original value to maintain cursor position
         };
+      }
+      return updatedPayments;
+    });
 
-        const accountNo = currentPayment.accountNo;
-        if (accountNo) {
-          const previousReceived = receivedAmounts[accountNo] || 0;
-          setReceivedAmounts((prev) => ({
-            ...prev,
-            [accountNo]:
-              previousReceived - (currentPayment.amountPaid || 0) + amount,
-          }));
+    // Don't do anything else while typing - we'll fetch details on blur instead
+  };
+
+  const handleAmountPaidChange = (value: string, index: number) => {
+    // Check if index is valid
+    if (index < 0 || index >= payments.length) {
+      console.error(
+        `Invalid index: ${index} for payments array of length ${payments.length}`
+      );
+      return;
+    }
+
+    const amount = parseFloat(value) || 0;
+    setPayments((prevPayments) => {
+      const updatedPayments = [...prevPayments];
+      if (index >= 0 && index < updatedPayments.length) {
+        const currentPayment = updatedPayments[index];
+        if (currentPayment) {
+          updatedPayments[index] = {
+            ...currentPayment,
+            amountPaid: amount,
+            isDefaultAmount: false,
+          };
+
+          const accountNo = currentPayment.accountNo;
+          if (accountNo) {
+            const previousReceived = receivedAmounts[accountNo] || 0;
+            setReceivedAmounts((prev) => ({
+              ...prev,
+              [accountNo]:
+                previousReceived - (currentPayment.amountPaid || 0) + amount,
+            }));
+          }
         }
       }
-    }
-    return updatedPayments;
-  });
-};
+      return updatedPayments;
+    });
+  };
 
   const calculateTotalToBePaid = (accountNo: string) => {
     if (!loanDetails) return 0;
@@ -607,245 +614,251 @@ const handleAmountPaidChange = (value: string, index: number) => {
   // The issue is in the savePayments function
   // We need to improve how we handle the array operations and state updates
 
- const savePayments = async () => {
-  if (isSaving) return;
+  const savePayments = async () => {
+    if (isSaving) return;
 
-  // First, filter out invalid payments to avoid processing them
-  const validPayments = payments.filter(
-    (p) => p && p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
-  );
+    // First, filter out invalid payments to avoid processing them
+    const validPayments = payments.filter(
+      (p) => p && p.accountNo && p.amountPaid > 0 && p.accountNo.trim() !== ""
+    );
 
-  if (validPayments.length === 0) {
-    setAlertMessage("No valid payments to save");
-    setAlertOpen(true);
-    return;
-  }
-
-  // We're only dealing with valid payments now
-  const accountNoSet = new Set<string>();
-  const duplicates: string[] = [];
-  const hasDuplicates = validPayments.some((payment) => {
-    const trimmedAccountNo = payment.accountNo.trim();
-    if (accountNoSet.has(trimmedAccountNo)) {
-      duplicates.push(trimmedAccountNo);
-      return true;
-    }
-    accountNoSet.add(trimmedAccountNo);
-    return false;
-  });
-
-  if (hasDuplicates) {
-    alert("Duplicate account Nos are not allowed");
-    return;
-  }
-
-  // If we don't have loan details but we have valid payments, try to get details
-  // from the first valid payment
-  if (!loanDetails && validPayments.length > 0) {
-    try {
-      const firstAccountNo = validPayments[0].accountNo.trim();
-      const fetchedDetails = await fetchLoanDetails(firstAccountNo);
-      if (!fetchedDetails) {
-        setAlertMessage("Could not fetch loan details for saving");
-        setAlertOpen(true);
-        return;
-      }
-    } catch (error) {
-      setAlertMessage("Error fetching loan details: " + (error as Error).message);
+    if (validPayments.length === 0) {
+      setAlertMessage("No valid payments to save");
       setAlertOpen(true);
       return;
     }
-  }
 
-  if (!loanDetails) {
-    setAlertMessage("No loan selected");
-    setAlertOpen(true);
-    return;
-  }
-
-  setIsSaving(true);
-  try {
-    // Store the current late amounts before making changes
-    const currentLateAmounts = {...lateAmounts};
-    
-    const paymentData = {
-      loanId: loanDetails._id,
-      paymentDate: formatDateForInput(selectedDate),
-      payments: validPayments.map((p) => {
-        const previousReceived = receivedAmounts[p.accountNo] || 0;
-        const newReceived = previousReceived + Number(p.amountPaid);
-        // Use the stored late amount for this specific account
-        const specificLateAmount = currentLateAmounts[p.accountNo] || 0;
-        
-        return {
-          accountNo: p.accountNo.trim(),
-          amountPaid: Number(p.amountPaid),
-          paymentDate: p.paymentDate,
-          paymentTime:
-            p.paymentTime ||
-            new Date().toLocaleTimeString("en-US", { hour12: false }),
-          lateAmount: specificLateAmount,
-          remainingAmount: loanDetails.mAmount - newReceived,
-          _id: p._id,
-        };
-      }),
-    };
-
-    const response = await fetch("/api/payments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paymentData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to save payments");
-    }
-
-    const responseData = await response.json();
-    setAlertMessage("Payment saved successfully");
-    setAlertOpen(true);
-
-    // Preserve the late amounts when updating the payments list
-    const updatedPayments = responseData.payments.map(
-      (payment: Payment, index: number) => {
-        // Keep the original late amount for this account
-        const originalLateAmount = currentLateAmounts[payment.accountNo] || payment.lateAmount || 0;
-        
-        return {
-          ...payment,
-          index: index + 1,
-          paymentDate:
-            payment.paymentDate instanceof Date
-              ? payment.paymentDate
-              : typeof payment.paymentDate === "string"
-              ? parseDateFromInput(payment.paymentDate)
-              : selectedDate,
-          isDefaultAmount: false,
-          lateAmount: originalLateAmount, // Use the preserved late amount
-        };
+    // We're only dealing with valid payments now
+    const accountNoSet = new Set<string>();
+    const duplicates: string[] = [];
+    const hasDuplicates = validPayments.some((payment) => {
+      const trimmedAccountNo = payment.accountNo.trim();
+      if (accountNoSet.has(trimmedAccountNo)) {
+        duplicates.push(trimmedAccountNo);
+        return true;
       }
-    );
-    
-    setPayments(updatedPayments);
-    setExistingPayments(updatedPayments);
-
-    // Don't clear the cache completely, just mark accounts to refresh
-    const accountsToRefresh: string[] = updatedPayments.map(
-      (p: Payment) => p.accountNo
-    );
-    const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
-
-    // Update isSaved to mark these accounts as saved
-    setIsSaved({
-      status: true,
-      accounts: accountsToRefresh,
-      currentAccount: currentAccountNo,
+      accountNoSet.add(trimmedAccountNo);
+      return false;
     });
 
-    // Make sure we have a valid last index before trying to focus it
-    if (updatedPayments.length > 0) {
-      const lastIndex = updatedPayments.length - 1;
-      setTimeout(() => {
-        inputRefs.current[`accountNo-${lastIndex}`]?.focus();
-        setSelectedCell({ row: lastIndex, column: "accountNo" });
-      }, 0);
+    if (hasDuplicates) {
+      alert("Duplicate account Nos are not allowed");
+      return;
     }
-  } catch (error) {
-    setAlertMessage("Error Saving Payments: " + (error as Error).message);
-    setAlertOpen(true);
-  } finally {
-    setIsSaving(false);
-  }
-};
 
- useEffect(() => {
-  if (isSaved.status) {
-    const syncValues = async () => {
-      const newReceivedAmounts = { ...receivedAmounts };
-      const newLateAmounts = { ...lateAmounts }; // Start with current late amounts
-      const newLoanDetailsCache = { ...loanDetailsCache };
+    // If we don't have loan details but we have valid payments, try to get details
+    // from the first valid payment
+    if (!loanDetails && validPayments.length > 0) {
+      try {
+        const firstAccountNo = validPayments[0].accountNo.trim();
+        const fetchedDetails = await fetchLoanDetails(firstAccountNo);
+        if (!fetchedDetails) {
+          setAlertMessage("Could not fetch loan details for saving");
+          setAlertOpen(true);
+          return;
+        }
+      } catch (error) {
+        setAlertMessage(
+          "Error fetching loan details: " + (error as Error).message
+        );
+        setAlertOpen(true);
+        return;
+      }
+    }
 
-      await Promise.all(
-        isSaved.accounts.map(async (accountNo) => {
-          if (!accountNo) return;
+    if (!loanDetails) {
+      setAlertMessage("No loan selected");
+      setAlertOpen(true);
+      return;
+    }
 
-          const history = await fetchPaymentHistory(accountNo);
-          const totalReceived = history.reduce(
-            (sum: number, p: Payment) => sum + (p.amountPaid || 0),
-            0
-          );
-          newReceivedAmounts[accountNo] = totalReceived;
+    setIsSaving(true);
+    try {
+      // Store the current late amounts before making changes
+      const currentLateAmounts = { ...lateAmounts };
 
-          const loanDetailsData = await fetchLoanDetails(accountNo);
-          if (loanDetailsData) {
-            newLoanDetailsCache[accountNo] = loanDetailsData;
+      const paymentData = {
+        loanId: loanDetails._id,
+        paymentDate: formatDateForInput(selectedDate),
+        payments: validPayments.map((p) => {
+          const previousReceived = receivedAmounts[p.accountNo] || 0;
+          const newReceived = previousReceived + Number(p.amountPaid);
+          // Use the stored late amount for this specific account
+          const specificLateAmount = currentLateAmounts[p.accountNo] || 0;
 
-            // Calculate late amount but don't update state directly
-            const loanDate = new Date(loanDetailsData.date);
-            const today = new Date(selectedDate);
+          return {
+            accountNo: p.accountNo.trim(),
+            amountPaid: Number(p.amountPaid),
+            paymentDate: p.paymentDate,
+            paymentTime:
+              p.paymentTime ||
+              new Date().toLocaleTimeString("en-US", { hour12: false }),
+            lateAmount: specificLateAmount,
+            remainingAmount: loanDetails.mAmount - newReceived,
+            _id: p._id,
+          };
+        }),
+      };
 
-            if (!isNaN(loanDate.getTime())) {
-              let expectedPayments = 0;
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(paymentData),
+      });
 
-              if (loanDetailsData.isDaily) {
-                const daysDiff = Math.floor(
-                  (today.getTime() - loanDate.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                );
-                const daysFromLoan = Math.max(0, daysDiff + 1);
-                expectedPayments = daysFromLoan * loanDetailsData.instAmount;
-              } else {
-                const monthsDiff =
-                  (today.getFullYear() - loanDate.getFullYear()) * 12 +
-                  (today.getMonth() - loanDate.getMonth());
-                const dayInMonth =
-                  today.getDate() >= loanDate.getDate() ? 1 : 0;
-                const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
-                expectedPayments =
-                  monthsFromLoan * loanDetailsData.instAmount;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save payments");
+      }
+
+      const responseData = await response.json();
+      setAlertMessage("Payment saved successfully");
+      setAlertOpen(true);
+
+      // Preserve the late amounts when updating the payments list
+      const updatedPayments = responseData.payments.map(
+        (payment: Payment, index: number) => {
+          // Keep the original late amount for this account
+          const originalLateAmount =
+            currentLateAmounts[payment.accountNo] || payment.lateAmount || 0;
+
+          return {
+            ...payment,
+            index: index + 1,
+            paymentDate:
+              payment.paymentDate instanceof Date
+                ? payment.paymentDate
+                : typeof payment.paymentDate === "string"
+                ? parseDateFromInput(payment.paymentDate)
+                : selectedDate,
+            isDefaultAmount: false,
+            lateAmount: originalLateAmount, // Use the preserved late amount
+          };
+        }
+      );
+
+      setPayments(updatedPayments);
+      setExistingPayments(updatedPayments);
+
+      // Don't clear the cache completely, just mark accounts to refresh
+      const accountsToRefresh: string[] = updatedPayments.map(
+        (p: Payment) => p.accountNo
+      );
+      const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
+
+      // Update isSaved to mark these accounts as saved
+      setIsSaved({
+        status: true,
+        accounts: accountsToRefresh,
+        currentAccount: currentAccountNo,
+      });
+
+      // Make sure we have a valid last index before trying to focus it
+      if (updatedPayments.length > 0) {
+        const lastIndex = updatedPayments.length - 1;
+        setTimeout(() => {
+          inputRefs.current[`accountNo-${lastIndex}`]?.focus();
+          setSelectedCell({ row: lastIndex, column: "accountNo" });
+        }, 0);
+      }
+    } catch (error) {
+      setAlertMessage("Error Saving Payments: " + (error as Error).message);
+      setAlertOpen(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isSaved.status) {
+      const syncValues = async () => {
+        const newReceivedAmounts = { ...receivedAmounts };
+        const newLateAmounts = { ...lateAmounts }; // Start with current late amounts
+        const newLoanDetailsCache = { ...loanDetailsCache };
+
+        await Promise.all(
+          isSaved.accounts.map(async (accountNo) => {
+            if (!accountNo) return;
+
+            const history = await fetchPaymentHistory(accountNo);
+            const totalReceived = history.reduce(
+              (sum: number, p: Payment) => sum + (p.amountPaid || 0),
+              0
+            );
+            newReceivedAmounts[accountNo] = totalReceived;
+
+            const loanDetailsData = await fetchLoanDetails(accountNo);
+            if (loanDetailsData) {
+              newLoanDetailsCache[accountNo] = loanDetailsData;
+
+              // Calculate late amount but don't update state directly
+              const loanDate = new Date(loanDetailsData.date);
+              const today = new Date(selectedDate);
+
+              if (!isNaN(loanDate.getTime())) {
+                let expectedPayments = 0;
+
+                if (loanDetailsData.isDaily) {
+                  const daysDiff = Math.floor(
+                    (today.getTime() - loanDate.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  );
+                  const daysFromLoan = Math.max(0, daysDiff + 1);
+                  expectedPayments = daysFromLoan * loanDetailsData.instAmount;
+                } else {
+                  const monthsDiff =
+                    (today.getFullYear() - loanDate.getFullYear()) * 12 +
+                    (today.getMonth() - loanDate.getMonth());
+                  const dayInMonth =
+                    today.getDate() >= loanDate.getDate() ? 1 : 0;
+                  const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
+                  expectedPayments =
+                    monthsFromLoan * loanDetailsData.instAmount;
+                }
+
+                const calculatedLateAmount = expectedPayments - totalReceived;
+                newLateAmounts[accountNo] = calculatedLateAmount;
               }
-
-              const calculatedLateAmount = expectedPayments - totalReceived;
-              newLateAmounts[accountNo] = calculatedLateAmount;
             }
-          }
-        })
-      );
+          })
+        );
 
-      // Update all state at once to avoid race conditions
-      setReceivedAmounts(newReceivedAmounts);
-      setLateAmounts(newLateAmounts);
-      setLoanDetailsCache(newLoanDetailsCache);
+        // Update all state at once to avoid race conditions
+        setReceivedAmounts(newReceivedAmounts);
+        setLateAmounts(newLateAmounts);
+        setLoanDetailsCache(newLoanDetailsCache);
 
-      // Update payments to reflect new late amounts
-      setPayments((prevPayments) =>
-        prevPayments.map((payment) => {
-          if (payment.accountNo && newLateAmounts[payment.accountNo] !== undefined) {
-            return {
-              ...payment,
-              lateAmount: newLateAmounts[payment.accountNo]
-            };
-          }
-          return payment;
-        })
-      );
+        // Update payments to reflect new late amounts
+        setPayments((prevPayments) =>
+          prevPayments.map((payment) => {
+            if (
+              payment.accountNo &&
+              newLateAmounts[payment.accountNo] !== undefined
+            ) {
+              return {
+                ...payment,
+                lateAmount: newLateAmounts[payment.accountNo],
+              };
+            }
+            return payment;
+          })
+        );
 
-      if (
-        isSaved.currentAccount &&
-        newLoanDetailsCache[isSaved.currentAccount]
-      ) {
-        setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
-      }
+        if (
+          isSaved.currentAccount &&
+          newLoanDetailsCache[isSaved.currentAccount]
+        ) {
+          setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
+        }
 
-      setIsSaved({ status: false, accounts: [], currentAccount: "" });
-    };
+        setIsSaved({ status: false, accounts: [], currentAccount: "" });
+      };
 
-    syncValues();
-  }
-}, [isSaved.status, selectedDate]);
+      syncValues();
+    }
+  }, [isSaved.status, selectedDate]);
 
   const handleDeletePayment = async (index: number) => {
     const paymentToDelete = payments[index];
@@ -1761,7 +1774,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
                               onClick={() => handleDeletePayment(index)}
                               className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
                             >
-                             <Trash2 />
+                              <Trash2 />
                             </button>
                           </td>
                         </tr>
@@ -1888,7 +1901,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
                             onClick={() => handleDeletePayment(index)}
                             className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
                           >
-                            <Trash2/>
+                            <Trash2 />
                           </button>
                         </td>
                       </tr>
