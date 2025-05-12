@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Search } from "lucide-react";
+import { Delete, DeleteIcon, Search, Trash2 } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -1761,7 +1761,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
                               onClick={() => handleDeletePayment(index)}
                               className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
                             >
-                              Delete
+                             <Trash2 />
                             </button>
                           </td>
                         </tr>
@@ -1770,7 +1770,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
                   </table>
                 </div>
               ) : (
-                <table className="w-full min-w-[800px]">
+                <table className="w-full min-w-[750px] md:min-w-[850px]">
                   <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
                     <tr>
                       {[
@@ -1888,7 +1888,7 @@ const handleAmountPaidChange = (value: string, index: number) => {
                             onClick={() => handleDeletePayment(index)}
                             className="px-4 md:px-6 py-2 md:py-3 text-sm md:text-base font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors"
                           >
-                            Delete
+                            <Trash2/>
                           </button>
                         </td>
                       </tr>
