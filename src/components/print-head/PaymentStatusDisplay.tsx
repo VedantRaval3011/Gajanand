@@ -82,6 +82,28 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     // Reset time to avoid timezone issues
     receivedDate.setHours(0, 0, 0, 0);
     currentDate.setHours(0, 0, 0, 0);
+     // Check if the received date is in the future
+  if (receivedDate > currentDate) {
+    const formattedReceivedDate = receivedDate.toLocaleDateString("en-GB");
+    return {
+      status: formattedReceivedDate,
+      statusColor: "text-gray-600",
+      nextDueDate: formattedReceivedDate,
+      calculationDetails: {
+        totalDue: 0,
+        totalPaidBeforeToday: 0,
+        todayPayment: 0,
+        totalPaid: 0,
+        remainingAfterToday: 0,
+        coveredUntilDate: formattedReceivedDate,
+        lateAmount: 0,
+      },
+      showLateAmount: false,
+      prevDayStatus: "",
+      prevDayStatusColor: "",
+    };
+  }
+
 
     if (loanType === "pending") {
       const initialTotal = loan.totalToBePaid || 0; // Default to 50,000 as per your example
