@@ -451,7 +451,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   )}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-right text-gray-700 text-base font-bold">
-                  {leftSide[rowIndex] ? formatCurrency(leftSide[rowIndex]!.installmentAmount) : ""}
+                    {leftSide[rowIndex] ? (loanType === "pending" ? "" : formatCurrency(leftSide[rowIndex]!.installmentAmount)) : ""}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-gray-700 text-base font-bold">
                   {leftSide[rowIndex]?.nameGujarati || ""}
@@ -526,7 +526,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   )}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-right text-gray-700 text-base font-bold">
-                  {rightSide[rowIndex] ? formatCurrency(rightSide[rowIndex]!.installmentAmount) : ""}
+                 {rightSide[rowIndex] ? (loanType === "pending" ? "" : formatCurrency(rightSide[rowIndex]!.installmentAmount)) : ""}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-gray-700 text-base font-bold">
                   {rightSide[rowIndex]?.nameGujarati || ""}

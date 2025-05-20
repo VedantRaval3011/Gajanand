@@ -84,12 +84,15 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
       const totalDuePrevMonth = installment * (monthsSinceStart - 1);
       const totalPaidPrevMonth = paymentHistory
-        .filter((payment) => new Date(payment.date.split("T")[0]) <= prevMonthDate)
+        .filter(
+          (payment) => new Date(payment.date.split("T")[0]) <= prevMonthDate
+        )
         .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
       const remainingUpToPrevMonth = totalDuePrevMonth - totalPaidPrevMonth;
 
       const extraMonthsCovered = Math.floor(
-        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) / installment
+        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
+          installment
       );
 
       const nextDueDate = new Date(currentDate);
@@ -97,7 +100,9 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
 
       const coveredUntilDate = new Date(currentDate);
-      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1 + extraMonthsCovered);
+      coveredUntilDate.setMonth(
+        coveredUntilDate.getMonth() + 1 + extraMonthsCovered
+      );
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
       if (remainingAfterToday > 0) {
@@ -105,29 +110,48 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           status: remainingAfterToday.toFixed(0),
           statusColor: "text-red-600 text-black screen-text-red",
           showLateAmount: true,
-          prevStatus: remainingUpToPrevMonth > 0 ? remainingUpToPrevMonth.toFixed(0) : "0",
-          prevStatusColor: remainingUpToPrevMonth > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToPrevMonth > 0
+              ? remainingUpToPrevMonth.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToPrevMonth > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       } else if (remainingAfterToday === 0) {
         return {
           status: formattedNextDueDate,
           statusColor: "text-yellow-600 text-black screen-text-yellow",
           showLateAmount: false,
-          prevStatus: remainingUpToPrevMonth > 0 ? remainingUpToPrevMonth.toFixed(0) : "0",
-          prevStatusColor: remainingUpToPrevMonth > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToPrevMonth > 0
+              ? remainingUpToPrevMonth.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToPrevMonth > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       } else {
         const overpayment = Math.abs(remainingAfterToday);
         const fullMonthsCovered = Math.floor(overpayment / installment);
         return {
-          status: fullMonthsCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
+          status:
+            fullMonthsCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
           statusColor:
             fullMonthsCovered > 0
               ? "text-green-600 text-black screen-text-green"
               : "text-yellow-600 text-black screen-text-yellow",
           showLateAmount: false,
-          prevStatus: remainingUpToPrevMonth > 0 ? remainingUpToPrevMonth.toFixed(0) : "0",
-          prevStatusColor: remainingUpToPrevMonth > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToPrevMonth > 0
+              ? remainingUpToPrevMonth.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToPrevMonth > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       }
     } else {
@@ -136,7 +160,8 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       const receivedDate = new Date(loan.receivedDate.split("T")[0]);
       const daysSinceStart = Math.max(
         Math.floor(
-          (currentDate.getTime() - receivedDate.getTime()) / (1000 * 60 * 60 * 24)
+          (currentDate.getTime() - receivedDate.getTime()) /
+            (1000 * 60 * 60 * 24)
         ) + 1,
         1
       );
@@ -157,7 +182,8 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       const remainingUpToYesterday = totalDuePrevDay - totalPaidPrevDay;
 
       const extraDaysCovered = Math.floor(
-        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) / installment
+        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
+          installment
       );
 
       const nextDueDate = new Date(currentDate);
@@ -173,29 +199,48 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           status: remainingAfterToday.toFixed(0),
           statusColor: "text-red-600 text-black screen-text-red",
           showLateAmount: true,
-          prevStatus: remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
-          prevStatusColor: remainingUpToYesterday > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToYesterday > 0
+              ? remainingUpToYesterday.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToYesterday > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       } else if (remainingAfterToday === 0) {
         return {
           status: formattedNextDueDate,
           statusColor: "text-yellow-600 text-black screen-text-yellow",
           showLateAmount: false,
-          prevStatus: remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
-          prevStatusColor: remainingUpToYesterday > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToYesterday > 0
+              ? remainingUpToYesterday.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToYesterday > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       } else {
         const overpayment = Math.abs(remainingAfterToday);
         const fullDaysCovered = Math.floor(overpayment / installment);
         return {
-          status: fullDaysCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
+          status:
+            fullDaysCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
           statusColor:
             fullDaysCovered > 0
               ? "text-green-600 text-black screen-text-green"
               : "text-yellow-600 text-black screen-text-yellow",
           showLateAmount: false,
-          prevStatus: remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
-          prevStatusColor: remainingUpToYesterday > 0 ? "text-red-600 screen-text-red" : "text-yellow-600 screen-text-yellow",
+          prevStatus:
+            remainingUpToYesterday > 0
+              ? remainingUpToYesterday.toFixed(0)
+              : "0",
+          prevStatusColor:
+            remainingUpToYesterday > 0
+              ? "text-red-600 screen-text-red"
+              : "text-yellow-600 screen-text-yellow",
         };
       }
     }
@@ -346,22 +391,22 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
             font-weight: bold;
             background-color: #fee2e2 !important;
             padding: 2px 2px;
-            height: 5mm;
-            max-height: 5mm;
+            height: 4mm;
+            max-height: 4mm;
             color: black !important;
           }
           
           td {
             padding: 1px 2px;
             vertical-align: middle;
-            height: 5.5mm;
-            max-height: 5.5mm;
+            height: 4mm;
+            max-height: 4mm;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
             font-weight: bold;
           }
-          
+                    
           .index-col {
             width: 4%;
           }
@@ -584,6 +629,8 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           .print-table-container {
             page-break-after: avoid;
             page-break-inside: avoid;
+            transform: scale(0.93);  
+            transform-origin: top center;
           }
         }
       `}</style>
@@ -681,13 +728,14 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               <tr key={rowIndex}>
                 {/* Left Side */}
                 <td className="border border-gray-500 p-1 index-col text-amount">
-                  {leftSide[rowIndex]?.installmentAmount
+                  {leftSide[rowIndex]?.installmentAmount &&
+                  loanType !== "pending"
                     ? leftSide[rowIndex]!.installmentAmount
                     : ""}
                 </td>
                 <td className="border border-gray-500 p-1 name-col">
                   {leftSide[rowIndex]?.nameGujarati || ""}
-                  {leftSide[rowIndex]?.index && (
+                  {leftSide[rowIndex]?.index && loanType !== "pending" && (
                     <span className="text-blue ml-1">
                       \{leftSide[rowIndex]?.accountNo}
                     </span>
@@ -701,7 +749,9 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   }`}
                 >
                   {leftSide[rowIndex]
-                    ? calculatePaymentStatus(leftSide[rowIndex]!).status.includes("/")
+                    ? calculatePaymentStatus(
+                        leftSide[rowIndex]!
+                      ).status.includes("/")
                       ? calculatePaymentStatus(leftSide[rowIndex]!).status
                       : `₹${calculatePaymentStatus(leftSide[rowIndex]!).status}`
                     : ""}
@@ -710,13 +760,14 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 
                 {/* Right Side */}
                 <td className="border border-gray-500 p-1 index-col text-amount">
-                  {rightSide[rowIndex]?.installmentAmount
+                  {rightSide[rowIndex]?.installmentAmount &&
+                  loanType !== "pending"
                     ? rightSide[rowIndex]!.installmentAmount
                     : ""}
                 </td>
                 <td className="border border-gray-500 p-1 name-col">
                   {rightSide[rowIndex]?.nameGujarati || ""}
-                  {rightSide[rowIndex]?.index && (
+                  {rightSide[rowIndex]?.index && loanType !== "pending" && (
                     <span className="text-blue ml-1">
                       \{rightSide[rowIndex]?.accountNo}
                     </span>
@@ -730,9 +781,13 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   }`}
                 >
                   {rightSide[rowIndex]
-                    ? calculatePaymentStatus(rightSide[rowIndex]!).status.includes("/")
+                    ? calculatePaymentStatus(
+                        rightSide[rowIndex]!
+                      ).status.includes("/")
                       ? calculatePaymentStatus(rightSide[rowIndex]!).status
-                      : `₹${calculatePaymentStatus(rightSide[rowIndex]!).status}`
+                      : `₹${
+                          calculatePaymentStatus(rightSide[rowIndex]!).status
+                        }`
                     : ""}
                 </td>
                 <td className="border border-gray-500 p-1 payment-col"> </td>

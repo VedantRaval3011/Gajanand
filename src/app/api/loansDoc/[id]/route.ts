@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if ((data.index as number) < 1 || (data.index as number) > 84) {
+    if ((data.index as number) < 1 || (data.index as number) > 91) {
       return NextResponse.json(
-        { error: "Index must be between 1 and 84" },
+        { error: "Index must be between 1 and 91" },
         { status: 400 }
       );
     }
@@ -210,8 +210,8 @@ export async function PUT(request: NextRequest) {
     }
     
     if (index !== undefined) {
-      if ((index as number) < 1 || (index as number) > 84) {
-        return NextResponse.json({ error: "Index must be between 1 and 84" }, { status: 400 });
+      if ((index as number) < 1 || (index as number) > 90) {
+        return NextResponse.json({ error: "Index must be between 1 and 90" }, { status: 400 });
       }
       
       const currentLoanType = loanType !== undefined ? loanType : loan.loanType;
