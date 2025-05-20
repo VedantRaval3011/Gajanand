@@ -63,7 +63,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     fetchNotes();
   }, [loanType, currentCategory, selectedDate]);
 
-  const fetchLoans = async () => {
+ const fetchLoans = async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -82,16 +82,8 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       const data = await response.json();
       const loans = Array.isArray(data.loans) ? data.loans : [];
 
-      const selectedDateObj = new Date(selectedDate);
-      selectedDateObj.setHours(0, 0, 0, 0);
-
-      const filteredLoans = loans.filter((loan: Loan) => {
-        const receivedDateObj = new Date(loan.receivedDate);
-        receivedDateObj.setHours(0, 0, 0, 0);
-        return receivedDateObj <= selectedDateObj;
-      });
-
-      setLoansData(filteredLoans);
+      // Don't filter loans by receivedDate - show all accounts
+      setLoansData(loans);
     } catch (err) {
       console.error("Error fetching loans:", err);
       setError("Failed to load loans. Please try again.");
