@@ -533,7 +533,6 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
             page-break-after: avoid;
             font-family: Arial, sans-serif;
             margin: 0 auto;
@@ -582,19 +581,19 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           }
 
           .index-col {
-            width: 4%;
+            width: 7%;
           }
 
           .name-col {
-            width: 14%; 
+            width: 20%; 
           }
 
           .amount-col {
-            width: 8%;
+            width: 12%;
           }
 
           .payment-col {
-            width: 4%;
+            width: 9%;
           }
 
           .text-blue {
@@ -664,7 +663,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       <div className="header-info">
         <span className="date">DATE: {formattedDate}</span>
         <span className="admin flex gap-5">
-          શ્રી ગાનેસાઈનમઃ <span>{currentCategory}</span>
+          શ્રી ગણેશાયનમઃ <span>{currentCategory}</span>
         </span>
         <span className="day">DAY: {dayName}</span>
       </div>
