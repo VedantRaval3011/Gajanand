@@ -92,7 +92,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     const totalPaid = totalPaidBeforeToday + todayPayment;
     
     // If payment is made, calculate how many days/installments are covered
-    let coveredUntilDate = new Date(receivedDate);
+    const coveredUntilDate = new Date(receivedDate);
     let statusDate = new Date(receivedDate);
     
     if (totalPaid > 0 && loanType === "daily") {

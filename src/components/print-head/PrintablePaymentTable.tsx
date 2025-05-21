@@ -63,7 +63,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       const totalAdvancePaid = totalPaidBeforeToday + todayPayment;
       
       // Calculate covered dates based on advance payments
-      let coveredUntilDate = new Date(receivedDate);
+      const coveredUntilDate = new Date(receivedDate);
       let statusDate = new Date(receivedDate);
       const installment = loan.installmentAmount;
       
