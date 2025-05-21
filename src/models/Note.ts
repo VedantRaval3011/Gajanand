@@ -1,11 +1,9 @@
 import mongoose from "mongoose";
 
 const NoteSchema = new mongoose.Schema({
-  
   date: {
     type: Date,
     required: true,
-    default: Date.now,
   },
   category: {
     type: String,
@@ -25,5 +23,8 @@ const NoteSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Add a unique index on date, category, and loanType
+NoteSchema.index({ date: 1, category: 1, loanType: 1 }, { unique: true });
 
 export default mongoose.models.Note || mongoose.model("Note", NoteSchema);

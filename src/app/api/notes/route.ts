@@ -15,14 +15,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Set date to the start of the day
+    const noteDate = new Date(date);
+    noteDate.setHours(0, 0, 0, 0);
 
-    // Check if a note already exists for this date, category, and loanType
+    // Check for an existing note with the exact date, category, and loanType
     const existingNote = await Note.findOne({
-      date: { $gte: startOfDay, $lte: endOfDay },
+      date: noteDate,
       category,
       loanType,
     });
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
     } else {
       // Create a new note
       const note = new Note({
-        date: new Date(date),
+        date: noteDate,
         category,
         loanType,
         content,
@@ -51,6 +50,12 @@ export async function POST(request: Request) {
       );
     }
   } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+      return NextResponse.json(
+        { error: "A note for this date, category, and loan type already exists." },
+        { status: 400 }
+      );
+    }
     console.error("Error creating or updating note:", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
   }
 }
 
-// GET: Fetch notes based on date, category, and loanType
+// GET: Fetch notes based on date, fileCategory, and loanType
 export async function GET(request: Request) {
   try {
     await connectToDatabase();
@@ -68,17 +73,17 @@ export async function GET(request: Request) {
     const category = searchParams.get("category");
     const loanType = searchParams.get("loanType");
 
-    const query: { 
-      date?: { $gte: Date; $lte: Date }; 
-      category?: string; 
-      loanType?: string; 
-    } = {};
+    interface NoteQuery {
+      date?: Date;
+      category?: string;
+      loanType?: string;
+    }
+
+    const query: NoteQuery = {};
     if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      query.date = { $gte: startOfDay, $lte: endOfDay };
+      const queryDate = new Date(date);
+      queryDate.setHours(0, 0, 0, 0);
+      query.date = queryDate;
     }
     if (category) query.category = category;
     if (loanType) query.loanType = loanType;
