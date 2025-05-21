@@ -84,19 +84,52 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     currentDate.setHours(0, 0, 0, 0);
      // Check if the received date is in the future
   if (receivedDate > currentDate) {
-    const formattedReceivedDate = receivedDate.toLocaleDateString("en-GB");
+    // Calculate total payments made
+    const totalPaidBeforeToday = paymentHistory
+      .filter((payment) => new Date(payment.date.split("T")[0]) <= currentDate)
+      .reduce((sum, payment) => sum + payment.amount, 0);
+    const todayPayment = loan.paymentReceivedToday || 0;
+    const totalPaid = totalPaidBeforeToday + todayPayment;
+    
+    // If payment is made, calculate how many days/installments are covered
+    let coveredUntilDate = new Date(receivedDate);
+    let statusDate = new Date(receivedDate);
+    
+    if (totalPaid > 0 && loanType === "daily") {
+      // For daily loans, calculate extra days covered
+      const extraDaysCovered = Math.floor(totalPaid / installment);
+      coveredUntilDate.setDate(coveredUntilDate.getDate() + extraDaysCovered);
+      // If extra days are covered, update status date accordingly
+      if (extraDaysCovered > 0) {
+        statusDate = coveredUntilDate;
+      }
+    } else if (totalPaid > 0 && loanType === "monthly") {
+      // For monthly loans, calculate extra months covered
+      const extraMonthsCovered = Math.floor(totalPaid / installment);
+      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + extraMonthsCovered);
+      // If extra months are covered, update status date accordingly
+      if (extraMonthsCovered > 0) {
+        statusDate = coveredUntilDate;
+      }
+    }
+    
+    const formattedStatusDate = statusDate.toLocaleDateString("en-GB");
+    const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
+    
     return {
-      status: formattedReceivedDate,
-      statusColor: "text-gray-600",
-      nextDueDate: formattedReceivedDate,
+      status: formattedStatusDate,
+      statusColor: totalPaid > 0 ? "text-green-600" : "text-gray-600",
+      nextDueDate: formattedCoveredDate,
       calculationDetails: {
         totalDue: 0,
-        totalPaidBeforeToday: 0,
-        todayPayment: 0,
-        totalPaid: 0,
-        remainingAfterToday: 0,
-        coveredUntilDate: formattedReceivedDate,
+        totalPaidBeforeToday,
+        todayPayment,
+        totalPaid,
+        remainingAfterToday: -totalPaid, // Negative indicates overpayment
+        coveredUntilDate: formattedCoveredDate,
         lateAmount: 0,
+        extraDaysCovered: loanType === "daily" ? Math.floor(totalPaid / installment) : undefined,
+        extraMonthsCovered: loanType === "monthly" ? Math.floor(totalPaid / installment) : undefined,
       },
       showLateAmount: false,
       prevDayStatus: "",
