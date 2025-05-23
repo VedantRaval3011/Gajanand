@@ -82,61 +82,70 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     // Reset time to avoid timezone issues
     receivedDate.setHours(0, 0, 0, 0);
     currentDate.setHours(0, 0, 0, 0);
-     // Check if the received date is in the future
-  if (receivedDate > currentDate) {
-    // Calculate total payments made
-    const totalPaidBeforeToday = paymentHistory
-      .filter((payment) => new Date(payment.date.split("T")[0]) <= currentDate)
-      .reduce((sum, payment) => sum + payment.amount, 0);
-    const todayPayment = loan.paymentReceivedToday || 0;
-    const totalPaid = totalPaidBeforeToday + todayPayment;
-    
-    // If payment is made, calculate how many days/installments are covered
-    const coveredUntilDate = new Date(receivedDate);
-    let statusDate = new Date(receivedDate);
-    
-    if (totalPaid > 0 && loanType === "daily") {
-      // For daily loans, calculate extra days covered
-      const extraDaysCovered = Math.floor(totalPaid / installment);
-      coveredUntilDate.setDate(coveredUntilDate.getDate() + extraDaysCovered);
-      // If extra days are covered, update status date accordingly
-      if (extraDaysCovered > 0) {
-        statusDate = coveredUntilDate;
-      }
-    } else if (totalPaid > 0 && loanType === "monthly") {
-      // For monthly loans, calculate extra months covered
-      const extraMonthsCovered = Math.floor(totalPaid / installment);
-      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + extraMonthsCovered);
-      // If extra months are covered, update status date accordingly
-      if (extraMonthsCovered > 0) {
-        statusDate = coveredUntilDate;
-      }
-    }
-    
-    const formattedStatusDate = statusDate.toLocaleDateString("en-GB");
-    const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
-    
-    return {
-      status: formattedStatusDate,
-      statusColor: totalPaid > 0 ? "text-green-600" : "text-gray-600",
-      nextDueDate: formattedCoveredDate,
-      calculationDetails: {
-        totalDue: 0,
-        totalPaidBeforeToday,
-        todayPayment,
-        totalPaid,
-        remainingAfterToday: -totalPaid, // Negative indicates overpayment
-        coveredUntilDate: formattedCoveredDate,
-        lateAmount: 0,
-        extraDaysCovered: loanType === "daily" ? Math.floor(totalPaid / installment) : undefined,
-        extraMonthsCovered: loanType === "monthly" ? Math.floor(totalPaid / installment) : undefined,
-      },
-      showLateAmount: false,
-      prevDayStatus: "",
-      prevDayStatusColor: "",
-    };
-  }
+    // Check if the received date is in the future
+    if (receivedDate > currentDate) {
+      // Calculate total payments made
+      const totalPaidBeforeToday = paymentHistory
+        .filter(
+          (payment) => new Date(payment.date.split("T")[0]) <= currentDate
+        )
+        .reduce((sum, payment) => sum + payment.amount, 0);
+      const todayPayment = loan.paymentReceivedToday || 0;
+      const totalPaid = totalPaidBeforeToday + todayPayment;
 
+      // If payment is made, calculate how many days/installments are covered
+      const coveredUntilDate = new Date(receivedDate);
+      let statusDate = new Date(receivedDate);
+
+      if (totalPaid > 0 && loanType === "daily") {
+        // For daily loans, calculate extra days covered
+        const extraDaysCovered = Math.floor(totalPaid / installment);
+        coveredUntilDate.setDate(coveredUntilDate.getDate() + extraDaysCovered);
+        // If extra days are covered, update status date accordingly
+        if (extraDaysCovered > 0) {
+          statusDate = coveredUntilDate;
+        }
+      } else if (totalPaid > 0 && loanType === "monthly") {
+        // For monthly loans, calculate extra months covered
+        const extraMonthsCovered = Math.floor(totalPaid / installment);
+        coveredUntilDate.setMonth(
+          coveredUntilDate.getMonth() + extraMonthsCovered
+        );
+        // If extra months are covered, update status date accordingly
+        if (extraMonthsCovered > 0) {
+          statusDate = coveredUntilDate;
+        }
+      }
+
+      const formattedStatusDate = statusDate.toLocaleDateString("en-GB");
+      const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
+
+      return {
+        status: formattedStatusDate,
+        statusColor: totalPaid > 0 ? "text-green-600" : "text-gray-600",
+        nextDueDate: formattedCoveredDate,
+        calculationDetails: {
+          totalDue: 0,
+          totalPaidBeforeToday,
+          todayPayment,
+          totalPaid,
+          remainingAfterToday: -totalPaid, // Negative indicates overpayment
+          coveredUntilDate: formattedCoveredDate,
+          lateAmount: 0,
+          extraDaysCovered:
+            loanType === "daily"
+              ? Math.floor(totalPaid / installment)
+              : undefined,
+          extraMonthsCovered:
+            loanType === "monthly"
+              ? Math.floor(totalPaid / installment)
+              : undefined,
+        },
+        showLateAmount: false,
+        prevDayStatus: "",
+        prevDayStatusColor: "",
+      };
+    }
 
     if (loanType === "pending") {
       const initialTotal = loan.totalToBePaid || 0; // Default to 50,000 as per your example
@@ -177,11 +186,12 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
 
     if (loanType === "monthly") {
+      // Calculate months since start based on the loan start date
       const diffTime = currentDate.getTime() - receivedDate.getTime();
-      const monthsSinceStart = Math.max(
-        Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30)) + 1,
-        1
-      );
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // Calculate which month we're currently in (1-based)
+      const monthsSinceStart = Math.floor(diffDays / 30) + 1;
       const totalDue = installment * monthsSinceStart;
 
       const totalPaidBeforeToday = paymentHistory
@@ -191,26 +201,33 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const totalPaid = totalPaidBeforeToday + todayPayment;
       const remainingAfterToday = totalDue - totalPaid;
 
+      // Calculate next due date properly
+      const nextDueDate = new Date(receivedDate);
+      nextDueDate.setMonth(nextDueDate.getMonth() + monthsSinceStart);
+      const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
+
+      // Calculate previous month status
       const prevMonthDate = new Date(currentDate);
-      prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-      const totalDuePrevMonth = installment * (monthsSinceStart - 1);
+      prevMonthDate.setDate(prevMonthDate.getDate() - 1);
+      const prevMonthsSinceStart = Math.max(monthsSinceStart - 1, 0);
+      const totalDuePrevMonth = installment * prevMonthsSinceStart;
       const totalPaidPrevMonth = paymentHistory
         .filter(
           (payment) => new Date(payment.date.split("T")[0]) <= prevMonthDate
         )
         .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
+
       lateAmount = Math.max(totalDue - totalPaid, 0);
 
       const extraMonthsCovered = Math.floor(
-        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) / installment
+        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
+          installment
       );
 
-      const nextDueDate = new Date(currentDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-      const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
-
-      const coveredUntilDate = new Date(currentDate);
-      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1 + extraMonthsCovered);
+      const coveredUntilDate = new Date(receivedDate);
+      coveredUntilDate.setMonth(
+        coveredUntilDate.getMonth() + monthsSinceStart + extraMonthsCovered
+      );
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
       const details: CalculationDetails = {
@@ -264,8 +281,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         const partialNextMonthAmount = overpayment % installment;
         details.overpayment = overpayment;
         details.partialNextMonthAmount = partialNextMonthAmount;
-        details.remainingForLastMonth =
-          installment - partialNextMonthAmount + installment;
+        details.remainingForLastMonth = installment - partialNextMonthAmount;
 
         return {
           status:
@@ -289,7 +305,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       // Daily loan logic
       const daysSinceStart = Math.max(
         Math.floor(
-          (currentDate.getTime() - receivedDate.getTime()) / (1000 * 60 * 60 * 24)
+          (currentDate.getTime() - receivedDate.getTime()) /
+            (1000 * 60 * 60 * 24)
         ) + 1,
         1
       );
@@ -311,7 +328,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const remainingPrevDay = totalDuePrevDay - totalPaidPrevDay;
 
       const extraDaysCovered = Math.floor(
-        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) / installment
+        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
+          installment
       );
 
       const nextDueDate = new Date(currentDate);
@@ -432,7 +450,9 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     setEditedLoan((prev) => ({
       ...prev,
       [field]:
-        field === "installmentAmount" || field === "lateAmount" || field === "totalToBePaid"
+        field === "installmentAmount" ||
+        field === "lateAmount" ||
+        field === "totalToBePaid"
           ? parseFloat(value as string) || 0
           : value,
     }));
@@ -465,12 +485,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
   };
 
-  const {
-    status,
-    statusColor,
-    nextDueDate,
-    calculationDetails,
-  } = calculatePaymentStatus();
+  const { status, statusColor, nextDueDate, calculationDetails } =
+    calculatePaymentStatus();
 
   const totalDueUpToYesterday =
     loanType === "monthly"
@@ -496,15 +512,15 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     new Date(loan.receivedDate.split("T")[0]).toISOString().split("T")[0] ===
     new Date(selectedDate.split("T")[0]).toISOString().split("T")[0];
 
- 
-
   return (
     <div className="p-4 flex flex-col justify-center items-center rounded-md shadow-sm relative ">
       {/* Removed the redundant late amount display */}
       <div className="flex flex-col">
         <div className={`${statusColor} text-center`}>{status}</div>
         {!isLoanStartDate && loanType !== "pending" && (
-          <div className={`${displayPrevColor} text-sm mt-1 text-center`}>{displayPrevStatus}</div>
+          <div className={`${displayPrevColor} text-sm mt-1 text-center`}>
+            {displayPrevStatus}
+          </div>
         )}
       </div>
       <button
@@ -655,7 +671,9 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                       Paid Before Today: ₹
                       {calculationDetails.totalPaidBeforeToday}
                     </p>
-                    <p>Today&apos;s Payment: ₹{calculationDetails.todayPayment}</p>
+                    <p>
+                      Today&apos;s Payment: ₹{calculationDetails.todayPayment}
+                    </p>
                     <p className="font-semibold">
                       Total Paid: ₹{calculationDetails.totalPaid}
                     </p>
@@ -689,7 +707,9 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                       Paid Before Today: ₹
                       {calculationDetails.totalPaidBeforeToday}
                     </p>
-                    <p>Today&apos;s Payment: ₹{calculationDetails.todayPayment}</p>
+                    <p>
+                      Today&apos;s Payment: ₹{calculationDetails.todayPayment}
+                    </p>
                     <p className="font-semibold">
                       Total Paid: ₹{calculationDetails.totalPaid}
                     </p>
@@ -753,7 +773,9 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                       Paid Before Today: ₹
                       {calculationDetails.totalPaidBeforeToday}
                     </p>
-                    <p>Today&apos;s Payment: ₹{calculationDetails.todayPayment}</p>
+                    <p>
+                      Today&apos;s Payment: ₹{calculationDetails.todayPayment}
+                    </p>
                     <p className="font-semibold">
                       Total Paid: ₹{calculationDetails.totalPaid}
                     </p>
