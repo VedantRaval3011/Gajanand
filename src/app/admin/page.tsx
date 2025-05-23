@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LOAN_TYPES, FILE_CATEGORIES } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { useNavigationStore } from "@/store/NavigationStore";
+import AccountFinder from "@/components/print-head/AccountFinder"; // Import the new AccountFinder component
 
 export default function AdminPage() {
   const [customCategories] = useState<{
@@ -54,7 +55,7 @@ export default function AdminPage() {
       {/* Content */}
       <div className="relative z-10 w-full max-w-6xl">
         <div className="flex gap-8 justify-center items-center mb-8 sm:mb-10 md:mb-12">
-        <button
+          <button
             onClick={navigateToHome}
             className="px-4 py-2 text-sm sm:text-base font-semibold text-white bg-orange-700 hover:bg-orange-800 transition-colors duration-300 rounded-md"
           >
@@ -63,8 +64,10 @@ export default function AdminPage() {
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold animate-fade-in text-center uppercase">
             Collections
           </h1>
-         
         </div>
+
+        {/* Account Finder Section */}
+        <AccountFinder />
 
         <div className="flex flex-col sm:flex-row justify-between gap-4 sm:gap-6 md:gap-8">
           {LOAN_TYPES.map((type) => (
