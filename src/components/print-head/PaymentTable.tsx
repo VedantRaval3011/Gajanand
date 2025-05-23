@@ -1,8 +1,10 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
 import PaymentStatusDisplay from "./PaymentStatusDisplay";
 import PrintablePaymentTable from "./PrintablePaymentTable";
 import "./styles/print.css";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Note {
   _id: string;
@@ -60,11 +62,34 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [noteContent, setNoteContent] = useState<string>("");
   const [notes, setNotes] = useState<Note[]>([]);
   const [showNotes, setShowNotes] = useState<boolean>(false);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  const router = useRouter();
 
   useEffect(() => {
     fetchLoans();
     fetchNotes();
   }, [loanType, currentCategory, selectedDate]);
+
+  useEffect(() => {
+    if (highlightId && loansData.length > 0) {
+      const row = loansData.find((loan) => loan._id === highlightId);
+      if (row && row.index && row.index >= 1 && row.index <= 90) {
+        let rowIndex;
+        if (row.index <= 45) {
+          rowIndex = row.index - 1;
+        } else {
+          rowIndex = row.index - 46;
+        }
+        const element = document.getElementById(`row-${rowIndex}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.classList.add("bg-yellow-200");
+          setTimeout(() => element.classList.remove("bg-yellow-200"), 3000);
+        }
+      }
+    }
+  }, [loansData, highlightId]);
 
   const fetchLoans = async () => {
     setIsLoading(true);
@@ -85,8 +110,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 
       const data = await response.json();
       const loans = Array.isArray(data.loans) ? data.loans : [];
-
-      // Don't filter loans by receivedDate - show all accounts
       setLoansData(loans);
     } catch (err) {
       console.error("Error fetching loans:", err);
@@ -106,12 +129,11 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       if (!response.ok) throw new Error("Failed to fetch notes");
       const data = await response.json();
       setNotes(data.notes || []);
-      // Load the latest note into the editor if it exists
       const latestNote = data.notes?.[0];
       if (latestNote) {
         setNoteContent(latestNote.content);
       } else {
-        setNoteContent(""); // Clear if no note exists
+        setNoteContent("");
       }
     } catch (err) {
       console.error("Error fetching notes:", err);
@@ -138,7 +160,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       });
 
       if (!response.ok) throw new Error("Failed to save note");
-      fetchNotes(); // Refresh notes to reflect the update
+      fetchNotes();
       alert("Note saved successfully!");
     } catch (err) {
       console.error("Error saving note:", err);
@@ -155,7 +177,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       });
       if (!response.ok) throw new Error("Failed to delete note");
       fetchNotes();
-      // Clear the editor if the deleted note was the latest one
       if (notes[0]?._id === noteId) {
         setNoteContent("");
       }
@@ -355,7 +376,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   }
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg border-t-4 border-orange-500">
+    <div className="bg-white p-4 rounded-lg shadow-lg border-t-4 border-orange-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 space-y-4 sm:space-y-0">
         <h2 className="text-xl sm:text-2xl text-orange-700 font-bold">
           {loanType === "daily"
@@ -476,6 +497,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
             {Array.from({ length: 45 }).map((_, rowIndex) => (
               <tr
                 key={rowIndex}
+                id={`row-${rowIndex}`}
                 className="hover:bg-orange-50 transition-colors duration-200"
               >
                 {/* Left Side */}
