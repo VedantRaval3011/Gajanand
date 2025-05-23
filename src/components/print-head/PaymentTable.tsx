@@ -48,10 +48,13 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   );
   const [currentCategory] = useState<string | undefined>(
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("category") || initialFileCategory
+      ? new URLSearchParams(window.location.search).get("category") ||
+          initialFileCategory
       : initialFileCategory
   );
-  const [indexUpdating, setIndexUpdating] = useState<{ [key: string]: boolean }>({});
+  const [indexUpdating, setIndexUpdating] = useState<{
+    [key: string]: boolean;
+  }>({});
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [noteContent, setNoteContent] = useState<string>("");
@@ -63,7 +66,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     fetchNotes();
   }, [loanType, currentCategory, selectedDate]);
 
- const fetchLoans = async () => {
+  const fetchLoans = async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -71,14 +74,15 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       const url = `/api/loansDoc?type=${loanType}${
         currentCategory ? `&category=${currentCategory}` : ""
       }&date=${selectedDate}&_=${timestamp}`;
-      
+
       const response = await fetch(url, {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
-      
-      if (!response.ok) throw new Error(`Failed to fetch loans: ${response.status}`);
-      
+
+      if (!response.ok)
+        throw new Error(`Failed to fetch loans: ${response.status}`);
+
       const data = await response.json();
       const loans = Array.isArray(data.loans) ? data.loans : [];
 
@@ -95,7 +99,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const fetchNotes = async () => {
     try {
       const response = await fetch(
-        `/api/notes?date=${selectedDate}&category=${currentCategory || "General"}&loanType=${loanType}`
+        `/api/notes?date=${selectedDate}&category=${
+          currentCategory || "General"
+        }&loanType=${loanType}`
       );
       if (!response.ok) throw new Error("Failed to fetch notes");
       const data = await response.json();
@@ -112,13 +118,13 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       setError("Failed to load notes. Please try again.");
     }
   };
-  
+
   const handleSaveNote = async () => {
     if (!noteContent.trim()) {
       setError("Note content cannot be empty");
       return;
     }
-  
+
     try {
       const response = await fetch("/api/notes", {
         method: "POST",
@@ -130,7 +136,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           content: noteContent,
         }),
       });
-  
+
       if (!response.ok) throw new Error("Failed to save note");
       fetchNotes(); // Refresh notes to reflect the update
       alert("Note saved successfully!");
@@ -169,22 +175,23 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const handleSavePayment = async (id: string) => {
     const loan = loansData.find((loan) => loan._id === id);
     if (!loan) return;
-  
+
     try {
       const checkResponse = await fetch(
         `/api/loanPayments?loanId=${id}&date=${selectedDate}`
       );
       const data = await checkResponse.json();
-      const todayPayments = data.payments.filter((payment: { date: string; _id: string }) =>
-        new Date(payment.date).toISOString().split("T")[0] === selectedDate
+      const todayPayments = data.payments.filter(
+        (payment: { date: string; _id: string }) =>
+          new Date(payment.date).toISOString().split("T")[0] === selectedDate
       );
-  
+
       if (todayPayments.length > 0) {
         for (const payment of todayPayments) {
           await fetch(`/api/loanPayments/${payment._id}`, { method: "DELETE" });
         }
       }
-  
+
       if (loan.paymentReceivedToday > 0) {
         await fetch("/api/loanPayments", {
           method: "POST",
@@ -196,7 +203,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           }),
         });
       }
-  
+
       await fetchLoans();
     } catch (error) {
       console.error("Error saving payment:", error);
@@ -207,12 +214,16 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const handleDelete = async (id: string) => {
     const confirmDelete = confirm("Are you sure you want to delete this loan?");
     if (!confirmDelete) return;
-  
-    const confirmPaymentsDelete = confirm("Do you also want to delete all payment histories for this loan?");
+
+    const confirmPaymentsDelete = confirm(
+      "Do you also want to delete all payment histories for this loan?"
+    );
     if (!confirmPaymentsDelete) {
-      alert("Payment histories will be preserved. Only the loan will be deleted.");
+      alert(
+        "Payment histories will be preserved. Only the loan will be deleted."
+      );
     }
-  
+
     try {
       const response = await fetch(`/api/loansDoc/${id}`, {
         method: "DELETE",
@@ -221,7 +232,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           "X-Delete-Payments": confirmPaymentsDelete ? "true" : "false",
         },
       });
-  
+
       if (response.ok) {
         fetchLoans();
       } else {
@@ -235,19 +246,25 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   };
 
   const handleIndexChange = async (id: string, newIndex: number) => {
-    if (isNaN(newIndex) || newIndex < 1 || newIndex > 90) { 
+    if (isNaN(newIndex) || newIndex < 1 || newIndex > 90) {
       setError("Index must be between 1 and 90");
       return;
     }
-    
+
     try {
-      const existingLoan = loansData.find(loan => loan.index === newIndex && loan._id !== id);
+      const existingLoan = loansData.find(
+        (loan) => loan.index === newIndex && loan._id !== id
+      );
       if (existingLoan) {
-        setError(`Index ${newIndex} is already taken by ${existingLoan.nameEnglish || existingLoan.nameGujarati}`);
+        setError(
+          `Index ${newIndex} is already taken by ${
+            existingLoan.nameEnglish || existingLoan.nameGujarati
+          }`
+        );
         return;
       }
 
-      setIndexUpdating(prev => ({ ...prev, [id]: true }));
+      setIndexUpdating((prev) => ({ ...prev, [id]: true }));
 
       const response = await fetch(`/api/loansDoc/${id}`, {
         method: "PUT",
@@ -264,7 +281,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
           errorMessage = errorData.error || errorMessage;
         } catch (jsonError) {
           console.error("Error parsing JSON response:", jsonError);
-          errorMessage = await response.text() || errorMessage;
+          errorMessage = (await response.text()) || errorMessage;
         }
         setError(errorMessage);
       }
@@ -272,7 +289,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       console.error("Error updating index:", error);
       setError("Failed to update index due to network error");
     } finally {
-      setIndexUpdating(prev => ({ ...prev, [id]: false }));
+      setIndexUpdating((prev) => ({ ...prev, [id]: false }));
     }
   };
 
@@ -315,7 +332,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg border-t-4 border-orange-500">
         <div className="text-center py-8 sm:py-10">
           <div className="inline-block h-6 w-6 sm:h-8 sm:w-8 animate-spin rounded-full border-4 border-solid border-orange-500 border-r-transparent"></div>
-          <p className="mt-3 sm:mt-4 text-base sm:text-lg text-gray-600 font-bold">Loading loans data...</p>
+          <p className="mt-3 sm:mt-4 text-base sm:text-lg text-gray-600 font-bold">
+            Loading loans data...
+          </p>
         </div>
       </div>
     );
@@ -339,12 +358,22 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg border-t-4 border-orange-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 space-y-4 sm:space-y-0">
         <h2 className="text-xl sm:text-2xl text-orange-700 font-bold">
-          {loanType === "daily" ? "Daily" : loanType === "monthly" ? "Monthly" : "Pending"} Loans
+          {loanType === "daily"
+            ? "Daily"
+            : loanType === "monthly"
+            ? "Monthly"
+            : "Pending"}{" "}
+          Loans
           {currentCategory ? ` - ${currentCategory}` : " - All Categories"}
         </h2>
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 items-start sm:items-center w-full sm:w-auto">
           <div className="flex items-center w-full sm:w-auto">
-            <label htmlFor="date" className="mr-2 text-base text-gray-700 font-bold">Select Date:</label>
+            <label
+              htmlFor="date"
+              className="mr-2 text-base text-gray-700 font-bold"
+            >
+              Select Date:
+            </label>
             <input
               type="date"
               id="date"
@@ -355,7 +384,12 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
             />
           </div>
           <div className="flex items-center w-full sm:w-auto">
-            <label htmlFor="search" className="mr-2 text-base text-gray-700 font-bold">Search:</label>
+            <label
+              htmlFor="search"
+              className="mr-2 text-base text-gray-700 font-bold"
+            >
+              Search:
+            </label>
             <input
               type="text"
               id="search"
@@ -400,23 +434,50 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
         <table className="w-full border-collapse border border-orange-300">
           <thead>
             <tr className="bg-orange-50 text-orange-800">
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Index</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Inst. Amt</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Name</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Payment Status</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Payment Today</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Actions</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Index</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Inst. Amt</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Name</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Payment Status</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Payment Today</th>
-              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">Actions</th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Index
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Inst. Amt
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Name
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Payment Status
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Payment Today
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Actions
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Index
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Inst. Amt
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Name
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Payment Status
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Payment Today
+              </th>
+              <th className="border border-orange-300 p-2 sm:p-3 text-base sm:text-lg font-bold">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 45 }).map((_, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-orange-50 transition-colors duration-200">
+              <tr
+                key={rowIndex}
+                className="hover:bg-orange-50 transition-colors duration-200"
+              >
                 {/* Left Side */}
                 <td className="border border-orange-300 p-2 sm:p-3 text-center text-gray-700 text-base font-bold">
                   {rowIndex + 1}
@@ -429,7 +490,10 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                         defaultValue={leftSide[rowIndex]?.index}
                         onBlur={(e) => {
                           const value = parseInt(e.target.value);
-                          if (!isNaN(value) && value !== leftSide[rowIndex]?.index) {
+                          if (
+                            !isNaN(value) &&
+                            value !== leftSide[rowIndex]?.index
+                          ) {
                             handleIndexChange(leftSide[rowIndex]!._id, value);
                           }
                         }}
@@ -443,7 +507,11 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   )}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-right text-gray-700 text-base font-bold">
-                    {leftSide[rowIndex] ? (loanType === "pending" ? "" : formatCurrency(leftSide[rowIndex]!.installmentAmount)) : ""}
+                  {leftSide[rowIndex]
+                    ? loanType === "pending"
+                      ? ""
+                      : formatCurrency(leftSide[rowIndex]!.installmentAmount)
+                    : ""}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-gray-700 text-base font-bold">
                   {leftSide[rowIndex]?.nameGujarati || ""}
@@ -463,13 +531,17 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   {leftSide[rowIndex] && (
                     <input
                       type="number"
-                      value={leftSide[rowIndex]!.paymentReceivedToday || 0}
+                      value={leftSide[rowIndex]!.paymentReceivedToday || ""}
                       onChange={(e) =>
-                        handlePaymentChange(leftSide[rowIndex]!._id, parseFloat(e.target.value) || 0)
+                        handlePaymentChange(
+                          leftSide[rowIndex]!._id,
+                          parseFloat(e.target.value) || 0
+                        )
                       }
                       onFocus={handleFocus}
-                      className="w-full px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
+                      className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
                       min="0"
+                      placeholder="0"
                     />
                   )}
                 </td>
@@ -477,7 +549,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   {leftSide[rowIndex] && (
                     <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                       <button
-                        onClick={() => handleSavePayment(leftSide[rowIndex]!._id)}
+                        onClick={() =>
+                          handleSavePayment(leftSide[rowIndex]!._id)
+                        }
                         className="w-full sm:w-auto px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300 shadow-sm text-base font-bold"
                       >
                         Save
@@ -504,7 +578,10 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                         defaultValue={rightSide[rowIndex]?.index}
                         onBlur={(e) => {
                           const value = parseInt(e.target.value);
-                          if (!isNaN(value) && value !== rightSide[rowIndex]?.index) {
+                          if (
+                            !isNaN(value) &&
+                            value !== rightSide[rowIndex]?.index
+                          ) {
                             handleIndexChange(rightSide[rowIndex]!._id, value);
                           }
                         }}
@@ -518,7 +595,11 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   )}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-right text-gray-700 text-base font-bold">
-                 {rightSide[rowIndex] ? (loanType === "pending" ? "" : formatCurrency(rightSide[rowIndex]!.installmentAmount)) : ""}
+                  {rightSide[rowIndex]
+                    ? loanType === "pending"
+                      ? ""
+                      : formatCurrency(rightSide[rowIndex]!.installmentAmount)
+                    : ""}
                 </td>
                 <td className="border border-orange-300 p-2 sm:p-3 text-gray-700 text-base font-bold">
                   {rightSide[rowIndex]?.nameGujarati || ""}
@@ -538,13 +619,17 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   {rightSide[rowIndex] && (
                     <input
                       type="number"
-                      value={rightSide[rowIndex]!.paymentReceivedToday || 0}
+                      value={rightSide[rowIndex]!.paymentReceivedToday || ""}
                       onChange={(e) =>
-                        handlePaymentChange(rightSide[rowIndex]!._id, parseFloat(e.target.value) || 0)
+                        handlePaymentChange(
+                          rightSide[rowIndex]!._id,
+                          parseFloat(e.target.value) || 0
+                        )
                       }
                       onFocus={handleFocus}
-                      className="w-full px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
+                      className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
                       min="0"
+                      placeholder="0"
                     />
                   )}
                 </td>
@@ -552,7 +637,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   {rightSide[rowIndex] && (
                     <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                       <button
-                        onClick={() => handleSavePayment(rightSide[rowIndex]!._id)}
+                        onClick={() =>
+                          handleSavePayment(rightSide[rowIndex]!._id)
+                        }
                         className="w-full sm:w-auto px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300 shadow-sm text-base font-bold"
                       >
                         Save
@@ -569,13 +656,19 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
               </tr>
             ))}
             <tr className="bg-orange-100 text-orange-800">
-              <td colSpan={4} className="border border-orange-300 p-2 sm:p-3 text-right text-base sm:text-lg font-bold">
+              <td
+                colSpan={4}
+                className="border border-orange-300 p-2 sm:p-3 text-right text-base sm:text-lg font-bold"
+              >
                 Total Payment Today:
               </td>
               <td className="border border-orange-300 p-2 sm:p-3 text-right text-base sm:text-lg font-bold">
                 {formatCurrency(totalPaymentReceivedToday)}
               </td>
-              <td colSpan={7} className="border border-orange-300 p-2 sm:p-3"></td>
+              <td
+                colSpan={7}
+                className="border border-orange-300 p-2 sm:p-3"
+              ></td>
             </tr>
           </tbody>
         </table>
@@ -614,9 +707,13 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
         {/* Notes Preview */}
         {showNotes && (
           <div className="mt-4">
-            <h4 className="text-lg font-bold text-orange-700 mb-2">Saved Notes</h4>
+            <h4 className="text-lg font-bold text-orange-700 mb-2">
+              Saved Notes
+            </h4>
             {notes.length === 0 ? (
-              <p className="text-gray-600">No notes available for this date, category, and loan type.</p>
+              <p className="text-gray-600">
+                No notes available for this date, category, and loan type.
+              </p>
             ) : (
               <div className="space-y-4">
                 {notes.map((note) => (
