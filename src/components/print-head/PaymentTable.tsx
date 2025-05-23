@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 import PaymentStatusDisplay from "./PaymentStatusDisplay";
 import PrintablePaymentTable from "./PrintablePaymentTable";
 import "./styles/print.css";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface Note {
   _id: string;
@@ -64,7 +64,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [showNotes, setShowNotes] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
-  const router = useRouter();
 
   useEffect(() => {
     fetchLoans();
