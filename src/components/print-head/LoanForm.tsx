@@ -46,8 +46,8 @@ const LoanForm: React.FC<LoanFormProps> = ({ loanType, fileCategory, onLoanAdded
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.index < 1 || formData.index > 84) {
-      setError("Index must be between 1 and 84");
+    if (formData.index < 1 || formData.index > 90) {
+      setError("Index must be between 1 and 90");
       return;
     }
 
@@ -213,7 +213,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loanType, fileCategory, onLoanAdded
             </div>
           )}
           <div>
-            <label className="block mb-1 text-gray-700 font-medium">Index (1-84)</label>
+            <label className="block mb-1 text-gray-700 font-medium">Index (1-90)</label>
             <input
               type="number"
               name="index"
@@ -224,7 +224,7 @@ const LoanForm: React.FC<LoanFormProps> = ({ loanType, fileCategory, onLoanAdded
               ref={indexRef}
               className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-black focus:border-orange-400"
               min="1"
-              max="84"
+              max="90"
               required
             />
           </div>
