@@ -43,76 +43,65 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     const paymentHistory = loan.paymentHistory || [];
     const todayPayment = loan.paymentReceivedToday || 0;
     const currentDate = new Date(selectedDate.split("T")[0]);
-    let totalToBePaid = 0;
-    let totalPaid = 0;
+    const installment = loan.installmentAmount;
+    const receivedDate = new Date(loan.receivedDate.split("T")[0]);
 
-    // Check if the received date is in the future for both daily and monthly loans
-    if (loanType !== "pending") {
-      const receivedDate = new Date(loan.receivedDate.split("T")[0]);
-      // Reset time to avoid timezone issues
-      receivedDate.setHours(0, 0, 0, 0);
-      currentDate.setHours(0, 0, 0, 0);
+    // Reset time to avoid timezone issues
+    receivedDate.setHours(0, 0, 0, 0);
+    currentDate.setHours(0, 0, 0, 0);
 
-      // If the loan hasn't started yet (received date is in the future)
-      if (receivedDate > currentDate) {
-        // Calculate total payments made in advance
-        const totalPaidBeforeToday = paymentHistory
-          .filter(
-            (payment) => new Date(payment.date.split("T")[0]) <= currentDate
-          )
-          .reduce((sum, payment) => sum + payment.amount, 0);
-        const totalAdvancePaid = totalPaidBeforeToday + todayPayment;
+    // Check if the loan hasn't started yet (received date is in the future)
+    if (receivedDate > currentDate) {
+      const totalPaidBeforeToday = paymentHistory
+        .filter(
+          (payment) => new Date(payment.date.split("T")[0]) <= currentDate
+        )
+        .reduce((sum, payment) => sum + payment.amount, 0);
+      const totalPaid = totalPaidBeforeToday + todayPayment;
+      const coveredUntilDate = new Date(receivedDate);
+      let statusDate = new Date(receivedDate);
 
-        // Calculate covered dates based on advance payments
-        const coveredUntilDate = new Date(receivedDate);
-        let statusDate = new Date(receivedDate);
-        const installment = loan.installmentAmount;
-
-        if (totalAdvancePaid > 0) {
-          // Calculate extra days/months covered
-          if (loanType === "daily") {
-            const extraDaysCovered = Math.floor(totalAdvancePaid / installment);
-            coveredUntilDate.setDate(
-              coveredUntilDate.getDate() + extraDaysCovered
-            );
-            if (extraDaysCovered > 0) {
-              statusDate = coveredUntilDate;
-            }
-          } else if (loanType === "monthly") {
-            const extraMonthsCovered = Math.floor(
-              totalAdvancePaid / installment
-            );
-            coveredUntilDate.setMonth(
-              coveredUntilDate.getMonth() + extraMonthsCovered
-            );
-            if (extraMonthsCovered > 0) {
-              statusDate = coveredUntilDate;
-            }
+      if (totalPaid > 0) {
+        if (loanType === "daily") {
+          const extraDaysCovered = Math.floor(totalPaid / installment);
+          coveredUntilDate.setDate(
+            coveredUntilDate.getDate() + extraDaysCovered
+          );
+          if (extraDaysCovered > 0) {
+            statusDate = coveredUntilDate;
+          }
+        } else if (loanType === "monthly") {
+          const extraMonthsCovered = Math.floor(totalPaid / installment);
+          coveredUntilDate.setMonth(
+            coveredUntilDate.getMonth() + extraMonthsCovered
+          );
+          if (extraMonthsCovered > 0) {
+            statusDate = coveredUntilDate;
           }
         }
-
-        const formattedStatusDate = statusDate.toLocaleDateString("en-GB");
-
-        return {
-          status: formattedStatusDate,
-          statusColor:
-            totalAdvancePaid > 0
-              ? "text-green-600 text-black screen-text-green"
-              : "text-yellow-600 text-black screen-text-yellow",
-          showLateAmount: false,
-          prevStatus: "0", // No previous status for future loans
-          prevStatusColor: "text-yellow-600 screen-text-yellow",
-        };
       }
+
+      const formattedStatusDate = statusDate.toLocaleDateString("en-GB");
+
+      return {
+        status: formattedStatusDate,
+        statusColor:
+          totalPaid > 0
+            ? "text-green-600 text-black screen-text-green"
+            : "text-yellow-600 text-black screen-text-yellow",
+        showLateAmount: false,
+        prevStatus: "0",
+        prevStatusColor: "text-yellow-600 screen-text-yellow",
+      };
     }
 
-    // Continue with existing loan logic for active loans
+    // Pending loans
     if (loanType === "pending") {
-      totalToBePaid = loan.totalToBePaid || 0;
+      const totalToBePaid = loan.totalToBePaid || 0;
       const totalPaidBeforeToday = paymentHistory
         .filter((payment) => new Date(payment.date.split("T")[0]) < currentDate)
         .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
-      totalPaid = totalPaidBeforeToday + todayPayment;
+      const totalPaid = totalPaidBeforeToday + todayPayment;
       const remainingAmount = Math.max(totalToBePaid - totalPaid, 0);
 
       return {
@@ -122,31 +111,28 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
             ? "text-red-600 text-black screen-text-red"
             : "text-yellow-600 text-black screen-text-yellow",
         showLateAmount: remainingAmount > 0,
-        prevStatus: "", // No previous status for pending loans
+        prevStatus: "",
         prevStatusColor: "",
       };
-    } else if (loanType === "monthly") {
-      const installment = loan.installmentAmount;
-      const receivedDate = new Date(loan.receivedDate.split("T")[0]);
+    }
 
-      // Calculate months since start based on days elapsed
+    // Monthly loans
+    if (loanType === "monthly") {
       const diffTime = currentDate.getTime() - receivedDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const monthsSinceStart = Math.floor(diffDays / 30) + 1;
-
-      totalToBePaid = installment * monthsSinceStart;
+      const totalDue = installment * monthsSinceStart;
 
       const totalPaidBeforeToday = paymentHistory
         .filter((payment) => new Date(payment.date.split("T")[0]) < currentDate)
         .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
-      totalPaid = totalPaidBeforeToday + todayPayment;
-      const remainingAfterToday = totalToBePaid - totalPaid;
+      const totalPaid = totalPaidBeforeToday + todayPayment;
+      const remainingAfterToday = totalDue - totalPaid;
 
-      // Calculate previous month status properly
-      const prevMonthsSinceStart = Math.max(monthsSinceStart - 1, 0);
-      const totalDuePrevMonth = installment * prevMonthsSinceStart;
       const prevMonthDate = new Date(currentDate);
       prevMonthDate.setDate(prevMonthDate.getDate() - 1);
+      const prevMonthsSinceStart = Math.max(monthsSinceStart - 1, 0);
+      const totalDuePrevMonth = installment * prevMonthsSinceStart;
       const totalPaidPrevMonth = paymentHistory
         .filter(
           (payment) => new Date(payment.date.split("T")[0]) <= prevMonthDate
@@ -159,12 +145,10 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           installment
       );
 
-      // Fix next due date calculation - base it on loan received date
       const nextDueDate = new Date(receivedDate);
       nextDueDate.setMonth(nextDueDate.getMonth() + monthsSinceStart);
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
 
-      // Fix covered until date calculation
       const coveredUntilDate = new Date(receivedDate);
       coveredUntilDate.setMonth(
         coveredUntilDate.getMonth() + monthsSinceStart + extraMonthsCovered
@@ -200,8 +184,9 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               : "text-yellow-600 screen-text-yellow",
         };
       } else {
-        const overpayment = Math.abs(remainingAfterToday);
-        const fullMonthsCovered = Math.floor(overpayment / installment);
+        const fullMonthsCovered = Math.floor(
+          Math.abs(remainingAfterToday) / installment
+        );
         return {
           status:
             fullMonthsCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
@@ -220,95 +205,86 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               : "text-yellow-600 screen-text-yellow",
         };
       }
+    }
+
+    // Daily loans
+    const daysSinceStart = Math.max(
+      Math.floor(
+        (currentDate.getTime() - receivedDate.getTime()) / (1000 * 60 * 60 * 24)
+      ) + 1,
+      1
+    );
+    const totalDue = installment * daysSinceStart;
+
+    const totalPaidBeforeToday = paymentHistory
+      .filter((payment) => new Date(payment.date.split("T")[0]) < currentDate)
+      .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
+    const totalPaid = totalPaidBeforeToday + todayPayment;
+    const remainingAfterToday = totalDue - totalPaid;
+
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const totalDuePrevDay = installment * (daysSinceStart - 1);
+    const totalPaidPrevDay = paymentHistory
+      .filter((payment) => new Date(payment.date.split("T")[0]) <= prevDate)
+      .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
+    const remainingUpToYesterday = totalDuePrevDay - totalPaidPrevDay;
+
+    const extraDaysCovered = Math.floor(
+      Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) / installment
+    );
+
+    const nextDueDate = new Date(currentDate);
+    nextDueDate.setDate(nextDueDate.getDate() + 1);
+    const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
+
+    const coveredUntilDate = new Date(currentDate);
+    coveredUntilDate.setDate(coveredUntilDate.getDate() + extraDaysCovered);
+    const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
+
+    if (remainingAfterToday > 0) {
+      return {
+        status: remainingAfterToday.toFixed(0),
+        statusColor: "text-red-600 text-black screen-text-red",
+        showLateAmount: true,
+        prevStatus:
+          remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
+        prevStatusColor:
+          remainingUpToYesterday > 0
+            ? "text-red-600 screen-text-red"
+            : "text-yellow-600 screen-text-yellow",
+      };
+    } else if (remainingAfterToday === 0) {
+      return {
+        status: formattedNextDueDate,
+        statusColor: "text-yellow-600 text-black screen-text-yellow",
+        showLateAmount: false,
+        prevStatus:
+          remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
+        prevStatusColor:
+          remainingUpToYesterday > 0
+            ? "text-red-600 screen-text-red"
+            : "text-yellow-600 screen-text-yellow",
+      };
     } else {
-      // Daily loans
-      const installment = loan.installmentAmount;
-      const receivedDate = new Date(loan.receivedDate.split("T")[0]);
-      const daysSinceStart = Math.max(
-        Math.floor(
-          (currentDate.getTime() - receivedDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-        ) + 1,
-        1
+      const fullDaysCovered = Math.floor(
+        Math.abs(remainingAfterToday) / installment
       );
-      totalToBePaid = installment * daysSinceStart;
-
-      const totalPaidBeforeToday = paymentHistory
-        .filter((payment) => new Date(payment.date.split("T")[0]) < currentDate)
-        .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
-      totalPaid = totalPaidBeforeToday + todayPayment;
-      const remainingAfterToday = totalToBePaid - totalPaid;
-
-      const prevDate = new Date(currentDate);
-      prevDate.setDate(prevDate.getDate() - 1);
-      const totalDuePrevDay = installment * (daysSinceStart - 1);
-      const totalPaidPrevDay = paymentHistory
-        .filter((payment) => new Date(payment.date.split("T")[0]) <= prevDate)
-        .reduce((sum: number, payment: Payment) => sum + payment.amount, 0);
-      const remainingUpToYesterday = totalDuePrevDay - totalPaidPrevDay;
-
-      const extraDaysCovered = Math.floor(
-        Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
-          installment
-      );
-
-      const nextDueDate = new Date(currentDate);
-      nextDueDate.setDate(nextDueDate.getDate() + 1);
-      const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
-
-      const coveredUntilDate = new Date(currentDate);
-      coveredUntilDate.setDate(coveredUntilDate.getDate() + extraDaysCovered);
-      const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
-
-      if (remainingAfterToday > 0) {
-        return {
-          status: remainingAfterToday.toFixed(0),
-          statusColor: "text-red-600 text-black screen-text-red",
-          showLateAmount: true,
-          prevStatus:
-            remainingUpToYesterday > 0
-              ? remainingUpToYesterday.toFixed(0)
-              : "0",
-          prevStatusColor:
-            remainingUpToYesterday > 0
-              ? "text-red-600 screen-text-red"
-              : "text-yellow-600 screen-text-yellow",
-        };
-      } else if (remainingAfterToday === 0) {
-        return {
-          status: formattedNextDueDate,
-          statusColor: "text-yellow-600 text-black screen-text-yellow",
-          showLateAmount: false,
-          prevStatus:
-            remainingUpToYesterday > 0
-              ? remainingUpToYesterday.toFixed(0)
-              : "0",
-          prevStatusColor:
-            remainingUpToYesterday > 0
-              ? "text-red-600 screen-text-red"
-              : "text-yellow-600 screen-text-yellow",
-        };
-      } else {
-        const overpayment = Math.abs(remainingAfterToday);
-        const fullDaysCovered = Math.floor(overpayment / installment);
-        return {
-          status:
-            fullDaysCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
-          statusColor:
-            fullDaysCovered > 0
-              ? "text-green-600 text-black screen-text-green"
-              : "text-yellow-600 text-black screen-text-yellow",
-          showLateAmount: false,
-          prevStatus:
-            remainingUpToYesterday > 0
-              ? remainingUpToYesterday.toFixed(0)
-              : "0",
-          prevStatusColor:
-            remainingUpToYesterday > 0
-              ? "text-red-600 screen-text-red"
-              : "text-yellow-600 screen-text-yellow",
-        };
-      }
+      return {
+        status:
+          fullDaysCovered > 0 ? formattedCoveredDate : formattedNextDueDate,
+        statusColor:
+          fullDaysCovered > 0
+            ? "text-green-600 text-black screen-text-green"
+            : "text-yellow-600 text-black screen-text-yellow",
+        showLateAmount: false,
+        prevStatus:
+          remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0",
+        prevStatusColor:
+          remainingUpToYesterday > 0
+            ? "text-red-600 screen-text-red"
+            : "text-yellow-600 screen-text-yellow",
+      };
     }
   };
 
