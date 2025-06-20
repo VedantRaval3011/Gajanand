@@ -72,6 +72,39 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     receivedDate: new Date(loan.receivedDate).toISOString().split("T")[0],
   });
 
+  const calculateMonthsSinceStart = (
+    startDate: Date | string,
+    currentDate: Date | string
+  ): number => {
+    const start = new Date(startDate);
+    const current = new Date(currentDate);
+
+    let months = 0;
+    let tempDate = new Date(start);
+
+    // Count complete months
+    while (tempDate <= current) {
+      const nextMonth = new Date(tempDate);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      if (nextMonth <= current) {
+        months++;
+        tempDate = nextMonth;
+      } else {
+        break;
+      }
+    }
+
+    // Check if we're in a partial month (add 1 if current date is past the start date of the month)
+    if (tempDate <= current) {
+      months++;
+    }
+
+    return months;
+  };
+
+  
+
   const calculatePaymentStatus = () => {
     const installment = loan.installmentAmount;
     const paymentHistory = loan.paymentHistory || [];
@@ -191,7 +224,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       // Calculate which month we're currently in (1-based)
-      const monthsSinceStart = Math.floor(diffDays / 30) + 1;
+      const monthsSinceStart = calculateMonthsSinceStart(
+        receivedDate,
+        currentDate
+      );
       const totalDue = installment * monthsSinceStart;
 
       const totalPaidBeforeToday = paymentHistory
@@ -209,7 +245,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       // Calculate previous month status
       const prevMonthDate = new Date(currentDate);
       prevMonthDate.setDate(prevMonthDate.getDate() - 1);
-      const prevMonthsSinceStart = Math.max(monthsSinceStart - 1, 0);
+      const prevMonthsSinceStart = Math.max(
+        calculateMonthsSinceStart(receivedDate, prevMonthDate),
+        0
+      );
       const totalDuePrevMonth = installment * prevMonthsSinceStart;
       const totalPaidPrevMonth = paymentHistory
         .filter(
