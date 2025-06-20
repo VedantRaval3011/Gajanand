@@ -1,208 +1,68 @@
-// components/DataGrid.tsx
-"use client"
-import React, { useState, useEffect } from 'react';
-import { differenceInDays } from 'date-fns';
+'use client';
 
-// Types
-interface Payment {
-  id: string;
-  description: string;
-  amount: number;
-  dueDate: Date;
-  isPaid: boolean;
-  paidDate?: Date;
-  lateAmount: number;
-}
+// Import React and Next.js navigation hooks for TypeScript
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-// Calculate late fee based on days overdue
-const calculateLateFee = (payment: Omit<Payment, 'lateAmount'>): number => {
-  if (payment.isPaid) {
-    // If paid, calculate based on paid date
-    const daysLate = differenceInDays(payment.paidDate!, payment.dueDate);
-    return daysLate > 0 ? payment.amount * 0.05 * Math.min(daysLate / 30, 3) : 0;
-  } else {
-    // If not paid, calculate based on current date
-    const daysLate = differenceInDays(new Date(), payment.dueDate);
-    return daysLate > 0 ? payment.amount * 0.05 * Math.min(daysLate / 30, 3) : 0;
-  }
-};
+// Define the UnderDevelopment component
+const UnderDevelopment: React.FC = () => {
+  // Get the router object for navigation
+  const router = useRouter();
 
-export default function DataGrid() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [newPayment, setNewPayment] = useState<Omit<Payment, 'id' | 'lateAmount'>>({
-    description: '',
-    amount: 0,
-    dueDate: new Date(),
-    isPaid: false,
-  });
-
-  // Recalculate late fees whenever data changes
+  // Handle keypress event for Escape key
   useEffect(() => {
-    const timer = setInterval(() => {
-      setPayments(prevPayments => 
-        prevPayments.map(payment => ({
-          ...payment,
-          lateAmount: calculateLateFee(payment)
-        }))
-      );
-    }, 86400000); // Update daily
-    
-    // Immediate calculation
-    setPayments(prevPayments => 
-      prevPayments.map(payment => ({
-        ...payment,
-        lateAmount: calculateLateFee(payment)
-      }))
-    );
-    
-    return () => clearInterval(timer);
-  }, [payments.length]);
-
-  // Add new payment
-  const handleAddPayment = () => {
-    const payment: Payment = {
-      id: Date.now().toString(),
-      ...newPayment,
-      lateAmount: 0 // Will be calculated by effect
+    // Function to check if Escape key is pressed
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        router.push('/'); // Navigate to homepage
+      }
     };
-    
-    setPayments([...payments, payment]);
-    setNewPayment({
-      description: '',
-      amount: 0,
-      dueDate: new Date(),
-      isPaid: false
-    });
+
+    // Add event listener for keydown
+    window.addEventListener('keydown', handleKeyPress);
+
+    // Cleanup: Remove event listener when component unmounts
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [router]); // Dependency array includes router to avoid stale closures
+
+  // Handle button click to navigate back to homepage
+  const handleButtonClick = () => {
+    router.push('/'); // Navigate to homepage
   };
 
-  // Toggle payment status
-  const togglePaymentStatus = (id: string) => {
-    setPayments(
-      payments.map(payment => {
-        if (payment.id === id) {
-          const updatedPayment = {
-            ...payment,
-            isPaid: !payment.isPaid,
-            paidDate: !payment.isPaid ? new Date() : undefined
-          };
-          return {
-            ...updatedPayment,
-            lateAmount: calculateLateFee(updatedPayment)
-          };
-        }
-        return payment;
-      })
-    );
-  };
-
-  // Format date for display
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString();
-  };
-
+  // JSX for the component UI with futuristic orange theme
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Payment Tracker</h1>
-      
-      {/* Form for adding new payments */}
-      <div className="bg-gray-100 p-4 rounded mb-6">
-        <h2 className="text-xl mb-2">Add New Payment</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm mb-1">Description</label>
-            <input
-              type="text"
-              value={newPayment.description}
-              onChange={(e) => setNewPayment({...newPayment, description: e.target.value})}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Amount</label>
-            <input
-              type="number"
-              value={newPayment.amount}
-              onChange={(e) => setNewPayment({...newPayment, amount: Number(e.target.value)})}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Due Date</label>
-            <input
-              type="date"
-              value={newPayment.dueDate.toISOString().split('T')[0]}
-              onChange={(e) => setNewPayment({...newPayment, dueDate: new Date(e.target.value)})}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div className="flex items-end">
-            <button 
-              onClick={handleAddPayment}
-              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-            >
-              Add Payment
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 to-black text-white">
+      {/* Futuristic container with orange glow */}
+      <div className="relative p-8 rounded-2xl bg-gray-800/50 backdrop-blur-md shadow-[0_0_20px_rgba(255,147,41,0.5)] border border-orange-500">
+        {/* Heading with futuristic font and animation */}
+        <h1 className="text-5xl font-extrabold tracking-tight text-orange-400 animate-pulse">
+          Under Development
+        </h1>
+        {/* Message with sleek styling */}
+        <p className="text-xl text-orange-200 mt-4 mb-8 max-w-md text-center">
+          This page is still in the works. Press <span className="font-semibold text-orange-300">Esc</span> or click below to return to the homepage.
+        </p>
+        {/* Button with neon hover effect */}
+        <span className='flex justify-center'>
+          <button
+          onClick={handleButtonClick}
+          className="px-8 py-3 bg-orange-600 text-white font-semibold rounded-full hover:bg-orange-700 hover:shadow-[0_0_15px_rgba(255,147,41,0.8)] transition-all duration-300"
+        >
+          Back to Home
+        </button>
+        </span>
       </div>
-      
-      {/* Data grid */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2 text-left">Description</th>
-              <th className="border p-2 text-left">Amount</th>
-              <th className="border p-2 text-left">Due Date</th>
-              <th className="border p-2 text-left">Status</th>
-              <th className="border p-2 text-left">Paid Date</th>
-              <th className="border p-2 text-left">Late Fee</th>
-              <th className="border p-2 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payments.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="border p-2 text-center">No payments added yet</td>
-              </tr>
-            ) : (
-              payments.map(payment => (
-                <tr key={payment.id}>
-                  <td className="border p-2">{payment.description}</td>
-                  <td className="border p-2">${payment.amount.toFixed(2)}</td>
-                  <td className="border p-2">{formatDate(payment.dueDate)}</td>
-                  <td className="border p-2">
-                    <span className={payment.isPaid ? "text-green-500" : "text-red-500"}>
-                      {payment.isPaid ? "Paid" : "Unpaid"}
-                    </span>
-                  </td>
-                  <td className="border p-2">{payment.paidDate ? formatDate(payment.paidDate) : "-"}</td>
-                  <td className="border p-2">${payment.lateAmount.toFixed(2)}</td>
-                  <td className="border p-2">
-                    <button
-                      onClick={() => togglePaymentStatus(payment.id)}
-                      className={`px-2 py-1 rounded text-white ${
-                        payment.isPaid ? "bg-orange-500 hover:bg-orange-600" : "bg-green-500 hover:bg-green-600"
-                      }`}
-                    >
-                      {payment.isPaid ? "Mark Unpaid" : "Mark Paid"}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Background decorative elements for futuristic vibe */}
+      <div className="absolute inset-0 z-[-1] overflow-hidden">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-orange-500/20 rounded-full filter blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-48 h-48 bg-orange-600/20 rounded-full filter blur-3xl"></div>
       </div>
-      
-      {/* Summary */}
-      {payments.length > 0 && (
-        <div className="mt-4">
-          <p className="font-bold">
-            Total Late Fees: ${payments.reduce((sum, payment) => sum + payment.lateAmount, 0).toFixed(2)}
-          </p>
-        </div>
-      )}
     </div>
   );
-}
+};
+
+// Export the component
+export default UnderDevelopment;
