@@ -150,8 +150,6 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 
     // Monthly loans
     if (loanType === "monthly") {
-      const diffTime = currentDate.getTime() - receivedDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const monthsSinceStart = calculateMonthsSinceStart(receivedDate, currentDate);
       const totalDue = installment * monthsSinceStart;
 

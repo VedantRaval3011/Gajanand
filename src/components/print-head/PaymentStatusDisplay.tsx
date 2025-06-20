@@ -219,9 +219,6 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
 
     if (loanType === "monthly") {
-      // Calculate months since start based on the loan start date
-      const diffTime = currentDate.getTime() - receivedDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       // Calculate which month we're currently in (1-based)
       const monthsSinceStart = calculateMonthsSinceStart(
