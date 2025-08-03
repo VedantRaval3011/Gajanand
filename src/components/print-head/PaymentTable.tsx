@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import PaymentStatusDisplay from "./PaymentStatusDisplay";
 import PrintablePaymentTable from "./PrintablePaymentTable";
@@ -62,6 +62,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [noteContent, setNoteContent] = useState<string>("");
   const [notes, setNotes] = useState<Note[]>([]);
   const [showNotes, setShowNotes] = useState<boolean>(false);
+  const [isSavingAll, setIsSavingAll] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -89,6 +90,102 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       }
     }
   }, [loansData, highlightId]);
+
+  const handleSaveAll = async () => {
+    setIsSavingAll(true);
+    setError(null);
+
+    try {
+      const loansWithPayments = loansData.filter(
+        (loan) => loan.paymentReceivedToday && loan.paymentReceivedToday > 0
+      );
+
+      if (loansWithPayments.length === 0) {
+        alert("No payments to save!");
+        return;
+      }
+
+      let savedCount = 0;
+      let failedCount = 0;
+
+      for (const loan of loansWithPayments) {
+        try {
+          // Check for existing payments for today
+          const checkResponse = await fetch(
+            `/api/loanPayments?loanId=${loan._id}&date=${selectedDate}`
+          );
+          const data = await checkResponse.json();
+          const todayPayments = data.payments.filter(
+            (payment: { date: string; _id: string }) =>
+              new Date(payment.date).toISOString().split("T")[0] ===
+              selectedDate
+          );
+
+          // Delete existing payments for today
+          if (todayPayments.length > 0) {
+            for (const payment of todayPayments) {
+              await fetch(`/api/loanPayments/${payment._id}`, {
+                method: "DELETE",
+              });
+            }
+          }
+
+          // Save new payment
+          if (loan.paymentReceivedToday > 0) {
+            await fetch("/api/loanPayments", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                loanId: loan._id,
+                amount: loan.paymentReceivedToday,
+                date: selectedDate,
+              }),
+            });
+          }
+
+          savedCount++;
+        } catch (error) {
+          console.error(`Error saving payment for loan ${loan._id}:`, error);
+          failedCount++;
+        }
+      }
+
+      await fetchLoans();
+
+      if (failedCount === 0) {
+        alert(`All ${savedCount} payments saved successfully! 🎉`);
+      } else {
+        alert(
+          `${savedCount} payments saved successfully, ${failedCount} failed. Please check the console for details.`
+        );
+      }
+    } catch (error) {
+      console.error("Error in save all:", error);
+      setError(
+        "An error occurred while saving all payments. Please try again."
+      );
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
+  // Keyboard shortcut handler for Alt+S
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleSaveAll();
+      }
+    },
+    [loansData, selectedDate]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown"  , handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   const fetchLoans = async () => {
     setIsLoading(true);
@@ -228,6 +325,17 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     } catch (error) {
       console.error("Error saving payment:", error);
       setError("An error occurred while saving. Please try again.");
+    }
+  };
+
+  // Handle Enter key on payment input
+  const handlePaymentKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    id: string
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSavePayment(id);
     }
   };
 
@@ -427,6 +535,22 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
             Refresh
           </button>
           <button
+            onClick={handleSaveAll}
+            disabled={isSavingAll}
+            className={`w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-300 shadow-md text-base font-bold flex items-center justify-center ${
+              isSavingAll ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {isSavingAll ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                Saving...
+              </>
+            ) : (
+              <>Save All (Alt+S)</>
+            )}
+          </button>
+          <button
             onClick={handleShowPrintPreview}
             disabled={isLoading}
             className={`w-full sm:w-auto px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300 shadow-md text-base font-bold ${
@@ -559,6 +683,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                           parseFloat(e.target.value) || 0
                         )
                       }
+                      onKeyDown={(e) =>
+                        handlePaymentKeyDown(e, leftSide[rowIndex]!._id)
+                      }
                       onFocus={handleFocus}
                       className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
                       min="0"
@@ -646,6 +773,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                           rightSide[rowIndex]!._id,
                           parseFloat(e.target.value) || 0
                         )
+                      }
+                      onKeyDown={(e) =>
+                        handlePaymentKeyDown(e, rightSide[rowIndex]!._id)
                       }
                       onFocus={handleFocus}
                       className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
