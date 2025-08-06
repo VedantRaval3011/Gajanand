@@ -183,7 +183,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("keydown"  , handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleKeyDown]);
 
@@ -683,9 +683,15 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                           parseFloat(e.target.value) || 0
                         )
                       }
-                      onKeyDown={(e) =>
-                        handlePaymentKeyDown(e, leftSide[rowIndex]!._id)
+                      onWheel={(e) =>
+                        e.target instanceof HTMLElement && e.target.blur()
                       }
+                      onKeyDown={(e) => {
+                        handlePaymentKeyDown(e, leftSide[rowIndex]!._id);
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                          e.preventDefault();
+                        }
+                      }}
                       onFocus={handleFocus}
                       className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 text-base text-gray-700 font-bold"
                       min="0"
