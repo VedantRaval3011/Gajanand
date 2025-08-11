@@ -103,8 +103,6 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     return months;
   };
 
-  
-
   const calculatePaymentStatus = () => {
     const installment = loan.installmentAmount;
     const paymentHistory = loan.paymentHistory || [];
@@ -219,7 +217,6 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
 
     if (loanType === "monthly") {
-
       // Calculate which month we're currently in (1-based)
       const monthsSinceStart = calculateMonthsSinceStart(
         receivedDate,
@@ -442,6 +439,38 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
             remainingPrevDay > 0 ? "text-red-600" : "text-yellow-600",
         };
       }
+    }
+  };
+
+  // Add this new function near handleDeletePayment
+  const handleDeleteAllPayments = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to delete ALL payment histories for this loan?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/loanPayments/deleteAll", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loanId: loan._id,
+        }),
+      });
+
+      if (response.ok) {
+        if (onPaymentDeleted) onPaymentDeleted();
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to delete all payments");
+      }
+    } catch (error) {
+      console.error("Error deleting all payments:", error);
+      setError("Failed to delete all payments due to network error");
     }
   };
 
@@ -869,7 +898,16 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
 
             {loan.paymentHistory && loan.paymentHistory.length > 0 ? (
               <div className="mb-4">
-                <h3 className="font-semibold mb-2">Payment History</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold mb-2">Payment History</h3>
+                <button
+                  onClick={handleDeleteAllPayments}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  Delete All Payments
+                </button>
+                </div>
+
                 <div className="max-h-40 overflow-y-auto">
                   {loan.paymentHistory.map((payment, index) => (
                     <div
