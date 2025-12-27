@@ -171,13 +171,18 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE handler
-export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ accountNo: string }> }
-) {
+export async function DELETE(request: NextRequest) {
   try {
     await dbConnect();
-    const { accountNo } = await context.params; // Await params correctly
+    const searchParams = request.nextUrl.searchParams;
+    const accountNo = searchParams.get('accountNo');
+
+    if (!accountNo) {
+      return NextResponse.json(
+        { error: 'accountNo is required' },
+        { status: 400 }
+      );
+    }
 
     // Delete all payment history records for the given accountNo
     const result = await Payment.deleteMany({ accountNo });
