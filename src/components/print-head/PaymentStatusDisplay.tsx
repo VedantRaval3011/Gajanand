@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FILE_CATEGORIES } from "@/lib/constants";
 
 interface Payment {
   _id?: string;
@@ -20,6 +21,7 @@ interface Loan {
   paymentHistory?: Payment[];
   loanType?: "daily" | "monthly" | "pending";
   totalToBePaid?: number;
+  index?: number;
 }
 
 interface PaymentStatusProps {
@@ -71,6 +73,105 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     fileCategory: loan.fileCategory,
     receivedDate: new Date(loan.receivedDate).toISOString().split("T")[0],
   });
+
+  // Move functionality state
+  const [isMoving, setIsMoving] = useState(false);
+  const [targetFileCategory, setTargetFileCategory] = useState<string>("");
+  const [availableSlots, setAvailableSlots] = useState<number[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [isSavingMove, setIsSavingMove] = useState(false);
+
+  // Get available file categories for current loan type
+  const availableFileCategories = FILE_CATEGORIES[loanType] || [];
+
+  // Fetch available slots when target file category changes
+  const fetchAvailableSlots = async (fileCategory: string) => {
+    if (!fileCategory) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    setIsLoadingSlots(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/loansDoc/available-slots?loanType=${loanType}&fileCategory=${encodeURIComponent(fileCategory)}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSlots(data.availableSlots);
+        setSelectedSlot(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to fetch available slots");
+        setAvailableSlots([]);
+      }
+    } catch (error) {
+      console.error("Error fetching available slots:", error);
+      setError("Failed to fetch available slots due to network error");
+      setAvailableSlots([]);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  };
+
+  // Handle target file category change
+  const handleTargetFileCategoryChange = (fileCategory: string) => {
+    setTargetFileCategory(fileCategory);
+    fetchAvailableSlots(fileCategory);
+  };
+
+  // Handle move loan to new file
+  const handleMoveLoan = async () => {
+    if (!targetFileCategory || selectedSlot === null) {
+      setError("Please select a target file and an available slot");
+      return;
+    }
+
+    setIsSavingMove(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/loansDoc", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: loan._id,
+          fileCategory: targetFileCategory,
+          index: selectedSlot,
+        }),
+      });
+
+      if (response.ok) {
+        setIsMoving(false);
+        setShowDetails(false);
+        setTargetFileCategory("");
+        setSelectedSlot(null);
+        setAvailableSlots([]);
+        if (onLoanUpdated) onLoanUpdated();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to move loan");
+      }
+    } catch (error) {
+      console.error("Error moving loan:", error);
+      setError("Failed to move loan due to network error");
+    } finally {
+      setIsSavingMove(false);
+    }
+  };
+
+  // Cancel move operation
+  const handleCancelMove = () => {
+    setIsMoving(false);
+    setTargetFileCategory("");
+    setSelectedSlot(null);
+    setAvailableSlots([]);
+    setError(null);
+  };
 
   const calculateMonthsSinceStart = (
     startDate: Date | string,
@@ -254,7 +355,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
 
       const extraMonthsCovered = Math.floor(
         Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
-          installment
+        installment
       );
 
       const coveredUntilDate = new Date(receivedDate);
@@ -339,7 +440,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const daysSinceStart = Math.max(
         Math.floor(
           (currentDate.getTime() - receivedDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+          (1000 * 60 * 60 * 24)
         ) + 1,
         1
       );
@@ -362,7 +463,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
 
       const extraDaysCovered = Math.floor(
         Math.abs(remainingAfterToday < 0 ? remainingAfterToday : 0) /
-          installment
+        installment
       );
 
       const nextDueDate = new Date(currentDate);
@@ -477,8 +578,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
   const handleDeletePayment = async (payment: Payment) => {
     if (
       !confirm(
-        `Are you sure you want to delete the payment of ₹${
-          payment.amount
+        `Are you sure you want to delete the payment of ₹${payment.amount
         } on ${new Date(payment.date).toLocaleDateString("en-GB")}?`
       )
     ) {
@@ -516,8 +616,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       ...prev,
       [field]:
         field === "installmentAmount" ||
-        field === "lateAmount" ||
-        field === "totalToBePaid"
+          field === "lateAmount" ||
+          field === "totalToBePaid"
           ? parseFloat(value as string) || 0
           : value,
     }));
@@ -556,19 +656,18 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
   const totalDueUpToYesterday =
     loanType === "monthly"
       ? loan.installmentAmount *
-        ((calculationDetails.monthsSinceStart || 1) - 1)
+      ((calculationDetails.monthsSinceStart || 1) - 1)
       : loanType === "daily"
-      ? loan.installmentAmount * ((calculationDetails.daysSinceStart || 1) - 1)
-      : 0;
+        ? loan.installmentAmount * ((calculationDetails.daysSinceStart || 1) - 1)
+        : 0;
   const remainingUpToYesterday =
     totalDueUpToYesterday - calculationDetails.totalPaidBeforeToday;
 
   // Updated display logic for previous status
   const displayPrevStatus =
     loanType !== "pending"
-      ? `ચડેલ હતા: ₹${
-          remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0"
-        }`
+      ? `ચડેલ હતા: ₹${remainingUpToYesterday > 0 ? remainingUpToYesterday.toFixed(0) : "0"
+      }`
       : "";
   const displayPrevColor =
     remainingUpToYesterday > 0 ? "text-red-600" : "text-yellow-600";
@@ -752,8 +851,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                         Fully Paid{" "}
                         {calculationDetails.remainingAfterToday < 0
                           ? `(Overpaid by ₹${Math.abs(
-                              calculationDetails.remainingAfterToday
-                            )})`
+                            calculationDetails.remainingAfterToday
+                          )})`
                           : ""}
                       </p>
                     )}
@@ -900,12 +999,12 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold mb-2">Payment History</h3>
-                <button
-                  onClick={handleDeleteAllPayments}
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                >
-                  Delete All Payments
-                </button>
+                  <button
+                    onClick={handleDeleteAllPayments}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Delete All Payments
+                  </button>
                 </div>
 
                 <div className="max-h-40 overflow-y-auto">
@@ -957,18 +1056,164 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex-1 bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-colors"
-                >
-                  Edit Loan
-                </button>
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex-1 bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 transition-colors"
+                  >
+                    Edit Loan
+                  </button>
+                  <button
+                    onClick={() => setIsMoving(true)}
+                    className="flex-1 bg-purple-500 text-white py-2 rounded-md hover:bg-purple-600 transition-colors"
+                  >
+                    Move
+                  </button>
+                </>
               )}
               <button
-                onClick={() => setShowDetails(false)}
+                onClick={() => {
+                  setShowDetails(false);
+                  setIsMoving(false);
+                  setIsEditing(false);
+                }}
                 className="flex-1 bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition-colors"
               >
                 Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move User Popup Modal */}
+      {isMoving && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="bg-purple-600 text-white px-6 py-4">
+              <h2 className="text-xl font-bold">Move User to Another File</h2>
+              <p className="text-purple-200 text-sm mt-1">
+                Moving: {loan.nameGujarati || loan.nameEnglish}
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+              {/* Current Location Info */}
+              <div className="bg-gray-100 rounded-lg p-4 mb-4">
+                <p className="text-gray-600 text-sm">Current Location</p>
+                <p className="text-gray-900 font-semibold">
+                  {loan.fileCategory} → Slot {loan.index || 'N/A'}
+                </p>
+              </div>
+
+              {/* Target File Selection */}
+              <div className="mb-4">
+                <label className="block text-gray-700 font-medium mb-2">
+                  Select Target File:
+                </label>
+                <select
+                  value={targetFileCategory}
+                  onChange={(e) => handleTargetFileCategoryChange(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:border-purple-500 focus:outline-none text-lg"
+                >
+                  <option value="">-- Choose a File --</option>
+                  {availableFileCategories
+                    .filter((cat: string) => cat !== loan.fileCategory)
+                    .map((cat: string) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Loading State */}
+              {isLoadingSlots && (
+                <div className="text-center py-6">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-purple-500 border-r-transparent"></div>
+                  <p className="text-gray-600 mt-2">Loading available slots...</p>
+                </div>
+              )}
+
+              {/* Available Slots Grid */}
+              {!isLoadingSlots && targetFileCategory && availableSlots.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-medium mb-2">
+                    Select Slot ({availableSlots.length} available):
+                  </label>
+                  <div className="border-2 border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-9 gap-2">
+                      {Array.from({ length: 90 }, (_, i) => i + 1).map((slot) => {
+                        const isAvailable = availableSlots.includes(slot);
+                        const isSelected = selectedSlot === slot;
+                        return (
+                          <button
+                            key={slot}
+                            onClick={() => isAvailable && setSelectedSlot(slot)}
+                            disabled={!isAvailable}
+                            className={`w-8 h-8 text-sm font-medium rounded-md transition-all ${isSelected
+                                ? "bg-purple-600 text-white ring-2 ring-purple-300"
+                                : isAvailable
+                                  ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
+                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              }`}
+                            title={isAvailable ? `Select slot ${slot}` : `Slot ${slot} is occupied`}
+                          >
+                            {slot}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {selectedSlot && (
+                    <div className="mt-3 bg-purple-100 text-purple-800 px-4 py-2 rounded-lg flex items-center">
+                      <span className="font-medium">Selected Slot: {selectedSlot}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No Slots Available Message */}
+              {!isLoadingSlots && targetFileCategory && availableSlots.length === 0 && (
+                <div className="bg-red-100 text-red-700 px-4 py-3 rounded-lg">
+                  No available slots in {targetFileCategory}. All 90 slots are occupied.
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mt-4">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="bg-gray-50 px-6 py-4 flex space-x-3">
+              <button
+                onClick={handleMoveLoan}
+                disabled={!targetFileCategory || selectedSlot === null || isSavingMove}
+                className={`flex-1 py-3 rounded-lg font-semibold text-white transition-all ${!targetFileCategory || selectedSlot === null || isSavingMove
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-purple-600 hover:bg-purple-700"
+                  }`}
+              >
+                {isSavingMove ? (
+                  <span className="flex items-center justify-center">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-r-transparent mr-2"></span>
+                    Moving...
+                  </span>
+                ) : (
+                  "Confirm Move"
+                )}
+              </button>
+              <button
+                onClick={handleCancelMove}
+                className="flex-1 py-3 rounded-lg font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
+              >
+                Cancel
               </button>
             </div>
           </div>

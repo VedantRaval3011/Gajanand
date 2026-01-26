@@ -634,8 +634,8 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
             padding: 1px 2px;
             page-break-inside: avoid;
             vertical-align: middle;
-            height: 5.5mm;
-            max-height: 5.5mm;
+            height: 5.1mm;
+            max-height: 5.1mm;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -644,8 +644,8 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 
           tr {
             page-break-inside: avoid;
-            height: 5.5mm;
-            max-height: 5.5mm;
+            height: 5.1mm;
+            max-height: 5.1mm;
           }
 
           .header-row {
@@ -700,7 +700,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           .print-table-container {
             page-break-after: avoid;
             page-break-inside: avoid;
-            transform: scale(0.93);  
+            transform: scale(0.92);  
             transform-origin: top center;
           }
         }
