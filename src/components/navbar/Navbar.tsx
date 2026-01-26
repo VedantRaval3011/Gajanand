@@ -176,11 +176,10 @@ export default function Navbar() {
                 key={item}
                 onClick={() => setSelectedNavItem(item, 0)}
                 className={`relative px-4 py-2 font-medium text-xl lg:text-3xl transition-all
-                ${
-                  selectedNavItem === item
+                ${selectedNavItem === item
                     ? "text-orange-600 before:absolute before:bottom-0 before:left-0 before:h-0.5 before:w-full before:bg-orange-600"
                     : "text-gray-600 dark:text-white hover:text-orange-600 font-bold"
-                }`}
+                  }`}
               >
                 <span className="mr-2 text-xl lg:text-3xl text-gray-400 dark:text-white">
                   {index + 1}
@@ -217,11 +216,10 @@ export default function Navbar() {
                   setIsMenuOpen(false);
                 }}
                 className={`relative px-4 py-3 font-medium text-lg transition-all rounded-lg border border-gray-200 dark:border-gray-700
-                ${
-                  selectedNavItem === item
+                ${selectedNavItem === item
                     ? "text-orange-600 bg-orange-50 dark:bg-orange-900/20"
                     : "text-gray-600 dark:text-white hover:text-orange-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
+                  }`}
               >
                 <span className="mr-2 text-lg text-gray-400 dark:text-gray-300">
                   {index + 1}
@@ -253,11 +251,10 @@ export default function Navbar() {
                 <li
                   key={item.href}
                   className={`group text-base lg:text-xl flex items-center space-x-2 rounded-lg p-2 transition-colors dark:bg-gray-800
-            ${
-              focusedSubItemIndex === index
-                ? "bg-orange-50 text-orange-600 dark:bg-orange-600"
-                : "text-gray-600 hover:bg-gray-50"
-            }`}
+            ${focusedSubItemIndex === index
+                      ? "bg-orange-50 text-orange-600 dark:bg-orange-600"
+                      : "text-gray-600 hover:bg-gray-50"
+                    }`}
                 >
                   <Link
                     href={item.href}

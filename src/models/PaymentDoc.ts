@@ -18,7 +18,6 @@ const PaymentSchema = new Schema(
     },
     accountNo: {
       type: String,
-      required: true,
       trim: true,
     },
     amount: {
@@ -34,4 +33,4 @@ const PaymentSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.PaymentDoc || model('PaymentDoc', PaymentSchema);
+export default models.LoanPayment || model('LoanPayment', PaymentSchema);

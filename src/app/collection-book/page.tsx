@@ -731,8 +731,8 @@ const LoanManagement: React.FC = () => {
               payment.paymentDate instanceof Date
                 ? payment.paymentDate
                 : typeof payment.paymentDate === "string"
-                ? parseDateFromInput(payment.paymentDate)
-                : selectedDate,
+                  ? parseDateFromInput(payment.paymentDate)
+                  : selectedDate,
             isDefaultAmount: false,
             lateAmount: originalLateAmount, // Use the preserved late amount
           };
@@ -803,7 +803,7 @@ const LoanManagement: React.FC = () => {
                 if (loanDetailsData.isDaily) {
                   const daysDiff = Math.floor(
                     (today.getTime() - loanDate.getTime()) /
-                      (1000 * 60 * 60 * 24)
+                    (1000 * 60 * 60 * 24)
                   );
                   const daysFromLoan = Math.max(0, daysDiff + 1);
                   expectedPayments = daysFromLoan * loanDetailsData.instAmount;
@@ -1117,8 +1117,8 @@ const LoanManagement: React.FC = () => {
               payment.paymentDate instanceof Date
                 ? payment.paymentDate
                 : typeof payment.paymentDate === "string"
-                ? parseDateFromInput(payment.paymentDate)
-                : parseDateFromInput(formatDateForInput(selectedDate)),
+                  ? parseDateFromInput(payment.paymentDate)
+                  : parseDateFromInput(formatDateForInput(selectedDate)),
             isDefaultAmount: false,
           })
         );
@@ -1324,12 +1324,12 @@ const LoanManagement: React.FC = () => {
         prevPayments.map((payment) =>
           payment.accountNo === accountNo
             ? {
-                ...payment,
-                lateAmount: lateAmount,
-                amountPaid: payment.isDefaultAmount
-                  ? details.instAmount
-                  : payment.amountPaid,
-              }
+              ...payment,
+              lateAmount: lateAmount,
+              amountPaid: payment.isDefaultAmount
+                ? details.instAmount
+                : payment.amountPaid,
+            }
             : payment
         )
       );
@@ -1592,16 +1592,14 @@ const LoanManagement: React.FC = () => {
                           },
                           {
                             label: "Received Amount",
-                            value: `₹${
-                              receivedAmounts[payments[currentRow].accountNo] ||
+                            value: `₹${receivedAmounts[payments[currentRow].accountNo] ||
                               0
-                            }`,
+                              }`,
                           },
                           {
                             label: "Late Amount",
-                            value: `₹${
-                              lateAmounts[payments[currentRow].accountNo] || 0
-                            }`,
+                            value: `₹${lateAmounts[payments[currentRow].accountNo] || 0
+                              }`,
                           },
                           {
                             label: "Total to be Paid",
@@ -1681,11 +1679,10 @@ const LoanManagement: React.FC = () => {
                           onClick={() =>
                             handleRowClick(index, payment.accountNo)
                           }
-                          className={`${
-                            selectedCell.row === index
+                          className={`${selectedCell.row === index
                               ? "bg-orange-200 dark:bg-orange-900"
                               : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          } transition-colors`}
+                            } transition-colors`}
                         >
                           <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
                             {payment.index}
@@ -1705,12 +1702,11 @@ const LoanManagement: React.FC = () => {
                               onBlur={() => handleAccountNoBlur(index)}
                               onKeyDown={handleKeyDown}
                               className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                  ${
-                    selectedCell.row === index &&
-                    selectedCell.column === "accountNo"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
+                  ${selectedCell.row === index &&
+                                  selectedCell.column === "accountNo"
+                                  ? "border-orange-500 ring-2 ring-orange-500/20"
+                                  : "border-gray-300 dark:border-gray-600"
+                                }
                   bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                               placeholder="Enter Account No."
                             />
@@ -1723,7 +1719,7 @@ const LoanManagement: React.FC = () => {
                               type="number"
                               value={
                                 payment.amountPaid === 0 &&
-                                !payment.isDefaultAmount
+                                  !payment.isDefaultAmount
                                   ? ""
                                   : payment.amountPaid
                               }
@@ -1733,17 +1729,15 @@ const LoanManagement: React.FC = () => {
                               onFocus={(e) => handleAmountPaidFocus(e)}
                               onKeyDown={handleKeyDown}
                               className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                  ${
-                    selectedCell.row === index &&
-                    selectedCell.column === "amountPaid"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
-                  ${
-                    payment.isDefaultAmount && payment.amountPaid !== 0
-                      ? "text-orange-600 dark:text-orange-400"
-                      : ""
-                  }
+                  ${selectedCell.row === index &&
+                                  selectedCell.column === "amountPaid"
+                                  ? "border-orange-500 ring-2 ring-orange-500/20"
+                                  : "border-gray-300 dark:border-gray-600"
+                                }
+                  ${payment.isDefaultAmount && payment.amountPaid !== 0
+                                  ? "text-orange-600 dark:text-orange-400"
+                                  : ""
+                                }
                   bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                               placeholder="Enter Amount"
                             />
@@ -1760,12 +1754,11 @@ const LoanManagement: React.FC = () => {
                               }
                               onKeyDown={handleKeyDown}
                               className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                  ${
-                    selectedCell.row === index &&
-                    selectedCell.column === "paymentTime"
-                      ? "border-orange-500 ring-2 ring-orange-500/20"
-                      : "border-gray-300 dark:border-gray-600"
-                  }
+                  ${selectedCell.row === index &&
+                                  selectedCell.column === "paymentTime"
+                                  ? "border-orange-500 ring-2 ring-orange-500/20"
+                                  : "border-gray-300 dark:border-gray-600"
+                                }
                   bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             />
                           </td>
@@ -1808,11 +1801,10 @@ const LoanManagement: React.FC = () => {
                         key={index}
                         id={`payment-row-${index}`}
                         onClick={() => handleRowClick(index, payment.accountNo)}
-                        className={`${
-                          selectedCell.row === index
+                        className={`${selectedCell.row === index
                             ? "bg-orange-200 dark:bg-orange-900"
                             : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        } transition-colors`}
+                          } transition-colors`}
                       >
                         <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
                           {payment.index}
@@ -1832,12 +1824,11 @@ const LoanManagement: React.FC = () => {
                             onBlur={() => handleAccountNoBlur(index)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold 
-                ${
-                  selectedCell.row === index &&
-                  selectedCell.column === "accountNo"
-                    ? "border-orange-500 ring-2 ring-orange-500/20"
-                    : "border-gray-300 dark:border-gray-600"
-                }
+                ${selectedCell.row === index &&
+                                selectedCell.column === "accountNo"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
+                              }
                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Account No."
                           />
@@ -1850,7 +1841,7 @@ const LoanManagement: React.FC = () => {
                             type="number"
                             value={
                               payment.amountPaid === 0 &&
-                              !payment.isDefaultAmount
+                                !payment.isDefaultAmount
                                 ? ""
                                 : payment.amountPaid
                             }
@@ -1860,17 +1851,15 @@ const LoanManagement: React.FC = () => {
                             onFocus={(e) => handleAmountPaidFocus(e)}
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                ${
-                  selectedCell.row === index &&
-                  selectedCell.column === "amountPaid"
-                    ? "border-orange-500 ring-2 ring-orange-500/20"
-                    : "border-gray-300 dark:border-gray-600"
-                }
-                ${
-                  payment.isDefaultAmount && payment.amountPaid !== 0
-                    ? "text-orange-600 dark:text-orange-400"
-                    : ""
-                }
+                ${selectedCell.row === index &&
+                                selectedCell.column === "amountPaid"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
+                              }
+                ${payment.isDefaultAmount && payment.amountPaid !== 0
+                                ? "text-orange-600 dark:text-orange-400"
+                                : ""
+                              }
                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                             placeholder="Enter Amount"
                           />
@@ -1887,12 +1876,11 @@ const LoanManagement: React.FC = () => {
                             }
                             onKeyDown={handleKeyDown}
                             className={`w-full px-3 md:px-6 py-2 md:py-3 rounded-xl border text-base md:text-xl font-bold
-                ${
-                  selectedCell.row === index &&
-                  selectedCell.column === "paymentTime"
-                    ? "border-orange-500 ring-2 ring-orange-500/20"
-                    : "border-gray-300 dark:border-gray-600"
-                }
+                ${selectedCell.row === index &&
+                                selectedCell.column === "paymentTime"
+                                ? "border-orange-500 ring-2 ring-orange-500/20"
+                                : "border-gray-300 dark:border-gray-600"
+                              }
                 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all`}
                           />
                         </td>
@@ -1916,11 +1904,10 @@ const LoanManagement: React.FC = () => {
             <button
               onClick={savePayments}
               disabled={isSaving} // Disable the button when isSaving is true
-              className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${
-                isSaving
+              className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${isSaving
                   ? "bg-orange-300 cursor-not-allowed"
                   : "bg-orange-600 hover:bg-orange-700"
-              }`}
+                }`}
             >
               {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
             </button>

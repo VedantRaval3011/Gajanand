@@ -82,11 +82,12 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [isSavingMove, setIsSavingMove] = useState(false);
 
-  // Get available file categories for current loan type
-  const availableFileCategories = FILE_CATEGORIES[loanType] || [];
+
+  // State to track the target loan type when moving
+  const [targetLoanType, setTargetLoanType] = useState<'daily' | 'monthly' | 'pending'>(loanType);
 
   // Fetch available slots when target file category changes
-  const fetchAvailableSlots = async (fileCategory: string) => {
+  const fetchAvailableSlots = async (fileCategory: string, targetType: 'daily' | 'monthly' | 'pending') => {
     if (!fileCategory) {
       setAvailableSlots([]);
       return;
@@ -97,7 +98,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
 
     try {
       const response = await fetch(
-        `/api/loansDoc/available-slots?loanType=${loanType}&fileCategory=${encodeURIComponent(fileCategory)}`
+        `/api/loansDoc/available-slots?loanType=${targetType}&fileCategory=${encodeURIComponent(fileCategory)}`
       );
 
       if (response.ok) {
@@ -119,9 +120,12 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
   };
 
   // Handle target file category change
-  const handleTargetFileCategoryChange = (fileCategory: string) => {
-    setTargetFileCategory(fileCategory);
-    fetchAvailableSlots(fileCategory);
+  const handleTargetFileCategoryChange = (value: string) => {
+    // Value format is "type:category" (e.g., "daily:Gajanand 2")
+    const [type, category] = value.split(':') as ['daily' | 'monthly' | 'pending', string];
+    setTargetLoanType(type);
+    setTargetFileCategory(category);
+    fetchAvailableSlots(category, type);
   };
 
   // Handle move loan to new file
@@ -142,6 +146,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
           id: loan._id,
           fileCategory: targetFileCategory,
           index: selectedSlot,
+          loanType: targetLoanType, // Include loan type for cross-type moves
         }),
       });
 
@@ -151,6 +156,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         setTargetFileCategory("");
         setSelectedSlot(null);
         setAvailableSlots([]);
+        setTargetLoanType(loanType); // Reset target loan type
         if (onLoanUpdated) onLoanUpdated();
       } else {
         const errorData = await response.json();
@@ -170,6 +176,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     setTargetFileCategory("");
     setSelectedSlot(null);
     setAvailableSlots([]);
+    setTargetLoanType(loanType); // Reset target loan type
     setError(null);
   };
 
@@ -1114,18 +1121,38 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                   Select Target File:
                 </label>
                 <select
-                  value={targetFileCategory}
+                  value={targetFileCategory ? `${targetLoanType}:${targetFileCategory}` : ""}
                   onChange={(e) => handleTargetFileCategoryChange(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:border-purple-500 focus:outline-none text-lg"
                 >
                   <option value="">-- Choose a File --</option>
-                  {availableFileCategories
-                    .filter((cat: string) => cat !== loan.fileCategory)
-                    .map((cat: string) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
+                  <optgroup label="📅 Daily Loans">
+                    {FILE_CATEGORIES.daily
+                      .filter(cat => !(cat === loan.fileCategory && loanType === 'daily'))
+                      .map(cat => (
+                        <option key={`daily:${cat}`} value={`daily:${cat}`}>
+                          {cat}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="📆 Monthly Loans">
+                    {FILE_CATEGORIES.monthly
+                      .filter(cat => !(cat === loan.fileCategory && loanType === 'monthly'))
+                      .map(cat => (
+                        <option key={`monthly:${cat}`} value={`monthly:${cat}`}>
+                          {cat}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="⏳ Pending Loans">
+                    {FILE_CATEGORIES.pending
+                      .filter(cat => !(cat === loan.fileCategory && loanType === 'pending'))
+                      .map(cat => (
+                        <option key={`pending:${cat}`} value={`pending:${cat}`}>
+                          {cat}
+                        </option>
+                      ))}
+                  </optgroup>
                 </select>
               </div>
 
@@ -1154,10 +1181,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                             onClick={() => isAvailable && setSelectedSlot(slot)}
                             disabled={!isAvailable}
                             className={`w-8 h-8 text-sm font-medium rounded-md transition-all ${isSelected
-                                ? "bg-purple-600 text-white ring-2 ring-purple-300"
-                                : isAvailable
-                                  ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
-                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              ? "bg-purple-600 text-white ring-2 ring-purple-300"
+                              : isAvailable
+                                ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
                               }`}
                             title={isAvailable ? `Select slot ${slot}` : `Slot ${slot} is occupied`}
                           >
@@ -1196,8 +1223,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                 onClick={handleMoveLoan}
                 disabled={!targetFileCategory || selectedSlot === null || isSavingMove}
                 className={`flex-1 py-3 rounded-lg font-semibold text-white transition-all ${!targetFileCategory || selectedSlot === null || isSavingMove
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-purple-600 hover:bg-purple-700"
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-purple-600 hover:bg-purple-700"
                   }`}
               >
                 {isSavingMove ? (

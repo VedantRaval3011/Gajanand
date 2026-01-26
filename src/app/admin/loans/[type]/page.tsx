@@ -159,17 +159,15 @@ export default function LoansPage({ params }: PageParams) {
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => setActiveView("table")}
-          className={`px-6 py-2 text-lg font-bold transition-colors duration-300 ${
-            activeView === "table" ? "bg-orange-700 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
-          }`}
+          className={`px-6 py-2 text-lg font-bold transition-colors duration-300 ${activeView === "table" ? "bg-orange-700 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
+            }`}
         >
           Payment Table
         </button>
         <button
           onClick={() => setActiveView("form")}
-          className={`px-6 py-2 text-lg font-bold transition-colors duration-300 ${
-            activeView === "form" ? "bg-orange-700 text-white" : "bg-orange-900 hover:bg-orange-600 text-white"
-          }`}
+          className={`px-6 py-2 text-lg font-bold transition-colors duration-300 ${activeView === "form" ? "bg-orange-700 text-white" : "bg-orange-900 hover:bg-orange-600 text-white"
+            }`}
         >
           Add Loan
         </button>

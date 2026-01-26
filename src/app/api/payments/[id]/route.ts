@@ -8,7 +8,7 @@ interface PaymentData {
   loanId: string;
   accountNo: string;
   amountPaid: number;
-  paymentDate: Date; 
+  paymentDate: Date;
   lateAmount?: number;
 }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       );
 
       await session.commitTransaction();
-      
+
       return NextResponse.json({
         message: 'Payments saved successfully',
         payments: savedPayments.flat() // Flatten because create returns an array
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 // DELETE handler
 export async function DELETE(request: NextRequest) {
   await dbConnect();
-  
+
   try {
     const path = request.nextUrl.pathname;
     const id = path.split('/').pop();
@@ -128,6 +128,38 @@ export async function DELETE(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Dynamic imports
+    const LoanDocModule = await import('@/models/Loan');
+    const LoanDoc = LoanDocModule.default;
+    const PaymentDocModule = await import('@/models/PaymentDoc');
+    const LoanPayment = PaymentDocModule.default;
+    const SyncLogModule = await import('@/models/SyncLog');
+    const SyncLog = SyncLogModule.default;
+
+    // --- SYNC DELETION LOGIC ---
+    try {
+      // Always remove the log first to reflect deletion
+      await SyncLog.deleteMany({ paymentId: id });
+
+      const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo });
+      if (loanDoc) {
+        const paymentDateObj = new Date(payment.paymentDate);
+        const startOfDay = new Date(paymentDateObj);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(paymentDateObj);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Find and delete the corresponding LoanPayment
+        await LoanPayment.findOneAndDelete({
+          loanId: loanDoc._id,
+          date: { $gte: startOfDay, $lte: endOfDay }
+        });
+      }
+    } catch (syncError) {
+      console.error('Error syncing deletion:', syncError);
+    }
+    // --- SYNC DELETION LOGIC END ---
 
     await Payment.findByIdAndDelete(id);
 
