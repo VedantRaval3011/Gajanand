@@ -7,8 +7,9 @@ export interface ISyncLog extends Document {
     amountPaid: number;
     loanDocId?: Schema.Types.ObjectId;
     loanPaymentId?: Schema.Types.ObjectId;
-    syncStatus: 'success' | 'failed' | 'pending' | 'not_found';
+    syncStatus: 'success' | 'failed' | 'pending' | 'not_found' | 'mismatch';
     syncError?: string;
+    systemAmount?: number;
     verifiedAt?: Date;
     verifiedBy?: string;
     createdAt: Date;
@@ -24,10 +25,11 @@ const SyncLogSchema = new Schema(
         loanPaymentId: { type: Schema.Types.ObjectId, ref: 'LoanPayment' },
         syncStatus: {
             type: String,
-            enum: ['success', 'failed', 'pending', 'not_found'],
+            enum: ['success', 'failed', 'pending', 'not_found', 'mismatch'],
             default: 'pending',
         },
         syncError: { type: String }, // Error message if failed
+        systemAmount: { type: Number }, // Amount found in system if different
         verifiedAt: { type: Date }, // When manually verified
         verifiedBy: { type: String }, // Who verified
     },

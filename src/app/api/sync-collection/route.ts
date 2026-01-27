@@ -33,44 +33,59 @@ export async function POST(request: NextRequest) {
         let failedCount = 0;
 
         // 2. Iterate and sync
+        // 2. Iterate and sync (Comparison Mode)
         for (const payment of payments) {
             try {
                 const loanDoc = await Loan.findOne({ accountNo: payment.accountNo });
 
                 if (loanDoc) {
-                    // Check/Create/Update LoanPayment
-                    const existingLoanPayment = await LoanPayment.findOne({
+                    // Find matching System Transaction (LoanPayment)
+                    // We look for a payment for this loan on this date
+                    const systemPayment = await LoanPayment.findOne({
                         loanId: loanDoc._id,
                         date: { $gte: startOfDay, $lte: endOfDay },
                     });
-
-                    let loanPaymentId;
-
-                    if (existingLoanPayment) {
-                        existingLoanPayment.amount = payment.amountPaid;
-                        await existingLoanPayment.save();
-                        loanPaymentId = existingLoanPayment._id;
-                    } else {
-                        const newLoanPayment = await LoanPayment.create({
-                            loanId: loanDoc._id,
-                            accountNo: payment.accountNo,
-                            amount: payment.amountPaid,
-                            date: payment.paymentDate,
-                        });
-                        loanPaymentId = newLoanPayment._id;
-                    }
 
                     // Check for existing log to update or create new
                     const existingLog = await SyncLog.findOne({
                         paymentId: payment._id,
                     });
 
+                    let status = "pending";
+                    let error = undefined;
+                    let sysAmount = undefined;
+                    let verifiedDate = undefined;
+                    let verifier = undefined;
+
+                    if (systemPayment) {
+                        if (systemPayment.amount === payment.amountPaid) {
+                            status = "success";
+                            verifiedDate = new Date(); // Auto-verify matches
+                            verifier = "system-match";
+                        } else {
+                            status = "mismatch";
+                            error = `Amount mismatch: Collection ₹${payment.amountPaid} vs System ₹${systemPayment.amount}`;
+                            sysAmount = systemPayment.amount;
+                        }
+                    } else {
+                        status = "not_found";
+                        error = "Transaction missing in system";
+                    }
+
                     if (existingLog) {
-                        existingLog.syncStatus = "success";
-                        existingLog.verifiedAt = new Date(); // Auto-verify
-                        existingLog.verifiedBy = "system-bulk-sync";
+                        existingLog.syncStatus = status;
+                        existingLog.syncError = error;
+                        existingLog.systemAmount = sysAmount;
+                        if (verifiedDate) {
+                            existingLog.verifiedAt = verifiedDate;
+                            existingLog.verifiedBy = verifier;
+                        } else {
+                            // Reset verification if it became a mismatch/missing (optional, but safer)
+                            existingLog.verifiedAt = undefined;
+                            existingLog.verifiedBy = undefined;
+                        }
                         existingLog.loanDocId = loanDoc._id;
-                        existingLog.loanPaymentId = loanPaymentId;
+                        existingLog.loanPaymentId = systemPayment ? systemPayment._id : undefined;
                         await existingLog.save();
                     } else {
                         await SyncLog.create({
@@ -79,37 +94,45 @@ export async function POST(request: NextRequest) {
                             paymentDate: payment.paymentDate,
                             amountPaid: payment.amountPaid,
                             loanDocId: loanDoc._id,
-                            loanPaymentId: loanPaymentId,
-                            syncStatus: "success",
-                            verifiedAt: new Date(), // Auto-verify
-                            verifiedBy: "system-bulk-sync",
+                            loanPaymentId: systemPayment ? systemPayment._id : undefined,
+                            syncStatus: status,
+                            syncError: error,
+                            systemAmount: sysAmount,
+                            verifiedAt: verifiedDate,
+                            verifiedBy: verifier,
                         });
                     }
-                    successCount++;
+
+                    if (status === "success") successCount++;
+                    else failedCount++; // Count mismatches/missing as "failed" for the summary
+
                 } else {
-                    // Log missing loan
+                    // Log missing loan (Account not found in system at all)
                     const existingLog = await SyncLog.findOne({
                         paymentId: payment._id,
                     });
 
+                    const errorMsg = "No matching loan found for account";
+
                     if (existingLog) {
-                        existingLog.syncStatus = "not_found";
-                        existingLog.syncError = "No matching loan found";
-                        await existingLog.save();
+                        existingLog.syncStatus = "failed"; // Or specific "no_loan" status if needed
+                        existingLog.syncError = errorMsg;
+                        existingLog.verifiedAt = undefined;
+                        existingLog.save();
                     } else {
                         await SyncLog.create({
                             paymentId: payment._id,
                             accountNo: payment.accountNo,
                             paymentDate: payment.paymentDate,
                             amountPaid: payment.amountPaid,
-                            syncStatus: "not_found",
-                            syncError: "No matching loan found",
+                            syncStatus: "failed",
+                            syncError: errorMsg,
                         });
                     }
                     failedCount++;
                 }
             } catch (error) {
-                console.error(`Error syncing payment ${payment._id}:`, error);
+                console.error(`Error processing payment ${payment._id}:`, error);
                 failedCount++;
             }
         }

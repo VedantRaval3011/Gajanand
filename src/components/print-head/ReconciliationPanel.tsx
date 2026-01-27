@@ -6,8 +6,9 @@ interface SyncLog {
     _id: string;
     accountNo: string;
     amountPaid: number;
-    syncStatus: "success" | "failed" | "pending" | "not_found";
+    syncStatus: "success" | "failed" | "pending" | "not_found" | "mismatch";
     syncError?: string;
+    systemAmount?: number;
     verifiedAt?: string;
     verifiedBy?: string;
     loanDocId?: {
@@ -90,7 +91,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
             });
             if (response.ok) {
                 const data = await response.json();
-                alert(`Sync completed: ${data.successCount} synced, ${data.failedCount} failed`);
+                alert(`Sync completed: ${data.successCount} matched.`);
                 fetchLogs(); // Refresh logs
             } else {
                 alert("Sync failed");
@@ -110,6 +111,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
         success: logs.filter((l) => l.syncStatus === "success").length,
         failed: logs.filter((l) => l.syncStatus === "failed").length,
         notFound: logs.filter((l) => l.syncStatus === "not_found").length,
+        mismatch: logs.filter((l) => l.syncStatus === "mismatch").length,
         verified: logs.filter((l) => l.verifiedAt).length,
     };
 
@@ -134,15 +136,15 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                         <div className="text-xl font-bold text-gray-800">{stats.total}</div>
                     </div>
                     <div className="text-center">
-                        <div className="text-sm text-green-600 font-medium">Successful</div>
+                        <div className="text-sm text-green-600 font-medium">Matched</div>
                         <div className="text-xl font-bold text-green-600">
                             {stats.success}
                         </div>
                     </div>
                     <div className="text-center">
-                        <div className="text-sm text-red-600 font-medium">Failed/Missing</div>
+                        <div className="text-sm text-red-600 font-medium">Issues</div>
                         <div className="text-xl font-bold text-red-600">
-                            {stats.failed + stats.notFound}
+                            {stats.failed + stats.notFound + stats.mismatch}
                         </div>
                     </div>
                     <div className="text-center">
@@ -163,7 +165,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                         className="flex items-center text-sm text-indigo-600 hover:text-indigo-800 disabled:opacity-50 mr-4"
                     >
                         <RotateCw size={16} className={`mr-1 ${isSyncing ? "animate-spin" : ""}`} />
-                        {isSyncing ? "Syncing..." : "Sync All Data"}
+                        {isSyncing ? "Checking..." : "Run Comparison"}
                     </button>
                     <button
                         onClick={fetchLogs}
@@ -179,7 +181,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                     </div>
                 ) : logs.length === 0 ? (
                     <div className="text-center py-10 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                        No synced transactions found for this date.
+                        No transactions found for this date.
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -225,7 +227,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                                             <div className="flex flex-col items-center">
                                                 {log.syncStatus === "success" && (
                                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                        <Check size={12} className="mr-1" /> Synced
+                                                        <Check size={12} className="mr-1" /> Matched
                                                     </span>
                                                 )}
                                                 {log.syncStatus === "failed" && (
@@ -233,15 +235,26 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                                                         className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
                                                         title={log.syncError}
                                                     >
-                                                        <X size={12} className="mr-1" /> Failed
+                                                        <X size={12} className="mr-1" /> Error
                                                     </span>
                                                 )}
                                                 {log.syncStatus === "not_found" && (
-                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                        <AlertTriangle size={12} className="mr-1" /> Not Found
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                        <X size={12} className="mr-1" /> Missing
                                                     </span>
                                                 )}
-                                                {log.syncError && (
+                                                {log.syncStatus === "mismatch" && (
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                        <AlertTriangle size={12} className="mr-1" /> Mismatch
+                                                    </span>
+                                                )}
+
+                                                {/* Error Message / Details */}
+                                                {log.syncStatus === "mismatch" ? (
+                                                    <span className="text-xs text-orange-600 mt-1">
+                                                        Sys: {formatCurrency(log.systemAmount || 0)}
+                                                    </span>
+                                                ) : log.syncError && (
                                                     <span className="text-xs text-red-500 mt-1 max-w-[150px] truncate block">
                                                         {log.syncError}
                                                     </span>
