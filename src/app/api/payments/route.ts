@@ -199,39 +199,48 @@ export async function POST(request: NextRequest) {
             }
 
             // 3. Log Success
-            await SyncLog.create({
-              paymentId: savedPayment._id,
-              accountNo: payment.accountNo,
-              paymentDate: paymentDate,
-              amountPaid: payment.amountPaid,
-              loanDocId: loanDoc._id,
-              loanPaymentId: loanPaymentId,
-              syncStatus: 'success',
-              verifiedAt: new Date(), // Auto-verify on successful sync
-              verifiedBy: 'system'
-            });
+            await SyncLog.findOneAndUpdate(
+              { paymentId: savedPayment._id },
+              {
+                accountNo: payment.accountNo,
+                paymentDate: paymentDate,
+                amountPaid: payment.amountPaid,
+                loanDocId: loanDoc._id,
+                loanPaymentId: loanPaymentId,
+                syncStatus: 'success',
+                verifiedAt: new Date(), // Auto-verify on successful sync
+                verifiedBy: 'system'
+              },
+              { upsert: true, new: true }
+            );
           } else {
             // Log Not Found
-            await SyncLog.create({
-              paymentId: savedPayment._id,
-              accountNo: payment.accountNo,
-              paymentDate: paymentDate,
-              amountPaid: payment.amountPaid,
-              syncStatus: 'not_found',
-              syncError: 'No matching loan found in Excel Creator (LoanDoc)',
-            });
+            await SyncLog.findOneAndUpdate(
+              { paymentId: savedPayment._id },
+              {
+                accountNo: payment.accountNo,
+                paymentDate: paymentDate,
+                amountPaid: payment.amountPaid,
+                syncStatus: 'not_found',
+                syncError: 'No matching loan found in Excel Creator (LoanDoc)',
+              },
+              { upsert: true, new: true }
+            );
           }
         } catch (syncError) {
           console.error('Error syncing to LoanPayment:', syncError);
           // Log Failure
-          await SyncLog.create({
-            paymentId: savedPayment._id,
-            accountNo: payment.accountNo,
-            paymentDate: paymentDate,
-            amountPaid: payment.amountPaid,
-            syncStatus: 'failed',
-            syncError: String(syncError),
-          });
+          await SyncLog.findOneAndUpdate(
+            { paymentId: savedPayment._id },
+            {
+              accountNo: payment.accountNo,
+              paymentDate: paymentDate,
+              amountPaid: payment.amountPaid,
+              syncStatus: 'failed',
+              syncError: String(syncError),
+            },
+            { upsert: true, new: true }
+          );
         }
         // --- SYNC LOGIC END ---
 
