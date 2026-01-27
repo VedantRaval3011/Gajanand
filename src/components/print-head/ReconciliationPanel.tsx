@@ -194,6 +194,9 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                                     <th className="p-3 text-sm font-bold text-gray-600 border-b text-right">
                                         Collection Amt
                                     </th>
+                                    <th className="p-3 text-sm font-bold text-gray-600 border-b text-right">
+                                        System Amt
+                                    </th>
                                     <th className="p-3 text-sm font-bold text-gray-600 border-b text-center">
                                         Status
                                     </th>
@@ -223,6 +226,9 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                                         <td className="p-3 text-right font-medium text-gray-800">
                                             {formatCurrency(log.amountPaid)}
                                         </td>
+                                        <td className="p-3 text-right font-medium text-gray-600">
+                                            {log.systemAmount !== undefined ? formatCurrency(log.systemAmount) : "-"}
+                                        </td>
                                         <td className="p-3 text-center">
                                             <div className="flex flex-col items-center">
                                                 {log.syncStatus === "success" && (
@@ -250,11 +256,7 @@ const ReconciliationPanel: React.FC<ReconciliationPanelProps> = ({
                                                 )}
 
                                                 {/* Error Message / Details */}
-                                                {log.syncStatus === "mismatch" ? (
-                                                    <span className="text-xs text-orange-600 mt-1">
-                                                        Sys: {formatCurrency(log.systemAmount || 0)}
-                                                    </span>
-                                                ) : log.syncError && (
+                                                {log.syncError && log.syncStatus !== "mismatch" && (
                                                     <span className="text-xs text-red-500 mt-1 max-w-[150px] truncate block">
                                                         {log.syncError}
                                                     </span>

@@ -1,7 +1,8 @@
 import { Schema, model, models, Document } from 'mongoose';
 
 export interface ISyncLog extends Document {
-    paymentId: Schema.Types.ObjectId;
+    paymentId?: Schema.Types.ObjectId;
+    paymentIds?: Schema.Types.ObjectId[];
     accountNo: string;
     paymentDate: Date;
     amountPaid: number;
@@ -17,7 +18,8 @@ export interface ISyncLog extends Document {
 
 const SyncLogSchema = new Schema(
     {
-        paymentId: { type: Schema.Types.ObjectId, ref: 'Payment', required: true },
+        paymentId: { type: Schema.Types.ObjectId, ref: 'Payment' },
+        paymentIds: [{ type: Schema.Types.ObjectId, ref: 'Payment' }],
         accountNo: { type: String, required: true },
         paymentDate: { type: Date, required: true },
         amountPaid: { type: Number, required: true },
