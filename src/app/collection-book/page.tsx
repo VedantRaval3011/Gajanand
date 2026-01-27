@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -94,6 +94,52 @@ const LoanManagement: React.FC = () => {
   const [loanDetailsCache, setLoanDetailsCache] = useState<{
     [key: string]: LoanDetails;
   }>({});
+
+  const [sortConfig, setSortConfig] = useState<{
+    key: "index" | "accountNo" | "amountPaid" | "paymentTime" | null;
+    direction: "asc" | "desc";
+  }>({ key: null, direction: "asc" });
+
+  const handleSort = (key: "index" | "accountNo" | "amountPaid" | "paymentTime") => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+
+    const sortedPayments = [...payments].sort((a, b) => {
+      // Always keep empty rows at the bottom
+      if (!a.accountNo && !b.accountNo) return 0;
+      if (!a.accountNo) return 1;
+      if (!b.accountNo) return -1;
+
+      let aValue: any = a[key as keyof Payment];
+      let bValue: any = b[key as keyof Payment];
+
+      // Handle specific types
+      if (key === "amountPaid") {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else if (key === "index") {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else if (key === "paymentTime") {
+        // Time string comparison works well for "HH:MM:SS" format
+        aValue = aValue || "";
+        bValue = bValue || "";
+      } else {
+        // Default string comparison for accountNo
+        aValue = String(aValue || "").toLowerCase();
+        bValue = String(bValue || "").toLowerCase();
+      }
+
+      if (aValue < bValue) return direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    setPayments(sortedPayments);
+  };
 
   const handlePaymentTimeChange = (value: string, index: number) => {
     setPayments((prevPayments) => {
@@ -1656,17 +1702,42 @@ const LoanManagement: React.FC = () => {
                     <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
                       <tr>
                         {[
-                          "Index",
-                          "Account No.",
-                          "Amount Paid",
-                          "Payment Time",
-                          "Actions",
+                          { key: "index", label: "Index" },
+                          { key: "accountNo", label: "Account No." },
+                          { key: "amountPaid", label: "Amount Paid" },
+                          { key: "paymentTime", label: "Payment Time" },
+                          { key: "actions", label: "Actions" },
                         ].map((header) => (
                           <th
-                            key={header}
-                            className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                            key={header.key}
+                            onClick={() =>
+                              header.key !== "actions" &&
+                              handleSort(header.key as any)
+                            }
+                            className={`px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100 ${header.key !== "actions"
+                                ? "cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900"
+                                : ""
+                              }`}
                           >
-                            {header}
+                            <div className="flex items-center gap-2">
+                              {header.label}
+                              {header.key !== "actions" && (
+                                <span className="text-orange-600 dark:text-orange-400">
+                                  {sortConfig.key === header.key ? (
+                                    sortConfig.direction === "asc" ? (
+                                      <ArrowUp size={16} />
+                                    ) : (
+                                      <ArrowDown size={16} />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown
+                                      size={16}
+                                      className="opacity-50"
+                                    />
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </th>
                         ))}
                       </tr>
@@ -1680,8 +1751,8 @@ const LoanManagement: React.FC = () => {
                             handleRowClick(index, payment.accountNo)
                           }
                           className={`${selectedCell.row === index
-                              ? "bg-orange-200 dark:bg-orange-900"
-                              : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            ? "bg-orange-200 dark:bg-orange-900"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                             } transition-colors`}
                         >
                           <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
@@ -1780,17 +1851,42 @@ const LoanManagement: React.FC = () => {
                   <thead className="bg-orange-50 dark:bg-orange-950 shadow-md">
                     <tr>
                       {[
-                        "Index",
-                        "Account No.",
-                        "Amount Paid",
-                        "Payment Time",
-                        "Actions",
+                        { key: "index", label: "Index" },
+                        { key: "accountNo", label: "Account No." },
+                        { key: "amountPaid", label: "Amount Paid" },
+                        { key: "paymentTime", label: "Payment Time" },
+                        { key: "actions", label: "Actions" },
                       ].map((header) => (
                         <th
-                          key={header}
-                          className="px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100"
+                          key={header.key}
+                          onClick={() =>
+                            header.key !== "actions" &&
+                            handleSort(header.key as any)
+                          }
+                          className={`px-4 md:px-8 py-4 md:py-5 text-left text-sm md:text-base font-bold text-orange-800 dark:text-orange-200 uppercase tracking-wider bg-opacity-100 ${header.key !== "actions"
+                              ? "cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900"
+                              : ""
+                            }`}
                         >
-                          {header}
+                          <div className="flex items-center gap-2">
+                            {header.label}
+                            {header.key !== "actions" && (
+                              <span className="text-orange-600 dark:text-orange-400">
+                                {sortConfig.key === header.key ? (
+                                  sortConfig.direction === "asc" ? (
+                                    <ArrowUp size={16} />
+                                  ) : (
+                                    <ArrowDown size={16} />
+                                  )
+                                ) : (
+                                  <ArrowUpDown
+                                    size={16}
+                                    className="opacity-50"
+                                  />
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </th>
                       ))}
                     </tr>
@@ -1802,8 +1898,8 @@ const LoanManagement: React.FC = () => {
                         id={`payment-row-${index}`}
                         onClick={() => handleRowClick(index, payment.accountNo)}
                         className={`${selectedCell.row === index
-                            ? "bg-orange-200 dark:bg-orange-900"
-                            : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          ? "bg-orange-200 dark:bg-orange-900"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                           } transition-colors`}
                       >
                         <td className="px-4 md:px-8 py-3 md:py-5 text-base md:text-xl font-bold text-gray-500 dark:text-gray-400">
@@ -1905,8 +2001,8 @@ const LoanManagement: React.FC = () => {
               onClick={savePayments}
               disabled={isSaving} // Disable the button when isSaving is true
               className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${isSaving
-                  ? "bg-orange-300 cursor-not-allowed"
-                  : "bg-orange-600 hover:bg-orange-700"
+                ? "bg-orange-300 cursor-not-allowed"
+                : "bg-orange-600 hover:bg-orange-700"
                 }`}
             >
               {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
