@@ -18,6 +18,8 @@ const GoldenText = ({ text = "Golden Shine" }) => {
           backgroundSize: '200% auto',
           animation: 'shine 4s linear infinite',
           fontSize: 'clamp(1.5rem, 8vw, 4rem)', // Responsive font size
+          willChange: 'background-position',
+          transform: 'translateZ(0)',
         }}
       >
         {text}
