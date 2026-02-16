@@ -22,7 +22,7 @@ const ubuntu = Ubuntu({
 export default function LoanForm() {
   const fetchNextAccountNo = async () => {
 
-     if (nextAccountNo) return;
+    if (nextAccountNo) return;
     try {
       const response = await axios({
         method: "get",
@@ -122,7 +122,7 @@ export default function LoanForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
-    const [alertMessage, setAlertMessage] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
 
   // Get today's date and day
   const today = new Date();
@@ -274,12 +274,12 @@ export default function LoanForm() {
           target: { value: formData.accountNo },
         } as React.ChangeEvent<HTMLInputElement>;
         handleAccountNoChange(syntheticEvent);
-      } 
+      }
       if (field === "telephone2") {
         // Focus the Add Guarantor button using ref
         addGuarantorButtonRef.current?.focus();
 
-        
+
       } else {
         focusNextField(field);
       }
@@ -287,7 +287,7 @@ export default function LoanForm() {
       e.preventDefault();
       addGuarantor();
     }
-   
+
   };
 
   const initializeApp = async () => {
@@ -344,9 +344,8 @@ export default function LoanForm() {
         e.preventDefault();
         if (currentFieldIndex < guarantorFields.length - 1) {
           // Move to next field in same guarantor
-          const nextField = `guarantor-${index}-${
-            guarantorFields[currentFieldIndex + 1]
-          }`;
+          const nextField = `guarantor-${index}-${guarantorFields[currentFieldIndex + 1]
+            }`;
           const nextElement = inputRefs.current[nextField];
           if (nextElement) {
             nextElement.focus();
@@ -368,9 +367,8 @@ export default function LoanForm() {
         e.preventDefault();
         if (currentFieldIndex > 0) {
           // Move to previous field in same guarantor
-          const prevField = `guarantor-${index}-${
-            guarantorFields[currentFieldIndex - 1]
-          }`;
+          const prevField = `guarantor-${index}-${guarantorFields[currentFieldIndex - 1]
+            }`;
           const prevElement = inputRefs.current[prevField];
           if (prevElement) {
             prevElement.focus();
@@ -702,7 +700,7 @@ export default function LoanForm() {
   //   if (e.key === 'Enter') {
   //     e.preventDefault();
   //     const accountNo = formData.accountNo.trim();
-  
+
   //     if (accountNo) {
   //       try {
   //         const response = await axios.get(`/api/loans/${accountNo}`);
@@ -732,7 +730,7 @@ export default function LoanForm() {
   // Add initial focus effect
   const handleAccountNoBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const accountNo = e.target.value.trim();
-  
+
     if (accountNo) {
       try {
         const response = await axios.get(`/api/loans/${accountNo}`);
@@ -757,7 +755,7 @@ export default function LoanForm() {
       }
     }
   };
-  
+
   useEffect(() => {
     if (nextAccountNo) {
       setTimeout(() => {
@@ -869,7 +867,7 @@ export default function LoanForm() {
                   autoSelect={true}
                   onKeyDown={(e) => {
                     handleKeyDown(e, "accountNo");
-                    
+
                   }}
                   error={errors.accountNo}
                   inputRef={(el) => {
@@ -1343,17 +1341,16 @@ export default function LoanForm() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`flex-1 ${
-                  isExisting
+                className={`flex-1 ${isExisting
                     ? "bg-blue-500 hover:bg-blue-600"
                     : "bg-green-500 hover:bg-green-600"
-                } text-white px-6 py-3 rounded-md text-xl font-semibold transition-colors`}
+                  } text-white px-6 py-3 rounded-md text-xl font-semibold transition-colors`}
               >
                 {isSubmitting
                   ? "Processing..."
                   : isExisting
-                  ? "Update Loan (ALT+S)"
-                  : "Submit Loan Application (ALT+S)"}
+                    ? "Update Loan (ALT+S)"
+                    : "Submit Loan Application (ALT+S)"}
               </button>
               {isExisting && (
                 <button
@@ -1396,7 +1393,7 @@ export default function LoanForm() {
         setIsModalOpen={setIsModalOpen}
       />
 
-<CustomAlertDialog
+      <CustomAlertDialog
         isOpen={alertOpen}
         onClose={() => setAlertOpen(false)}
         title="Alert"

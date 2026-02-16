@@ -117,6 +117,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
     }
 
+    // Dynamic imports to avoid potential circular dependency issues
+    const LoanDocModule = await import('@/models/Loan');
+    const LoanDoc = LoanDocModule.default;
+    const PaymentDocModule = await import('@/models/PaymentDoc');
+    const LoanPayment = PaymentDocModule.default;
+    const SyncLogModule = await import('@/models/SyncLog');
+    const SyncLog = SyncLogModule.default;
+
     const savedPayments = await Promise.all(
       payments.map(async (payment: PaymentData & { paymentTime?: string }) => { // Extend type to include paymentTime
         let savedPayment;
@@ -153,6 +161,88 @@ export async function POST(request: NextRequest) {
           remainingAmount: payment.remainingAmount,
           paymentTime: payment.paymentTime, // Include paymentTime
         });
+
+        // --- SYNC LOGIC START ---
+        try {
+          // 1. Find matching loan in LoanDoc
+          const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo });
+
+          if (loanDoc) {
+            const paymentDateObj = new Date(paymentDate);
+            const startOfDay = new Date(paymentDateObj);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(paymentDateObj);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // 2. Check/Create/Update LoanPayment
+            const existingLoanPayment = await LoanPayment.findOne({
+              loanId: loanDoc._id,
+              date: { $gte: startOfDay, $lte: endOfDay }
+            });
+
+            let loanPaymentId;
+
+            if (existingLoanPayment) {
+              // Update existing payment
+              existingLoanPayment.amount = payment.amountPaid;
+              await existingLoanPayment.save();
+              loanPaymentId = existingLoanPayment._id;
+            } else {
+              // Create new payment
+              const newLoanPayment = await LoanPayment.create({
+                loanId: loanDoc._id,
+                accountNo: payment.accountNo,
+                amount: payment.amountPaid,
+                date: paymentDate,
+              });
+              loanPaymentId = newLoanPayment._id;
+            }
+
+            // 3. Log Success
+            await SyncLog.findOneAndUpdate(
+              { paymentId: savedPayment._id },
+              {
+                accountNo: payment.accountNo,
+                paymentDate: paymentDate,
+                amountPaid: payment.amountPaid,
+                loanDocId: loanDoc._id,
+                loanPaymentId: loanPaymentId,
+                syncStatus: 'success',
+                verifiedAt: new Date(), // Auto-verify on successful sync
+                verifiedBy: 'system'
+              },
+              { upsert: true, new: true }
+            );
+          } else {
+            // Log Not Found
+            await SyncLog.findOneAndUpdate(
+              { paymentId: savedPayment._id },
+              {
+                accountNo: payment.accountNo,
+                paymentDate: paymentDate,
+                amountPaid: payment.amountPaid,
+                syncStatus: 'not_found',
+                syncError: 'No matching loan found in Excel Creator (LoanDoc)',
+              },
+              { upsert: true, new: true }
+            );
+          }
+        } catch (syncError) {
+          console.error('Error syncing to LoanPayment:', syncError);
+          // Log Failure
+          await SyncLog.findOneAndUpdate(
+            { paymentId: savedPayment._id },
+            {
+              accountNo: payment.accountNo,
+              paymentDate: paymentDate,
+              amountPaid: payment.amountPaid,
+              syncStatus: 'failed',
+              syncError: String(syncError),
+            },
+            { upsert: true, new: true }
+          );
+        }
+        // --- SYNC LOGIC END ---
 
         return savedPayment;
       })
