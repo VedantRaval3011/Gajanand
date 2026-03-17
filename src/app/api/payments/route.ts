@@ -16,7 +16,14 @@ interface PaymentData {
 
 // GET handler
 export async function GET(request: NextRequest) {
+  const requestId =
+    request.headers.get('x-request-id') ||
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const startTotalMs = Date.now();
+
+  const startDbMs = Date.now();
   await dbConnect();
+  const dbMs = Date.now() - startDbMs;
   try {
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
@@ -27,7 +34,13 @@ export async function GET(request: NextRequest) {
     if (totalReceivedAmount === 'true') {
       const payments = await Payment.find({}, { amountPaid: 1, _id: 0 }); // Only fetch the `amountPaid` field
       const total = payments.reduce((sum, payment) => sum + payment.amountPaid, 0); // Calculate total received amount
-      return NextResponse.json({ totalReceivedAmount: total });
+      const res = NextResponse.json({ totalReceivedAmount: total });
+      res.headers.set('x-request-id', requestId);
+      res.headers.set(
+        'server-timing',
+        `db;dur=${dbMs},total;dur=${Date.now() - startTotalMs}`
+      );
+      return res;
     }
 
     // Fetch total payments per account
@@ -47,63 +60,201 @@ export async function GET(request: NextRequest) {
           }
         }
       ]);
-      return NextResponse.json({ payments });
+      const res = NextResponse.json({ payments });
+      res.headers.set('x-request-id', requestId);
+      res.headers.set(
+        'server-timing',
+        `db;dur=${dbMs},total;dur=${Date.now() - startTotalMs}`
+      );
+      return res;
     }
 
     if (!date) {
-      return NextResponse.json({ message: 'Date is required' }, { status: 400 });
+      const res = NextResponse.json({ message: 'Date is required' }, { status: 400 });
+      res.headers.set('x-request-id', requestId);
+      res.headers.set(
+        'server-timing',
+        `db;dur=${dbMs},total;dur=${Date.now() - startTotalMs}`
+      );
+      return res;
     }
 
     const selectedDate = new Date(date);
     const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
 
-    const payments = await Payment.find({
-      paymentDate: {
-        $gte: startOfDay,
-        $lte: endOfDay
-      }
-    }).sort({ createdAt: 1 });
+    const startQueryMs = Date.now();
 
-    // Fetch additional data for each payment
-    const enhancedPayments = await Promise.all(
-      payments.map(async (payment) => {
-        const loan = await LoanSchema.findOne({ accountNo: payment.accountNo });
-        if (!loan) {
-          return payment;
-        }
+    const enhancedPayments = await Payment.aggregate([
+      {
+        $match: {
+          paymentDate: { $gte: startOfDay, $lte: endOfDay },
+        },
+      },
+      // Sort as early as possible (stable display order)
+      { $sort: { paymentDate: 1, _id: 1 } },
+      // Join loan details by accountNo
+      {
+        $lookup: {
+          from: 'loans',
+          localField: 'accountNo',
+          foreignField: 'accountNo',
+          as: 'loan',
+        },
+      },
+      { $unwind: { path: '$loan', preserveNullAndEmptyArrays: true } },
+      // Join aggregated total received from PaymentHistory up to endOfDay
+      {
+        $lookup: {
+          from: 'paymenthistories',
+          let: { acc: '$accountNo' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$accountNo', '$$acc'] },
+                    { $lte: ['$date', endOfDay] },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: '$accountNo',
+                totalReceived: { $sum: '$amountPaid' },
+              },
+            },
+          ],
+          as: 'historyAgg',
+        },
+      },
+      {
+        $addFields: {
+          totalReceived: {
+            $ifNull: [{ $first: '$historyAgg.totalReceived' }, 0],
+          },
+        },
+      },
+      // Compute lateAmount using the same rules as the client
+      {
+        $addFields: {
+          lateAmount: {
+            $cond: [
+              { $or: [{ $not: ['$loan'] }, { $not: ['$loan.instAmount'] }] },
+              0,
+              {
+                $let: {
+                  vars: {
+                    selectedDate: selectedDate,
+                    loanDate: '$loan.date',
+                    instAmount: '$loan.instAmount',
+                    isDaily: '$loan.isDaily',
+                    totalReceived: '$totalReceived',
+                  },
+                  in: {
+                    $let: {
+                      vars: {
+                        expected: {
+                          $cond: [
+                            '$$isDaily',
+                            {
+                              $multiply: [
+                                {
+                                  $max: [
+                                    0,
+                                    {
+                                      $add: [
+                                        {
+                                          $dateDiff: {
+                                            startDate: '$$loanDate',
+                                            endDate: '$$selectedDate',
+                                            unit: 'day',
+                                          },
+                                        },
+                                        1,
+                                      ],
+                                    },
+                                  ],
+                                },
+                                '$$instAmount',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $max: [
+                                    0,
+                                    {
+                                      $add: [
+                                        {
+                                          $dateDiff: {
+                                            startDate: '$$loanDate',
+                                            endDate: '$$selectedDate',
+                                            unit: 'month',
+                                          },
+                                        },
+                                        {
+                                          $cond: [
+                                            {
+                                              $gte: [
+                                                { $dayOfMonth: '$$selectedDate' },
+                                                { $dayOfMonth: '$$loanDate' },
+                                              ],
+                                            },
+                                            1,
+                                            0,
+                                          ],
+                                        },
+                                      ],
+                                    },
+                                  ],
+                                },
+                                '$$instAmount',
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                      in: { $subtract: ['$$expected', '$$totalReceived'] },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          historyAgg: 0,
+          // Keep loan projection tight: only what the Collection Book needs
+          'loan.guarantors': 0,
+          'loan.__v': 0,
+        },
+      },
+    ]);
 
-        // Calculate late amount
-        const loanDate = new Date(loan.loanDate);
-        const daysDiff = Math.floor(
-          (selectedDate.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
+    const queryMs = Date.now() - startQueryMs;
 
-        // Get payment history
-        const paymentHistory = await PaymentHistory.find({
-          accountNo: payment.accountNo,
-          date: { $lte: endOfDay }
-        });
-        const totalReceived = paymentHistory.reduce(
-          (sum, hist) => sum + hist.amountPaid,
-          0
-        );
-        const lateAmount = Math.max(0, (daysDiff * loan.instAmount) - totalReceived);
-
-        return {
-          ...payment.toObject(),
-          lateAmount,
-          totalReceived
-        };
-      })
+    const res = NextResponse.json({ payments: enhancedPayments });
+    res.headers.set('x-request-id', requestId);
+    res.headers.set(
+      'server-timing',
+      `db;dur=${dbMs},query;dur=${queryMs},total;dur=${Date.now() - startTotalMs}`
     );
-
-    return NextResponse.json({ payments: enhancedPayments });
+    return res;
   } catch (error) {
-    return NextResponse.json(
+    const res = NextResponse.json(
       { message: 'Error fetching payments', error: String(error) },
       { status: 500 }
     );
+    res.headers.set('x-request-id', requestId);
+    res.headers.set(
+      'server-timing',
+      `db;dur=${dbMs},total;dur=${Date.now() - startTotalMs}`
+    );
+    return res;
   }
 }
 

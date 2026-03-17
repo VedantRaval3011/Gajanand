@@ -1008,8 +1008,12 @@ const LoanManagement: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Date switch should invalidate derived caches/state.
     setLoanDetailsCache({});
     setPaymentHistoryCache({});
+    setReceivedAmounts({});
+    setLateAmounts({});
+    setLoanDetails(null);
   }, [selectedDate]);
 
   useEffect(() => {
@@ -1018,10 +1022,6 @@ const LoanManagement: React.FC = () => {
       calculateLateAmount(loanDetails, currentPayment.accountNo);
     }
   }, [selectedDate, loanDetails, currentRow]);
-
-  useEffect(() => {
-    setPaymentHistoryCache({});
-  }, [selectedDate]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
@@ -1151,12 +1151,21 @@ const LoanManagement: React.FC = () => {
       const url = new URL("/api/payments", window.location.origin);
       url.searchParams.set("date", formattedDate);
 
+      const startMs = performance.now();
       const response = await fetch(url.toString());
+      const requestId = response.headers.get("x-request-id");
+      const serverTiming = response.headers.get("server-timing");
       const data = await response.json();
+      const totalMs = Math.round(performance.now() - startMs);
+      console.info("[collection-book] /api/payments", {
+        requestId,
+        totalMs,
+        serverTiming,
+      });
 
       if (data.payments && data.payments.length > 0) {
         const formattedPayments = data.payments.map(
-          (payment: Payment, index: number) => ({
+          (payment: any, index: number) => ({
             ...payment,
             index: index + 1,
             paymentDate:
@@ -1183,21 +1192,27 @@ const LoanManagement: React.FC = () => {
         setExistingPayments(formattedPayments);
         setPayments(updatedPayments);
 
+        // Consume enriched fields from /api/payments to avoid N extra calls.
         const receivedAmountsMap: { [key: string]: number } = {};
-        await Promise.all(
-          formattedPayments.map(async (payment: Payment) => {
-            const history = await fetchPaymentHistory(payment.accountNo);
-            receivedAmountsMap[payment.accountNo] = history.reduce(
-              (sum: number, p: Payment) => sum + (p.amountPaid || 0),
-              0
-            );
-          })
-        );
+        const lateAmountsMap: { [key: string]: number } = {};
+        const loanCache: { [key: string]: LoanDetails } = {};
+
+        formattedPayments.forEach((p: any) => {
+          if (!p?.accountNo) return;
+          receivedAmountsMap[p.accountNo] = Number(p.totalReceived) || 0;
+          lateAmountsMap[p.accountNo] = Number(p.lateAmount) || 0;
+          if (p.loan) {
+            loanCache[p.accountNo] = p.loan as LoanDetails;
+          }
+        });
 
         setReceivedAmounts(receivedAmountsMap);
+        setLateAmounts(lateAmountsMap);
+        setLoanDetailsCache(loanCache);
 
-        if (formattedPayments[0].accountNo) {
-          await fetchLoanDetails(formattedPayments[0].accountNo);
+        if (formattedPayments[0]?.accountNo) {
+          const acc = formattedPayments[0].accountNo;
+          if (loanCache[acc]) setLoanDetails(loanCache[acc]);
         }
 
         // Set focus to the new row
@@ -1246,10 +1261,7 @@ const LoanManagement: React.FC = () => {
     }
   }, [isLoading, payments.length]); // Add payments.length as a dependency
 
-  // Effect to fetch payments when date changes
-  useEffect(() => {
-    fetchExistingPayments();
-  }, [selectedDate]);
+  // (Removed duplicate date-fetch effect)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
