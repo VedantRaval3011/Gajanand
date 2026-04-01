@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FILE_CATEGORIES } from "@/lib/constants";
+import { getMonthlyCalendarLateFee } from "@/lib/utils";
 
 interface Payment {
   _id?: string;
@@ -51,6 +52,9 @@ interface CalculationDetails {
   partialNextMonthAmount?: number;
   remainingForLastDay?: number;
   remainingForLastMonth?: number;
+  /** Per-day late fee from selected date vs installment due (monthly only). */
+  calendarLateFee?: number;
+  daysLateCalendar?: number;
 }
 
 const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
@@ -325,6 +329,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
 
     if (loanType === "monthly") {
+      const lateFeePerDay = loan.lateAmount;
       // Calculate which month we're currently in (1-based)
       const monthsSinceStart = calculateMonthsSinceStart(
         receivedDate,
@@ -339,10 +344,24 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const totalPaid = totalPaidBeforeToday + todayPayment;
       const remainingAfterToday = totalDue - totalPaid;
 
-      // Calculate next due date properly
-      const nextDueDate = new Date(receivedDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + monthsSinceStart);
+      // Monthly next-due date should follow latest payment date (history),
+      // not the loan start date. This matches the "Payment History" behavior.
+      const lastPaymentDate = (() => {
+        const paidDates = (loan.paymentHistory || [])
+          .filter((p) => (p.amount || 0) > 0)
+          .map((p) => new Date(p.date.split("T")[0]))
+          .filter((d) => !isNaN(d.getTime()) && d <= currentDate);
+        if (todayPayment > 0) paidDates.push(new Date(currentDate));
+        if (paidDates.length === 0) return new Date(receivedDate);
+        return new Date(Math.max(...paidDates.map((d) => d.getTime())));
+      })();
+
+      const nextDueDate = new Date(lastPaymentDate);
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
+
+      const { daysLate: daysLateCalendar, calendarLateFee } =
+        getMonthlyCalendarLateFee(currentDate, nextDueDate, lateFeePerDay);
 
       // Calculate previous month status
       const prevMonthDate = new Date(currentDate);
@@ -365,9 +384,9 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         installment
       );
 
-      const coveredUntilDate = new Date(receivedDate);
+      const coveredUntilDate = new Date(lastPaymentDate);
       coveredUntilDate.setMonth(
-        coveredUntilDate.getMonth() + monthsSinceStart + extraMonthsCovered
+        coveredUntilDate.getMonth() + 1 + extraMonthsCovered
       );
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
@@ -382,7 +401,13 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         coveredUntilDate: formattedCoveredDate,
         nextMonthInstallment: installment,
         lateAmount,
+        calendarLateFee,
+        daysLateCalendar,
       };
+
+      const isPastInstallmentDue = daysLateCalendar > 0;
+      const lateFeeSubline =
+        calendarLateFee > 0 ? `Late Fee: ₹${calendarLateFee.toFixed(0)}` : undefined;
 
       if (remainingAfterToday > 0) {
         return {
@@ -391,6 +416,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
           nextDueDate: formattedNextDueDate,
           calculationDetails: details,
           showLateAmount: true,
+          statusSubline: lateFeeSubline,
+          statusSublineColor: isPastInstallmentDue
+            ? "text-red-600 font-semibold"
+            : undefined,
           prevDayStatus:
             totalDuePrevMonth > totalPaidPrevMonth
               ? `₹${(totalDuePrevMonth - totalPaidPrevMonth).toFixed(0)}`
@@ -401,6 +430,25 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
               : "text-yellow-600",
         };
       } else if (remainingAfterToday === 0) {
+        if (isPastInstallmentDue && calendarLateFee > 0) {
+          return {
+            status: `₹${calendarLateFee.toFixed(0)}`,
+            statusColor: "text-red-600 font-semibold",
+            nextDueDate: formattedNextDueDate,
+            calculationDetails: details,
+            showLateAmount: true,
+            statusSubline: lateFeeSubline,
+            statusSublineColor: "text-red-600 font-semibold",
+            prevDayStatus:
+              totalDuePrevMonth > totalPaidPrevMonth
+                ? `₹${(totalDuePrevMonth - totalPaidPrevMonth).toFixed(0)}`
+                : prevMonthDate.toLocaleDateString("en-GB"),
+            prevDayStatusColor:
+              totalDuePrevMonth > totalPaidPrevMonth
+                ? "text-red-600"
+                : "text-yellow-600",
+          };
+        }
         return {
           status: formattedNextDueDate,
           statusColor: "text-yellow-600",
@@ -423,6 +471,26 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         details.overpayment = overpayment;
         details.partialNextMonthAmount = partialNextMonthAmount;
         details.remainingForLastMonth = installment - partialNextMonthAmount;
+
+        if (isPastInstallmentDue && calendarLateFee > 0) {
+          return {
+            status: `₹${calendarLateFee.toFixed(0)}`,
+            statusColor: "text-red-600 font-semibold",
+            nextDueDate: formattedNextDueDate,
+            calculationDetails: details,
+            showLateAmount: true,
+            statusSubline: lateFeeSubline,
+            statusSublineColor: "text-red-600 font-semibold",
+            prevDayStatus:
+              totalDuePrevMonth > totalPaidPrevMonth
+                ? `₹${(totalDuePrevMonth - totalPaidPrevMonth).toFixed(0)}`
+                : prevMonthDate.toLocaleDateString("en-GB"),
+            prevDayStatusColor:
+              totalDuePrevMonth > totalPaidPrevMonth
+                ? "text-red-600"
+                : "text-yellow-600",
+          };
+        }
 
         return {
           status:
@@ -657,8 +725,14 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     }
   };
 
-  const { status, statusColor, nextDueDate, calculationDetails } =
-    calculatePaymentStatus();
+  const {
+    status,
+    statusColor,
+    nextDueDate,
+    calculationDetails,
+    statusSubline,
+    statusSublineColor,
+  } = calculatePaymentStatus();
 
   const totalDueUpToYesterday =
     loanType === "monthly"
@@ -689,9 +763,18 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       <div className="flex flex-col">
         <div className={`${statusColor} text-center`}>{status}</div>
         {!isLoanStartDate && loanType !== "pending" && (
-          <div className={`${displayPrevColor} text-sm mt-1 text-center`}>
-            {displayPrevStatus}
-          </div>
+          <>
+            <div className={`${displayPrevColor} text-sm mt-1 text-center`}>
+              {displayPrevStatus}
+            </div>
+            {loanType === "monthly" && statusSubline && (
+              <div
+                className={`${statusSublineColor ?? "text-red-600"} text-sm mt-1 text-center`}
+              >
+                {statusSubline}
+              </div>
+            )}
+          </>
         )}
       </div>
       <button
@@ -931,6 +1014,16 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
                         loan.installmentAmount}
                       )
                     </p>
+                    {(calculationDetails.calendarLateFee ?? 0) > 0 && (
+                      <p className="text-red-400 font-semibold mt-2">
+                        Calendar late fee ({calculationDetails.daysLateCalendar}{" "}
+                        {calculationDetails.daysLateCalendar === 1
+                          ? "day"
+                          : "days"}{" "}
+                        after due × ₹{loan.lateAmount}/day): ₹
+                        {calculationDetails.calendarLateFee?.toFixed(0)}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>

@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { getMonthlyCalendarLateFee } from "@/lib/utils";
 
 interface Payment {
   _id?: string;
@@ -150,6 +151,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 
     // Monthly loans
     if (loanType === "monthly") {
+      const lateFeePerDay = loan.lateAmount || 0;
       const monthsSinceStart = calculateMonthsSinceStart(receivedDate, currentDate);
       const totalDue = installment * monthsSinceStart;
 
@@ -175,19 +177,37 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           installment
       );
 
-      const nextDueDate = new Date(receivedDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + monthsSinceStart);
+      const lastPaymentDate = (() => {
+        const paidDates = (loan.paymentHistory || [])
+          .filter((p) => (p.amount || 0) > 0)
+          .map((p) => new Date(p.date.split("T")[0]))
+          .filter((d) => !isNaN(d.getTime()) && d <= currentDate);
+        if (todayPayment > 0) paidDates.push(new Date(currentDate));
+        if (paidDates.length === 0) return new Date(receivedDate);
+        return new Date(Math.max(...paidDates.map((d) => d.getTime())));
+      })();
+
+      const nextDueDate = new Date(lastPaymentDate);
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
 
-      const coveredUntilDate = new Date(receivedDate);
+      const { daysLate: daysLateCalendar, calendarLateFee } =
+        getMonthlyCalendarLateFee(currentDate, nextDueDate, lateFeePerDay);
+      const isPastInstallmentDue = daysLateCalendar > 0;
+
+      const coveredUntilDate = new Date(lastPaymentDate);
       coveredUntilDate.setMonth(
-        coveredUntilDate.getMonth() + monthsSinceStart + extraMonthsCovered
+        coveredUntilDate.getMonth() + 1 + extraMonthsCovered
       );
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
       if (remainingAfterToday > 0) {
+      const statusText =
+          calendarLateFee > 0
+            ? `${remainingAfterToday.toFixed(0)} (L:${calendarLateFee.toFixed(0)})`
+            : remainingAfterToday.toFixed(0);
         return {
-          status: remainingAfterToday.toFixed(0),
+          status: statusText,
           statusColor: "text-red-600 text-black screen-text-red",
           showLateAmount: true,
           prevStatus:
@@ -200,6 +220,21 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               : "text-yellow-600 screen-text-yellow",
         };
       } else if (remainingAfterToday === 0) {
+        if (isPastInstallmentDue) {
+          return {
+            status: calendarLateFee.toFixed(0),
+            statusColor: "text-red-600 text-black screen-text-red",
+            showLateAmount: true,
+            prevStatus:
+              remainingUpToPrevMonth > 0
+                ? remainingUpToPrevMonth.toFixed(0)
+                : "0",
+            prevStatusColor:
+              remainingUpToPrevMonth > 0
+                ? "text-red-600 screen-text-red"
+                : "text-yellow-600 screen-text-yellow",
+          };
+        }
         return {
           status: formattedNextDueDate,
           statusColor: "text-yellow-600 text-black screen-text-yellow",
@@ -217,6 +252,21 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
         const fullMonthsCovered = Math.floor(
           Math.abs(remainingAfterToday) / installment
         );
+        if (isPastInstallmentDue) {
+          return {
+            status: calendarLateFee.toFixed(0),
+            statusColor: "text-red-600 text-black screen-text-red",
+            showLateAmount: true,
+            prevStatus:
+              remainingUpToPrevMonth > 0
+                ? remainingUpToPrevMonth.toFixed(0)
+                : "0",
+            prevStatusColor:
+              remainingUpToPrevMonth > 0
+                ? "text-red-600 screen-text-red"
+                : "text-yellow-600 screen-text-yellow",
+          };
+        }
         return {
           status:
             fullMonthsCovered > 0 ? formattedCoveredDate : formattedNextDueDate,

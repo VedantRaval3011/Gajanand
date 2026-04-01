@@ -23,6 +23,29 @@ export function formatDate(date: Date): string {
   });
 }
 
+/**
+ * Monthly loans: late fee after the installment due date, using the collection
+ * (selected) date — not today's system date. `lateFeePerDay` is the loan's per-day rate.
+ */
+export function getMonthlyCalendarLateFee(
+  selectedDate: Date,
+  installmentDueDate: Date,
+  lateFeePerDay: number
+): { daysLate: number; calendarLateFee: number } {
+  const selected = new Date(selectedDate);
+  selected.setHours(0, 0, 0, 0);
+  const due = new Date(installmentDueDate);
+  due.setHours(0, 0, 0, 0);
+  if (selected <= due) {
+    return { daysLate: 0, calendarLateFee: 0 };
+  }
+  const daysLate = Math.floor(
+    (selected.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const rate = lateFeePerDay || 0;
+  return { daysLate, calendarLateFee: daysLate * rate };
+}
+
 export function calculatePaymentStatus(
   installmentAmount: number,
   receivedAmount: number,
@@ -31,14 +54,14 @@ export function calculatePaymentStatus(
 ): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const receivedDay = new Date(receivedDate);
   receivedDay.setHours(0, 0, 0, 0);
-  
+
   // Calculate days difference
   const diffTime = receivedDay.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays > 0) {
     // Paid in advance
     return formatDate(receivedDate);
@@ -63,20 +86,20 @@ export function updateLoanStatus(
 } {
   // Calculate new received amount
   const newReceivedAmount = currentReceivedAmount + paymentAmount;
-  
+
   // Calculate days covered by payment
   const daysCovered = Math.floor(newReceivedAmount / installmentAmount);
-  
+
   // Calculate new received date
   const newReceivedDate = new Date(currentDate);
   newReceivedDate.setDate(currentDate.getDate() + daysCovered);
-  
+
   // Calculate late amount
   let newLateAmount = 0;
   if (newReceivedAmount < installmentAmount) {
     newLateAmount = installmentAmount - newReceivedAmount;
   }
-  
+
   return {
     newReceivedAmount,
     newReceivedDate,
