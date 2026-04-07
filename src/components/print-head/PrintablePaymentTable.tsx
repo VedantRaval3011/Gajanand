@@ -220,7 +220,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               : "text-yellow-600 screen-text-yellow",
         };
       } else if (remainingAfterToday === 0) {
-        if (isPastInstallmentDue) {
+        if (isPastInstallmentDue && calendarLateFee > 0) {
           return {
             status: calendarLateFee.toFixed(0),
             statusColor: "text-red-600 text-black screen-text-red",
@@ -252,7 +252,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
         const fullMonthsCovered = Math.floor(
           Math.abs(remainingAfterToday) / installment
         );
-        if (isPastInstallmentDue) {
+        if (isPastInstallmentDue && calendarLateFee > 0) {
           return {
             status: calendarLateFee.toFixed(0),
             statusColor: "text-red-600 text-black screen-text-red",
@@ -858,7 +858,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   {leftSide[rowIndex]?.nameGujarati || ""}
                   {leftSide[rowIndex]?.index && loanType !== "pending" && (
                     <span className="text-blue ml-1">
-                      \{leftSide[rowIndex]?.accountNo}
+                      {leftSide[rowIndex]?.accountNo}
                     </span>
                   )}
                 </td>
@@ -890,7 +890,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                   {rightSide[rowIndex]?.nameGujarati || ""}
                   {rightSide[rowIndex]?.index && loanType !== "pending" && (
                     <span className="text-blue ml-1">
-                      \{rightSide[rowIndex]?.accountNo}
+                      {rightSide[rowIndex]?.accountNo}
                     </span>
                   )}
                 </td>
