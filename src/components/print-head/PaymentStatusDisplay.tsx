@@ -385,9 +385,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       );
 
       const coveredUntilDate = new Date(lastPaymentDate);
-      coveredUntilDate.setMonth(
-        coveredUntilDate.getMonth() + 1 + extraMonthsCovered
-      );
+      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1);
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
       const details: CalculationDetails = {
@@ -430,9 +428,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
               : "text-yellow-600",
         };
       } else if (remainingAfterToday === 0) {
-        if (isPastInstallmentDue && calendarLateFee > 0) {
+        if (isPastInstallmentDue) {
+          const overdueAmount = installment + calendarLateFee;
           return {
-            status: `₹${calendarLateFee.toFixed(0)}`,
+            status: `₹${overdueAmount.toFixed(0)}`,
             statusColor: "text-red-600 font-semibold",
             nextDueDate: formattedNextDueDate,
             calculationDetails: details,
@@ -472,9 +471,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         details.partialNextMonthAmount = partialNextMonthAmount;
         details.remainingForLastMonth = installment - partialNextMonthAmount;
 
-        if (isPastInstallmentDue && calendarLateFee > 0) {
+        if (isPastInstallmentDue) {
+          const overdueAmount = installment + calendarLateFee;
           return {
-            status: `₹${calendarLateFee.toFixed(0)}`,
+            status: `₹${overdueAmount.toFixed(0)}`,
             statusColor: "text-red-600 font-semibold",
             nextDueDate: formattedNextDueDate,
             calculationDetails: details,

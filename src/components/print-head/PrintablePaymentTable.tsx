@@ -196,9 +196,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       const isPastInstallmentDue = daysLateCalendar > 0;
 
       const coveredUntilDate = new Date(lastPaymentDate);
-      coveredUntilDate.setMonth(
-        coveredUntilDate.getMonth() + 1 + extraMonthsCovered
-      );
+      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1);
       const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
 
       if (remainingAfterToday > 0) {
@@ -220,9 +218,10 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
               : "text-yellow-600 screen-text-yellow",
         };
       } else if (remainingAfterToday === 0) {
-        if (isPastInstallmentDue && calendarLateFee > 0) {
+        if (isPastInstallmentDue) {
+          const overdueAmount = installment + calendarLateFee;
           return {
-            status: calendarLateFee.toFixed(0),
+            status: overdueAmount.toFixed(0),
             statusColor: "text-red-600 text-black screen-text-red",
             showLateAmount: true,
             prevStatus:
@@ -252,9 +251,10 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
         const fullMonthsCovered = Math.floor(
           Math.abs(remainingAfterToday) / installment
         );
-        if (isPastInstallmentDue && calendarLateFee > 0) {
+        if (isPastInstallmentDue) {
+          const overdueAmount = installment + calendarLateFee;
           return {
-            status: calendarLateFee.toFixed(0),
+            status: overdueAmount.toFixed(0),
             statusColor: "text-red-600 text-black screen-text-red",
             showLateAmount: true,
             prevStatus:
