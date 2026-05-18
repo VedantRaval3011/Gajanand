@@ -763,13 +763,11 @@ const LoanManagement: React.FC = () => {
       setAlertMessage("Payment saved successfully");
       setAlertOpen(true);
 
-      // Preserve the late amounts when updating the payments list
+      // Build updated payments list, preserving in-memory lateAmounts (no re-fetch needed).
       const updatedPayments = responseData.payments.map(
         (payment: Payment, index: number) => {
-          // Keep the original late amount for this account
           const originalLateAmount =
             currentLateAmounts[payment.accountNo] || payment.lateAmount || 0;
-
           return {
             ...payment,
             index: index + 1,
@@ -780,7 +778,7 @@ const LoanManagement: React.FC = () => {
                   ? parseDateFromInput(payment.paymentDate)
                   : selectedDate,
             isDefaultAmount: false,
-            lateAmount: originalLateAmount, // Use the preserved late amount
+            lateAmount: originalLateAmount,
           };
         }
       );
@@ -788,18 +786,33 @@ const LoanManagement: React.FC = () => {
       setPayments(updatedPayments);
       setExistingPayments(updatedPayments);
 
-      // Don't clear the cache completely, just mark accounts to refresh
-      const accountsToRefresh: string[] = updatedPayments.map(
-        (p: Payment) => p.accountNo
-      );
-      const currentAccountNo = updatedPayments[currentRow]?.accountNo || "";
+      // ── Fast path: update derived state directly from what we already know ──
+      // This replaces the isSaved useEffect's N fetchPaymentHistory + fetchLoanDetails calls.
+      const newReceivedAmounts = { ...receivedAmounts };
+      const newPaymentHistoryCache = { ...paymentHistoryCache };
 
-      // Update isSaved to mark these accounts as saved
-      setIsSaved({
-        status: true,
-        accounts: accountsToRefresh,
-        currentAccount: currentAccountNo,
+      validPayments.forEach((p) => {
+        const acc = p.accountNo;
+        // Increment running total by the amount just paid
+        newReceivedAmounts[acc] = (newReceivedAmounts[acc] || 0) + Number(p.amountPaid);
+
+        // Optimistically append the new payment to the history cache so the
+        // next calculateLateAmount() call doesn't need a network round-trip.
+        if (newPaymentHistoryCache[acc]) {
+          const newEntry: Payment = {
+            index: newPaymentHistoryCache[acc].length + 1,
+            accountNo: acc,
+            amountPaid: Number(p.amountPaid),
+            paymentDate: selectedDate,
+            lateAmount: currentLateAmounts[acc] || 0,
+          };
+          newPaymentHistoryCache[acc] = [...newPaymentHistoryCache[acc], newEntry];
+        }
       });
+
+      setReceivedAmounts(newReceivedAmounts);
+      setLateAmounts(currentLateAmounts); // already correct — calculated on blur/arrow-key
+      setPaymentHistoryCache(newPaymentHistoryCache);
 
       // Make sure we have a valid last index before trying to focus it
       if (updatedPayments.length > 0) {
@@ -817,94 +830,12 @@ const LoanManagement: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (isSaved.status) {
-      const syncValues = async () => {
-        const newReceivedAmounts = { ...receivedAmounts };
-        const newLateAmounts = { ...lateAmounts }; // Start with current late amounts
-        const newLoanDetailsCache = { ...loanDetailsCache };
-
-        await Promise.all(
-          isSaved.accounts.map(async (accountNo) => {
-            if (!accountNo) return;
-
-            const history = await fetchPaymentHistory(accountNo);
-            const totalReceived = history.reduce(
-              (sum: number, p: Payment) => sum + (p.amountPaid || 0),
-              0
-            );
-            newReceivedAmounts[accountNo] = totalReceived;
-
-            const loanDetailsData = await fetchLoanDetails(accountNo);
-            if (loanDetailsData) {
-              newLoanDetailsCache[accountNo] = loanDetailsData;
-
-              // Calculate late amount but don't update state directly
-              const loanDate = new Date(loanDetailsData.date);
-              const today = new Date(selectedDate);
-
-              if (!isNaN(loanDate.getTime())) {
-                let expectedPayments = 0;
-
-                if (loanDetailsData.isDaily) {
-                  const daysDiff = Math.floor(
-                    (today.getTime() - loanDate.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                  );
-                  const daysFromLoan = Math.max(0, daysDiff + 1);
-                  expectedPayments = daysFromLoan * loanDetailsData.instAmount;
-                } else {
-                  const monthsDiff =
-                    (today.getFullYear() - loanDate.getFullYear()) * 12 +
-                    (today.getMonth() - loanDate.getMonth());
-                  const dayInMonth =
-                    today.getDate() >= loanDate.getDate() ? 1 : 0;
-                  const monthsFromLoan = Math.max(0, monthsDiff + dayInMonth);
-                  expectedPayments =
-                    monthsFromLoan * loanDetailsData.instAmount;
-                }
-
-                const calculatedLateAmount = expectedPayments - totalReceived;
-                newLateAmounts[accountNo] = calculatedLateAmount;
-              }
-            }
-          })
-        );
-
-        // Update all state at once to avoid race conditions
-        setReceivedAmounts(newReceivedAmounts);
-        setLateAmounts(newLateAmounts);
-        setLoanDetailsCache(newLoanDetailsCache);
-
-        // Update payments to reflect new late amounts
-        setPayments((prevPayments) =>
-          prevPayments.map((payment) => {
-            if (
-              payment.accountNo &&
-              newLateAmounts[payment.accountNo] !== undefined
-            ) {
-              return {
-                ...payment,
-                lateAmount: newLateAmounts[payment.accountNo],
-              };
-            }
-            return payment;
-          })
-        );
-
-        if (
-          isSaved.currentAccount &&
-          newLoanDetailsCache[isSaved.currentAccount]
-        ) {
-          setLoanDetails(newLoanDetailsCache[isSaved.currentAccount]);
-        }
-
-        setIsSaved({ status: false, accounts: [], currentAccount: "" });
-      };
-
-      syncValues();
-    }
-  }, [isSaved.status, selectedDate]);
+  // NOTE: isSaved useEffect has been replaced by direct state updates inside
+  // savePayments(). The isSaved state is kept for potential future use but the
+  // expensive fetchPaymentHistory / fetchLoanDetails loop is no longer needed
+  // because savePayments() now updates receivedAmounts, lateAmounts, and
+  // paymentHistoryCache synchronously from in-memory data right after save.
+  // (No network calls fired here anymore.)
 
   const handleDeletePayment = async (index: number) => {
     const paymentToDelete = payments[index];
