@@ -20,8 +20,11 @@ const PaymentHistorySchema = new mongoose.Schema({
 
 // Indexes for common queries
 PaymentSchema.index({ paymentDate: 1 });
-PaymentSchema.index({ accountNo: 1, paymentDate: 1 });
-PaymentHistorySchema.index({ accountNo: 1, date: 1 });
+PaymentSchema.index({ accountNo: 1, paymentDate: -1 }, { unique: false });
+PaymentSchema.index({ accountNo: 1 });
+PaymentHistorySchema.index({ accountNo: 1, date: -1 });
+PaymentHistorySchema.index({ accountNo: 1 });
+PaymentHistorySchema.index({ date: 1 });
 
 export const Payment = mongoose.models.Payment || mongoose.model('Payment', PaymentSchema);
 export const PaymentHistory = mongoose.models.PaymentHistory || mongoose.model('PaymentHistory', PaymentHistorySchema);

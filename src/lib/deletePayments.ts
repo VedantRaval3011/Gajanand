@@ -57,3 +57,31 @@ export async function deleteAllPaymentsForAccount(accountNo: string) {
     await LoanPayment.deleteMany({ loanId: loanDoc._id });
   }
 }
+
+export async function deleteAllPaymentsForDate(date: string) {
+  const { startOfDay, endOfDay } = getDayRange(new Date(date));
+
+  const payments = await Payment.find(
+    { paymentDate: { $gte: startOfDay, $lte: endOfDay } },
+    { accountNo: 1, _id: 1 }
+  ).lean();
+
+  const accountNos = [...new Set(payments.map((p) => p.accountNo))];
+
+  await Payment.deleteMany({ paymentDate: { $gte: startOfDay, $lte: endOfDay } });
+  await PaymentHistory.deleteMany({ date: { $gte: startOfDay, $lte: endOfDay } });
+  await SyncLog.deleteMany({ paymentDate: { $gte: startOfDay, $lte: endOfDay } });
+
+  if (accountNos.length > 0) {
+    const loanDocs = await Loan.find({ accountNo: { $in: accountNos } }, { _id: 1 }).lean();
+    const loanIds = loanDocs.map((l) => l._id);
+    if (loanIds.length > 0) {
+      await LoanPayment.deleteMany({
+        loanId: { $in: loanIds },
+        date: { $gte: startOfDay, $lte: endOfDay },
+      });
+    }
+  }
+
+  return payments.length;
+}

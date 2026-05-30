@@ -1,6 +1,6 @@
 "use client";
 import TimeDisplay from "@/ui/TimeDisplay";
-import { Search, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trash } from "lucide-react";
 import { Ubuntu } from "next/font/google";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
@@ -659,6 +659,43 @@ const LoanManagement: React.FC = () => {
 
   // The issue is in the savePayments function
   // We need to improve how we handle the array operations and state updates
+
+  const handleDeleteAllPayments = async () => {
+    if (existingPayments.length === 0) {
+      setAlertMessage("No payments to delete for this date.");
+      setAlertOpen(true);
+      return;
+    }
+
+    const formattedDate = formatDateForInput(selectedDate);
+    try {
+      const response = await fetch(`/api/payments?date=${formattedDate}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to delete payments");
+      }
+
+      const data = await response.json();
+      setAlertMessage(data.message || "All payments deleted successfully.");
+      setAlertOpen(true);
+      resetState();
+      setPayments([{
+        index: 1,
+        accountNo: "",
+        amountPaid: 0,
+        paymentDate: selectedDate,
+        lateAmount: 0,
+        isDefaultAmount: false,
+      }]);
+      setSelectedCell({ row: 0, column: "accountNo" });
+    } catch (error) {
+      setAlertMessage("Error deleting payments: " + (error as Error).message);
+      setAlertOpen(true);
+    }
+  };
 
   const savePayments = async () => {
     if (isSaving) return;
@@ -1939,17 +1976,35 @@ const LoanManagement: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 md:mt-6 mb-2 md:mb-4 flex flex-col md:flex-row justify-between md:gap-32 text-base md:text-lg items-center gap-4">
-            <button
-              onClick={savePayments}
-              disabled={isSaving} // Disable the button when isSaving is true
-              className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${isSaving
-                ? "bg-orange-300 cursor-not-allowed"
-                : "bg-orange-600 hover:bg-orange-700"
-                }`}
-            >
-              {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
-            </button>
+          <div className="mt-4 md:mt-6 mb-2 md:mb-4 flex flex-col md:flex-row justify-between md:gap-8 text-base md:text-lg items-center gap-4">
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+              <button
+                onClick={savePayments}
+                disabled={isSaving}
+                className={`w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg shadow-orange-500/20 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all ${isSaving
+                  ? "bg-orange-300 cursor-not-allowed"
+                  : "bg-orange-600 hover:bg-orange-700"
+                  }`}
+              >
+                {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
+              </button>
+              <button
+                onClick={() => {
+                  if (existingPayments.length === 0) {
+                    setAlertMessage("No payments to delete for this date.");
+                    setAlertOpen(true);
+                    return;
+                  }
+                  if (confirm(`Delete all ${existingPayments.length} payments for ${formatDateForInput(selectedDate)}? This cannot be undone.`)) {
+                    handleDeleteAllPayments();
+                  }
+                }}
+                className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash size={18} />
+                Delete All
+              </button>
+            </div>
             <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full md:w-60 text-center dark:text-white text-xl md:text-2xl">
               Total:{" "}
               <span className="text-orange-500">

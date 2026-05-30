@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
-import { deleteAllPaymentsForAccount } from '@/lib/deletePayments';
+import { deleteAllPaymentsForAccount, deleteAllPaymentsForDate } from '@/lib/deletePayments';
 import { Payment } from '@/models/Payment';
 import { PaymentHistory } from '@/models/Payment';
 import LoanSchema from '@/models/LoanSchema';
@@ -360,33 +360,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
     }
 
-    // --- 1. Upsert Payment documents (parallel) ---
-    const savedPayments = await Promise.all(
-      payments.map(async (payment: PaymentData & { paymentTime?: string }) => {
-        if (payment._id) {
-          return Payment.findByIdAndUpdate(
-            payment._id,
-            {
-              loanId,
-              accountNo: payment.accountNo,
-              amountPaid: payment.amountPaid,
-              paymentDate,
-              lateAmount: payment.lateAmount,
-              paymentTime: payment.paymentTime,
-            },
-            { new: true }
-          );
-        }
-        return Payment.create({
-          loanId,
-          accountNo: payment.accountNo,
-          amountPaid: payment.amountPaid,
-          paymentDate,
-          lateAmount: payment.lateAmount,
-          paymentTime: payment.paymentTime,
-        });
-      })
-    );
+    // --- 1. Batch upsert Payment documents ---
+    const bulkOps = payments.map((payment: PaymentData & { paymentTime?: string }) => ({
+      updateOne: {
+        filter: payment._id ? { _id: payment._id } : { accountNo: payment.accountNo, paymentDate },
+        update: {
+          $set: {
+            loanId,
+            accountNo: payment.accountNo,
+            amountPaid: payment.amountPaid,
+            paymentDate,
+            lateAmount: payment.lateAmount,
+            paymentTime: payment.paymentTime,
+          }
+        },
+        upsert: true,
+      },
+    }));
+
+    const bulkResult = await Payment.bulkWrite(bulkOps, { ordered: false });
+
+    // Fetch the saved payments for response
+    const paymentDateObj = new Date(paymentDate);
+    const startOfDay = new Date(paymentDateObj.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date(paymentDate).setHours(23, 59, 59, 999));
+    const savedPayments = await Payment.find({
+      accountNo: { $in: payments.map((p: PaymentData) => p.accountNo) },
+      paymentDate: { $gte: startOfDay, $lte: endOfDay },
+    });
 
     // --- 2. Batch-insert PaymentHistory (1 write instead of N) ---
     const historyDocs = payments.map((payment: PaymentData & { paymentTime?: string }) => ({
@@ -425,15 +426,24 @@ export async function DELETE(request: NextRequest) {
     await dbConnect();
     const searchParams = request.nextUrl.searchParams;
     const accountNo = searchParams.get('accountNo');
+    const date = searchParams.get('date');
+
+    // Delete all payments for a specific date
+    if (date) {
+      const deletedCount = await deleteAllPaymentsForDate(date);
+      return NextResponse.json(
+        { message: `Successfully deleted ${deletedCount} payment records for date: ${date}` },
+        { status: 200 }
+      );
+    }
 
     if (!accountNo) {
       return NextResponse.json(
-        { error: 'accountNo is required' },
+        { error: 'accountNo or date is required' },
         { status: 400 }
       );
     }
 
-    // Delete all payment records for the given accountNo across collections
     const existingCount = await Payment.countDocuments({ accountNo });
 
     if (existingCount === 0) {
