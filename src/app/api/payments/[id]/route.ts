@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
+import { deletePaymentRecord } from '@/lib/deletePayments';
 import { Payment } from '@/models/Payment';
 import mongoose from 'mongoose';
 
@@ -129,39 +130,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Dynamic imports
-    const LoanDocModule = await import('@/models/Loan');
-    const LoanDoc = LoanDocModule.default;
-    const PaymentDocModule = await import('@/models/PaymentDoc');
-    const LoanPayment = PaymentDocModule.default;
-    const SyncLogModule = await import('@/models/SyncLog');
-    const SyncLog = SyncLogModule.default;
-
-    // --- SYNC DELETION LOGIC ---
-    try {
-      // Always remove the log first to reflect deletion
-      await SyncLog.deleteMany({ paymentId: id });
-
-      const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo });
-      if (loanDoc) {
-        const paymentDateObj = new Date(payment.paymentDate);
-        const startOfDay = new Date(paymentDateObj);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(paymentDateObj);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        // Find and delete the corresponding LoanPayment
-        await LoanPayment.findOneAndDelete({
-          loanId: loanDoc._id,
-          date: { $gte: startOfDay, $lte: endOfDay }
-        });
-      }
-    } catch (syncError) {
-      console.error('Error syncing deletion:', syncError);
-    }
-    // --- SYNC DELETION LOGIC END ---
-
-    await Payment.findByIdAndDelete(id);
+    await deletePaymentRecord({
+      _id: payment._id.toString(),
+      accountNo: payment.accountNo,
+      paymentDate: payment.paymentDate,
+      amountPaid: payment.amountPaid,
+    });
 
     return NextResponse.json(
       { message: 'Payment deleted successfully' }

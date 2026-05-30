@@ -1,5 +1,10 @@
 import React, { useRef } from "react";
-import { getMonthlyCalendarLateFee } from "@/lib/utils";
+import {
+  addMonthsKeepingDay,
+  calculateMonthsSinceStart,
+  getMonthlyCalendarLateFee,
+  getMonthlyNextDueAndCovered,
+} from "@/lib/utils";
 
 interface Payment {
   _id?: string;
@@ -40,38 +45,6 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
 
-  const calculateMonthsSinceStart = (
-    startDate: Date | string,
-    currentDate: Date | string
-  ): number => {
-    const start = new Date(startDate);
-    const current = new Date(currentDate);
-
-    let months = 0;
-    let tempDate = new Date(start);
-
-    // Count complete months
-    while (tempDate <= current) {
-      const nextMonth = new Date(tempDate);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-      if (nextMonth <= current) {
-        months++;
-        tempDate = nextMonth;
-      } else {
-        break;
-      }
-    }
-
-    // Check if we're in a partial month (add 1 if current date is past the start date of the month)
-    if (tempDate <= current) {
-      months++;
-    }
-
-    return months;
-  };
-
-
   const calculatePaymentStatus = (loan: Loan) => {
     const paymentHistory = loan.paymentHistory || [];
     const todayPayment = loan.paymentReceivedToday || 0;
@@ -105,9 +78,11 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           }
         } else if (loanType === "monthly") {
           const extraMonthsCovered = Math.floor(totalPaid / installment);
-          coveredUntilDate.setMonth(
-            coveredUntilDate.getMonth() + extraMonthsCovered
+          const advancedCover = addMonthsKeepingDay(
+            coveredUntilDate,
+            extraMonthsCovered
           );
+          coveredUntilDate.setTime(advancedCover.getTime());
           if (extraMonthsCovered > 0) {
             statusDate = coveredUntilDate;
           }
@@ -177,27 +152,19 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           installment
       );
 
-      const lastPaymentDate = (() => {
-        const paidDates = (loan.paymentHistory || [])
-          .filter((p) => (p.amount || 0) > 0)
-          .map((p) => new Date(p.date.split("T")[0]))
-          .filter((d) => !isNaN(d.getTime()) && d <= currentDate);
-        if (todayPayment > 0) paidDates.push(new Date(currentDate));
-        if (paidDates.length === 0) return new Date(receivedDate);
-        return new Date(Math.max(...paidDates.map((d) => d.getTime())));
-      })();
-
-      const nextDueDate = new Date(lastPaymentDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      const { nextDueDate, coveredUntilDate } = getMonthlyNextDueAndCovered(
+        receivedDate,
+        monthsSinceStart,
+        totalPaid,
+        installment
+      );
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
 
       const { daysLate: daysLateCalendar, calendarLateFee } =
         getMonthlyCalendarLateFee(currentDate, nextDueDate, lateFeePerDay);
       const isPastInstallmentDue = daysLateCalendar > 0;
-
-      const coveredUntilDate = new Date(lastPaymentDate);
-      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1);
-      const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
+      const formattedCoveredDate =
+        coveredUntilDate.toLocaleDateString("en-GB");
 
       if (remainingAfterToday > 0) {
       const statusText =

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
+import { deleteAllPaymentsForAccount } from '@/lib/deletePayments';
 import { Payment } from '@/models/Payment';
 import { PaymentHistory } from '@/models/Payment';
 import LoanSchema from '@/models/LoanSchema';
@@ -432,20 +433,22 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete all payment history records for the given accountNo
-    const result = await Payment.deleteMany({ accountNo });
+    // Delete all payment records for the given accountNo across collections
+    const existingCount = await Payment.countDocuments({ accountNo });
 
-    if (result.deletedCount > 0) {
-      return NextResponse.json(
-        { message: `Successfully deleted ${result.deletedCount} payment history records for accountNo: ${accountNo}` },
-        { status: 200 }
-      );
-    } else {
+    if (existingCount === 0) {
       return NextResponse.json(
         { message: `No payment history found for accountNo: ${accountNo}` },
         { status: 404 }
       );
     }
+
+    await deleteAllPaymentsForAccount(accountNo);
+
+    return NextResponse.json(
+      { message: `Successfully deleted ${existingCount} payment records for accountNo: ${accountNo}` },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error deleting payment history:', error);
     return NextResponse.json(

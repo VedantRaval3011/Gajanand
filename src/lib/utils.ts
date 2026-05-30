@@ -23,6 +23,84 @@ export function formatDate(date: Date): string {
   });
 }
 
+/** Add calendar months while keeping the same day-of-month as `base` (clamped to month length). */
+export function addMonthsKeepingDay(base: Date, months: number): Date {
+  const day = base.getDate();
+  const result = new Date(base);
+  result.setHours(0, 0, 0, 0);
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDayOfMonth = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0
+  ).getDate();
+  result.setDate(Math.min(day, lastDayOfMonth));
+  return result;
+}
+
+/** 1-based installment index; installment 1 is due on receivedDate. */
+export function getMonthlyInstallmentDueDate(
+  receivedDate: Date,
+  installmentIndex: number
+): Date {
+  return addMonthsKeepingDay(receivedDate, installmentIndex - 1);
+}
+
+export function calculateMonthsSinceStart(
+  startDate: Date | string,
+  currentDate: Date | string
+): number {
+  const start = new Date(startDate);
+  const current = new Date(currentDate);
+  start.setHours(0, 0, 0, 0);
+  current.setHours(0, 0, 0, 0);
+
+  let months = 0;
+  let installmentIndex = 1;
+  while (
+    getMonthlyInstallmentDueDate(start, installmentIndex) <= current
+  ) {
+    months++;
+    installmentIndex++;
+  }
+  return months;
+}
+
+export function getMonthlyNextDueAndCovered(
+  receivedDate: Date,
+  monthsSinceStart: number,
+  totalPaid: number,
+  installmentAmount: number
+): { nextDueDate: Date; coveredUntilDate: Date } {
+  const installmentsFullyPaid = Math.floor(totalPaid / installmentAmount);
+  const totalDue = installmentAmount * monthsSinceStart;
+  const remaining = totalDue - totalPaid;
+
+  let nextInstallmentNumber: number;
+  if (remaining > 0) {
+    nextInstallmentNumber = installmentsFullyPaid + 1;
+  } else {
+    const extraMonths =
+      remaining < 0
+        ? Math.floor(Math.abs(remaining) / installmentAmount)
+        : 0;
+    nextInstallmentNumber = monthsSinceStart + 1 + extraMonths;
+  }
+
+  const coveredInstallmentNumber = Math.max(installmentsFullyPaid, 1);
+  return {
+    nextDueDate: getMonthlyInstallmentDueDate(
+      receivedDate,
+      nextInstallmentNumber
+    ),
+    coveredUntilDate: getMonthlyInstallmentDueDate(
+      receivedDate,
+      coveredInstallmentNumber
+    ),
+  };
+}
+
 /**
  * Monthly loans: late fee after the installment due date, using the collection
  * (selected) date — not today's system date. `lateFeePerDay` is the loan's per-day rate.

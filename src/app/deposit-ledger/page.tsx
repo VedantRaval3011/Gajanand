@@ -14,13 +14,19 @@ const ubuntu = Ubuntu({
 });
 
 interface Payment {
+  _id: string;
   paymentDate: string;
+  amountPaid: number;
+}
+
+interface CellPayment {
+  _id: string;
   amountPaid: number;
 }
 
 interface PaymentData {
   monthYear: string;
-  days: (number | null)[];
+  days: CellPayment[][];
   totalAmount: number;
 }
 
@@ -181,7 +187,7 @@ export default function PaymentHistory() {
 
   const processPaymentData = (payments: Payment[]) => {
     const groupedData: {
-      [key: string]: { days: (number | null)[]; totalAmount: number };
+      [key: string]: { days: CellPayment[][]; totalAmount: number };
     } = {};
     let cumulativeTotal = 0;
 
@@ -196,11 +202,14 @@ export default function PaymentHistory() {
       const day = date.getDate();
       if (!groupedData[yearMonth]) {
         groupedData[yearMonth] = {
-          days: Array(31).fill(null),
+          days: Array.from({ length: 31 }, () => []),
           totalAmount: 0,
         };
       }
-      groupedData[yearMonth].days[day - 1] = payment.amountPaid;
+      groupedData[yearMonth].days[day - 1].push({
+        _id: String(payment._id),
+        amountPaid: payment.amountPaid,
+      });
       groupedData[yearMonth].totalAmount += payment.amountPaid;
       cumulativeTotal += payment.amountPaid;
     });
@@ -226,6 +235,42 @@ export default function PaymentHistory() {
       }));
 
     setPaymentData(sortedData);
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm("Are you sure you want to delete this payment?")) return;
+
+    try {
+      const res = await fetch(`/api/payments/${paymentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete payment");
+      await fetchPaymentHistory();
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      alert("Failed to delete payment");
+    }
+  };
+
+  const handleDeleteAllPayments = async () => {
+    if (!accountNo) return;
+    if (
+      !window.confirm(
+        `Delete all payment entries for account ${accountNo}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/payment-history/${accountNo}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete all payments");
+      setPaymentData([]);
+      setFinalReceivedAmount(0);
+    } catch (error) {
+      console.error("Error deleting all payments:", error);
+      alert("Failed to delete all payments");
+    }
   };
 
   return (
@@ -543,12 +588,40 @@ export default function PaymentHistory() {
                         {row.monthYear}
                       </td>
                       {row.days.map(
-                        (amount: number | null, dayIndex: number) => (
+                        (dayPayments: CellPayment[], dayIndex: number) => (
                           <td
                             key={dayIndex}
                             className="px-2 sm:px-4 py-2 sm:py-4 text-center"
                           >
-                            {amount !== null ? `₹${amount.toFixed(0)}` : "-"}
+                            {dayPayments.length === 0 ? (
+                              "-"
+                            ) : (
+                              <div className="flex flex-col items-center gap-1">
+                                {dayPayments.map((payment) => (
+                                  <span
+                                    key={payment._id}
+                                    className="inline-flex items-center gap-1 whitespace-nowrap"
+                                  >
+                                    ₹{payment.amountPaid.toFixed(0)}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleDeletePayment(payment._id)
+                                      }
+                                      title="Delete payment"
+                                      className={`px-1 py-0.5 text-[10px] sm:text-xs font-bold rounded transition-colors
+                                        ${
+                                          isDarkMode
+                                            ? "bg-red-900/60 text-red-300 hover:bg-red-800"
+                                            : "bg-red-100 text-red-700 hover:bg-red-200"
+                                        }`}
+                                    >
+                                      Del
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                         )
                       )}
@@ -583,13 +656,27 @@ export default function PaymentHistory() {
                 >
                   Total Received Amount
                 </h2>
-                <p
-                  className={`text-xl sm:text-2xl md:text-3xl font-bold ${
-                    isDarkMode ? "text-orange-400" : "text-orange-800"
-                  }`}
-                >
-                  ₹{finalReceivedAmount.toFixed(2)}
-                </p>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <p
+                    className={`text-xl sm:text-2xl md:text-3xl font-bold ${
+                      isDarkMode ? "text-orange-400" : "text-orange-800"
+                    }`}
+                  >
+                    ₹{finalReceivedAmount.toFixed(2)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllPayments}
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-bold rounded transition-colors
+                      ${
+                        isDarkMode
+                          ? "bg-red-900/60 text-red-300 hover:bg-red-800"
+                          : "bg-red-100 text-red-700 hover:bg-red-200"
+                      }`}
+                  >
+                    Delete All
+                  </button>
+                </div>
               </div>
 
               <div>

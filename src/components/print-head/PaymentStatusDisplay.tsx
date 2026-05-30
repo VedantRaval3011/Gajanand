@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { FILE_CATEGORIES } from "@/lib/constants";
-import { getMonthlyCalendarLateFee } from "@/lib/utils";
+import {
+  addMonthsKeepingDay,
+  calculateMonthsSinceStart,
+  getMonthlyCalendarLateFee,
+  getMonthlyNextDueAndCovered,
+} from "@/lib/utils";
 
 interface Payment {
   _id?: string;
@@ -184,37 +189,6 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
     setError(null);
   };
 
-  const calculateMonthsSinceStart = (
-    startDate: Date | string,
-    currentDate: Date | string
-  ): number => {
-    const start = new Date(startDate);
-    const current = new Date(currentDate);
-
-    let months = 0;
-    let tempDate = new Date(start);
-
-    // Count complete months
-    while (tempDate <= current) {
-      const nextMonth = new Date(tempDate);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-      if (nextMonth <= current) {
-        months++;
-        tempDate = nextMonth;
-      } else {
-        break;
-      }
-    }
-
-    // Check if we're in a partial month (add 1 if current date is past the start date of the month)
-    if (tempDate <= current) {
-      months++;
-    }
-
-    return months;
-  };
-
   const calculatePaymentStatus = () => {
     const installment = loan.installmentAmount;
     const paymentHistory = loan.paymentHistory || [];
@@ -251,9 +225,11 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       } else if (totalPaid > 0 && loanType === "monthly") {
         // For monthly loans, calculate extra months covered
         const extraMonthsCovered = Math.floor(totalPaid / installment);
-        coveredUntilDate.setMonth(
-          coveredUntilDate.getMonth() + extraMonthsCovered
+        const advancedCover = addMonthsKeepingDay(
+          coveredUntilDate,
+          extraMonthsCovered
         );
+        coveredUntilDate.setTime(advancedCover.getTime());
         // If extra months are covered, update status date accordingly
         if (extraMonthsCovered > 0) {
           statusDate = coveredUntilDate;
@@ -344,20 +320,12 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
       const totalPaid = totalPaidBeforeToday + todayPayment;
       const remainingAfterToday = totalDue - totalPaid;
 
-      // Monthly next-due date should follow latest payment date (history),
-      // not the loan start date. This matches the "Payment History" behavior.
-      const lastPaymentDate = (() => {
-        const paidDates = (loan.paymentHistory || [])
-          .filter((p) => (p.amount || 0) > 0)
-          .map((p) => new Date(p.date.split("T")[0]))
-          .filter((d) => !isNaN(d.getTime()) && d <= currentDate);
-        if (todayPayment > 0) paidDates.push(new Date(currentDate));
-        if (paidDates.length === 0) return new Date(receivedDate);
-        return new Date(Math.max(...paidDates.map((d) => d.getTime())));
-      })();
-
-      const nextDueDate = new Date(lastPaymentDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      const { nextDueDate, coveredUntilDate } = getMonthlyNextDueAndCovered(
+        receivedDate,
+        monthsSinceStart,
+        totalPaid,
+        installment
+      );
       const formattedNextDueDate = nextDueDate.toLocaleDateString("en-GB");
 
       const { daysLate: daysLateCalendar, calendarLateFee } =
@@ -384,9 +352,8 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         installment
       );
 
-      const coveredUntilDate = new Date(lastPaymentDate);
-      coveredUntilDate.setMonth(coveredUntilDate.getMonth() + 1);
-      const formattedCoveredDate = coveredUntilDate.toLocaleDateString("en-GB");
+      const formattedCoveredDate =
+        coveredUntilDate.toLocaleDateString("en-GB");
 
       const details: CalculationDetails = {
         monthsSinceStart,
