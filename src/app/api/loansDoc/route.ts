@@ -16,7 +16,6 @@ interface LoanDocument {
   lateAmount: number;
   receivedDate: Date;
   totalToBePaid?: number;
-  toObject(): Record<string, unknown>;
 }
 
 interface PaymentDocument {
@@ -43,7 +42,7 @@ export async function GET(request: NextRequest) {
     if (loanType) query.loanType = loanType;
     if (fileCategory) query.fileCategory = fileCategory;
 
-    const loans = await Loan.find(query).sort({ index: 1 });
+    const loans = await Loan.find(query).sort({ index: 1 }).lean<LoanDocument[]>();
 
     const paymentsResponse = await fetch(
       `${request.nextUrl.origin}/api/loanPayments?date=${date}`,
@@ -55,7 +54,7 @@ export async function GET(request: NextRequest) {
       const loanPayments = payments.filter((p: PaymentDocument) => p.loanId.toString() === loan._id.toString());
       const totalPaid = loanPayments.reduce((sum: number, p: PaymentDocument) => sum + p.amount, 0);
       return {
-        ...loan.toObject(),
+        ...loan,
         paymentHistory: loanPayments.map((p: PaymentDocument) => ({
           date: new Date(p.date).toISOString().split("T")[0],
           amount: p.amount,

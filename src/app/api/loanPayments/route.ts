@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       query.date = exactDate ? { $gte: startDate, $lte: endDate } : { $lte: endDate };
     }
 
-    const payments = await LoanPayment.find(query);
+    const payments = await LoanPayment.find(query).lean();
     return NextResponse.json({ payments });
   } catch (error) {
     console.error("Error fetching payments:", error);

@@ -38,8 +38,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch total received amount (sum of all payments)
     if (totalReceivedAmount === 'true') {
-      const payments = await Payment.find({}, { amountPaid: 1, _id: 0 }); // Only fetch the `amountPaid` field
-      const total = payments.reduce((sum, payment) => sum + payment.amountPaid, 0); // Calculate total received amount
+      // Sum in the DB instead of pulling every payment doc into the function and reducing in JS.
+      const [{ total = 0 } = {}] = await Payment.aggregate([
+        { $group: { _id: null, total: { $sum: '$amountPaid' } } },
+      ]);
       const res = NextResponse.json({ totalReceivedAmount: total });
       res.headers.set('x-request-id', requestId);
       res.headers.set(
@@ -274,7 +276,7 @@ async function syncPaymentBackground(
   paymentDate: string
 ): Promise<void> {
   try {
-    const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo });
+    const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo }).lean<{ _id: unknown } | null>();
 
     if (loanDoc) {
       const paymentDateObj = new Date(paymentDate);
@@ -387,7 +389,7 @@ export async function POST(request: NextRequest) {
     const savedPayments = await Payment.find({
       accountNo: { $in: payments.map((p: PaymentData) => p.accountNo) },
       paymentDate: { $gte: startOfDay, $lte: endOfDay },
-    });
+    }).lean();
 
     // --- 2. Batch-insert PaymentHistory (1 write instead of N) ---
     const historyDocs = payments.map((payment: PaymentData & { paymentTime?: string }) => ({
@@ -410,7 +412,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Payments saved successfully',
-      payments: savedPayments.map((p) => p.toObject()),
+      payments: savedPayments, // already plain objects via .lean()
     }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

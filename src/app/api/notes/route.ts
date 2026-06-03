@@ -88,7 +88,7 @@ export async function GET(request: Request) {
     if (category) query.category = category;
     if (loanType) query.loanType = loanType;
 
-    const notes = await Note.find(query).sort({ createdAt: -1 });
+    const notes = await Note.find(query).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ notes });
   } catch (error) {
     console.error("Error fetching notes:", error);

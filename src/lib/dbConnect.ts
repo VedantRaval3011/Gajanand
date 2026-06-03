@@ -42,6 +42,10 @@ async function dbConnect() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      // Skip Mongoose's automatic index (re)build on every cold-start connection
+      // in production. Indexes already exist in Atlas; rebuilding-check on each
+      // serverless cold start is wasted CPU + DB ops. Kept on in dev for convenience.
+      autoIndex: process.env.NODE_ENV !== 'production',
       // Pool tuned for Atlas M0 free tier + Vercel serverless:
       // maxPoolSize: 3 means up to 10 concurrent instances = 30 connections max, well under the 500 limit
       maxPoolSize: 3,

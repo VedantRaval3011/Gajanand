@@ -78,10 +78,11 @@ export async function GET(req: Request) {
     const dailyAccountCount = url.searchParams.get('dailyAccountCount'); 
     const overallTotal = url.searchParams.get('overallTotal');
 
-    // Fetch total loan amount
+    // Fetch total loan amount (summed in the DB instead of pulling every doc into JS)
     if (totalAmount === 'true') {
-      const loans = await LoanSchema.find({}, { amount: 1, _id: 0 });
-      const total = loans.reduce((sum, loan) => sum + loan.amount, 0);
+      const [{ total = 0 } = {}] = await LoanSchema.aggregate([
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]);
       return NextResponse.json({ totalLoanAmount: total });
     }
 
@@ -234,13 +235,13 @@ export async function GET(req: Request) {
 
     // Fetch all accounts with ALL fields
     if (allAccounts === 'true') {
-      const loans = await LoanSchema.find(); // Removed projection to fetch all fields
+      const loans = await LoanSchema.find().lean(); // Removed projection to fetch all fields
       return NextResponse.json(loans);
     }
 
     // Existing logic for fetching by accountNo
     if (accountNo) {
-      const loans = await LoanSchema.find({ accountNo });
+      const loans = await LoanSchema.find({ accountNo }).lean();
       return NextResponse.json(loans);
     }
 
@@ -265,7 +266,7 @@ export async function GET(req: Request) {
     }
     const loans = await LoanSchema.find({
       date: { $gte: startDate, $lte: endDate },
-    });
+    }).lean();
     if (!loans || loans.length === 0) {
       return NextResponse.json(
         { message: 'No loans found for the given date range' },

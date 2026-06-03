@@ -6,7 +6,7 @@ import Cheque from '@/models/Cheque';
 export async function GET() {
   try {
     await connectToDatabase();
-    const cheques = await Cheque.find({}).sort({ createdAt: -1 });
+    const cheques = await Cheque.find({}).sort({ createdAt: -1 }).lean();
     return NextResponse.json(cheques);
   } catch (error) {
     console.error('Error fetching cheques:', error);

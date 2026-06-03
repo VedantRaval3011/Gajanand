@@ -12,7 +12,7 @@ export async function GET(
     // Correct way to await params
     const { accountNo } = await context.params;
 
-    const loan = await LoanSchema.findOne({ accountNo });
+    const loan = await LoanSchema.findOne({ accountNo }).lean();
     if (!loan) {
       return NextResponse.json(
         { message: 'Loan not found' },
