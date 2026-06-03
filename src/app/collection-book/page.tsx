@@ -1988,6 +1988,14 @@ const LoanManagement: React.FC = () => {
               >
                 {isSaving ? "Saving..." : "Save All Payments (ALT + S)"}
               </button>
+            </div>
+            <div className="flex flex-col items-center gap-2 w-full md:w-60">
+              <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full text-center dark:text-white text-xl md:text-2xl">
+                Total:{" "}
+                <span className="text-orange-500">
+                  ₹{calculateTotalAmount().toLocaleString("en-IN")}
+                </span>
+              </span>
               <button
                 onClick={() => {
                   if (existingPayments.length === 0) {
@@ -1999,18 +2007,12 @@ const LoanManagement: React.FC = () => {
                     handleDeleteAllPayments();
                   }
                 }}
-                className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold text-white rounded-xl shadow-lg bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all flex items-center justify-center gap-2"
+                className="px-3 py-1.5 text-xs md:text-sm font-semibold text-white rounded-lg shadow bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all flex items-center justify-center gap-1.5"
               >
-                <Trash size={18} />
+                <Trash size={14} />
                 Delete All
               </button>
             </div>
-            <span className="font-bold border border-orange-400 rounded-lg p-3 md:p-4 w-full md:w-60 text-center dark:text-white text-xl md:text-2xl">
-              Total:{" "}
-              <span className="text-orange-500">
-                ₹{calculateTotalAmount().toLocaleString("en-IN")}
-              </span>
-            </span>
           </div>
         </div>
       </div>

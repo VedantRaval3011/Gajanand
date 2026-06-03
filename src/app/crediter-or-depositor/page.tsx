@@ -634,7 +634,13 @@ const LoanDetailsRange = () => {
                         <td className="px-3 py-4 whitespace-nowrap text-sm text-green-600">
                           {details.receivedAmount?.toFixed(2) || "-"}
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap text-sm text-orange-600">
+                        <td
+                          className={`px-3 py-4 whitespace-nowrap text-sm ${
+                            details.remainingAmount < 0
+                              ? "text-purple-600 dark:text-purple-400 font-semibold"
+                              : "text-orange-600"
+                          }`}
+                        >
                           {details.remainingAmount?.toFixed(2) || "-"}
                         </td>
                         <td

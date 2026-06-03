@@ -273,6 +273,42 @@ export default function PaymentHistory() {
     }
   };
 
+  const handleDeleteAndReset = async () => {
+    if (!accountNo) return;
+    if (
+      !window.confirm(
+        `Delete all payments AND reset the loan date to today for account ${accountNo}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // 1. Delete all payments for this account
+      const delRes = await fetch(`/api/payment-history/${accountNo}`, {
+        method: "DELETE",
+      });
+      if (!delRes.ok) throw new Error("Failed to delete all payments");
+
+      // 2. Reset the loan date to today
+      const today = new Date().toISOString();
+      const updateRes = await fetch(`/api/loans`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountNo, date: today }),
+      });
+      if (!updateRes.ok) throw new Error("Failed to reset loan date");
+      const updatedLoan = await updateRes.json();
+
+      setPaymentData([]);
+      setFinalReceivedAmount(0);
+      setLoanDetails(updatedLoan);
+    } catch (error) {
+      console.error("Error deleting payments and resetting loan date:", error);
+      alert("Failed to delete payments and reset loan date");
+    }
+  };
+
   return (
     <div
       className={`p-2 sm:p-4 mx-auto w-full min-h-screen transition-colors duration-200 ${
@@ -675,6 +711,18 @@ export default function PaymentHistory() {
                       }`}
                   >
                     Delete All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAndReset}
+                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-bold rounded transition-colors
+                      ${
+                        isDarkMode
+                          ? "bg-amber-900/60 text-amber-300 hover:bg-amber-800"
+                          : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                      }`}
+                  >
+                    Delete &amp; Reset
                   </button>
                 </div>
               </div>
