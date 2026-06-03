@@ -290,12 +290,22 @@ export default function PaymentHistory() {
       });
       if (!delRes.ok) throw new Error("Failed to delete all payments");
 
-      // 2. Reset the loan date to today
-      const today = new Date().toISOString();
+      // 2. Reset the loan date to today and recalculate the maturity date
+      //    (maturity date = loan date + period days)
+      const newLoanDate = new Date();
+      const newMaturityDate = new Date(newLoanDate);
+      newMaturityDate.setDate(
+        newMaturityDate.getDate() + (loanDetails?.period ?? 0)
+      );
+
       const updateRes = await fetch(`/api/loans`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountNo, date: today }),
+        body: JSON.stringify({
+          accountNo,
+          date: newLoanDate.toISOString(),
+          mDate: newMaturityDate.toISOString(),
+        }),
       });
       if (!updateRes.ok) throw new Error("Failed to reset loan date");
       const updatedLoan = await updateRes.json();
