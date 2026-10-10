@@ -23,6 +23,7 @@ const routeToNavMapping: Record<string, { parent: string; index: number }> = {
   '/deposit-ledger': { parent: 'Report', index: 3 },
   '/financial-statement': { parent: 'Report', index: 4 },
   '/crediter-or-depositor': { parent: 'Report', index: 5 },
+  '/overdue-dashboard': { parent: 'Report', index: 6 },
 
   // Utilities routes
   '/change': { parent: 'Utilities', index: 0 }, // Change Username/Password

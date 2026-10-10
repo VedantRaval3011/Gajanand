@@ -60,6 +60,11 @@ export default function Navbar() {
         href: "/crediter-or-depositor",
         shortcut: "6",
       },
+      {
+        title: "Overdue & Defaulters",
+        href: "/overdue-dashboard",
+        shortcut: "7",
+      },
     ],
     Utilities: [
       {
