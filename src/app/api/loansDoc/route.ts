@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Loan from "@/models/Loan";
 import Payment from "@/models/PaymentDoc";
+import { Payment as CollectionPayment } from "@/models/Payment";
 
 // Define interfaces for the data structures
 interface LoanDocument {
@@ -20,6 +21,7 @@ interface LoanDocument {
 
 interface PaymentDocument {
   loanId: string;
+  accountNo?: string;
   date: Date;
   amount: number;
 }
@@ -50,18 +52,48 @@ export async function GET(request: NextRequest) {
     );
     const { payments }: { payments: PaymentDocument[] } = await paymentsResponse.json();
 
+    // Collection Book entries for the selected day, summed per account number.
+    // Used to auto-populate "Payment Today" when the loan payment sync missed an entry.
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    const collected: { _id: { $oid?: string } | string; total: number }[] = await CollectionPayment.aggregate([
+      { $match: { paymentDate: { $gte: dayStart, $lte: dayEnd } } },
+      { $group: { _id: "$accountNo", total: { $sum: "$amountPaid" } } },
+    ]);
+    const collectionByAccount = new Map<string, number>(
+      collected.map((c) => [String(c._id).trim(), c.total])
+    );
+
     const loansWithHistory = loans.map((loan: LoanDocument) => {
-      const loanPayments = payments.filter((p: PaymentDocument) => p.loanId.toString() === loan._id.toString());
-      const totalPaid = loanPayments.reduce((sum: number, p: PaymentDocument) => sum + p.amount, 0);
+      // Match by loanId, or by accountNo for payments saved against a re-created loan.
+      const loanPayments = payments.filter(
+        (p: PaymentDocument) =>
+          p.loanId.toString() === loan._id.toString() ||
+          (!!p.accountNo && p.accountNo.trim() === String(loan.accountNo).trim())
+      );
+      const history = loanPayments.map((p: PaymentDocument) => ({
+        date: new Date(p.date).toISOString().split("T")[0],
+        amount: p.amount,
+      }));
+      const savedToday = loanPayments.filter(
+        (p: PaymentDocument) => new Date(p.date).toISOString().split("T")[0] === date
+      );
+
+      let paymentReceivedToday = savedToday.reduce((sum: number, p: PaymentDocument) => sum + p.amount, 0);
+      // No saved loan payment for today: fall back to what the Collection Book recorded.
+      if (savedToday.length === 0) {
+        const fromCollection = collectionByAccount.get(String(loan.accountNo).trim());
+        if (fromCollection) {
+          paymentReceivedToday = fromCollection;
+          history.push({ date, amount: fromCollection });
+        }
+      }
+
+      const totalPaid = history.reduce((sum: number, h: { amount: number }) => sum + h.amount, 0);
       return {
         ...loan,
-        paymentHistory: loanPayments.map((p: PaymentDocument) => ({
-          date: new Date(p.date).toISOString().split("T")[0],
-          amount: p.amount,
-        })),
-        paymentReceivedToday: loanPayments
-          .filter((p: PaymentDocument) => new Date(p.date).toISOString().split("T")[0] === date)
-          .reduce((sum: number, p: PaymentDocument) => sum + p.amount, 0),
+        paymentHistory: history,
+        paymentReceivedToday,
         paymentStatus: loan.loanType === "pending" ? (loan.totalToBePaid || 1000) - totalPaid : undefined
       };
     });

@@ -69,7 +69,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [showNotes, setShowNotes] = useState<boolean>(false);
   const [isSavingAll, setIsSavingAll] = useState<boolean>(false);
   const [isSharingExcel, setIsSharingExcel] = useState<boolean>(false);
-  const [isFetchingCollection, setIsFetchingCollection] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -173,68 +172,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       );
     } finally {
       setIsSavingAll(false);
-    }
-  };
-
-  // Pull the day's Collection Book payments and fill "Payment Today" by account number.
-  // Only fills the inputs; the user still reviews and saves (Save / Save All).
-  const handleFetchFromCollectionBook = async () => {
-    setIsFetchingCollection(true);
-    setError(null);
-    setShareNotice(null);
-    setShareLink(null);
-
-    try {
-      const response = await fetch(
-        `/api/payments?date=${selectedDate}&_=${Date.now()}`,
-        { cache: "no-store" }
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch collection book: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const collected: { accountNo: string; amountPaid: number }[] =
-        Array.isArray(data.payments) ? data.payments : [];
-
-      // A single account can have several collection entries in a day — sum them.
-      const totals = new Map<string, number>();
-      for (const p of collected) {
-        const key = String(p.accountNo).trim();
-        totals.set(key, (totals.get(key) || 0) + (Number(p.amountPaid) || 0));
-      }
-
-      if (totals.size === 0) {
-        setShareNotice("No collection book entries found for this date.");
-        return;
-      }
-
-      setLoansData((prev) =>
-        prev.map((loan) => {
-          const amount = totals.get(String(loan.accountNo).trim());
-          return amount === undefined
-            ? loan
-            : { ...loan, paymentReceivedToday: amount };
-        })
-      );
-
-      const matchedCount = loansData.filter((loan) =>
-        totals.has(String(loan.accountNo).trim())
-      ).length;
-      const unmatched = totals.size - matchedCount;
-
-      setShareNotice(
-        `Filled ${matchedCount} payment(s) from Collection Book. ` +
-          (unmatched > 0
-            ? `${unmatched} account(s) not in this list. `
-            : "") +
-          `Review and press Save All to save.`
-      );
-    } catch (err) {
-      console.error("Error fetching from collection book:", err);
-      setError("Failed to fetch from Collection Book. Please try again.");
-    } finally {
-      setIsFetchingCollection(false);
     }
   };
 
@@ -681,21 +618,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
               className="w-full sm:w-auto px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors duration-300 shadow-md text-base font-bold"
             >
               Refresh
-            </button>
-            <button
-              onClick={handleFetchFromCollectionBook}
-              disabled={isFetchingCollection || isLoading}
-              className={`w-full sm:w-auto px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 transition-colors duration-300 shadow-md text-base font-bold flex items-center justify-center ${isFetchingCollection || isLoading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-            >
-              {isFetchingCollection ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                  Fetching...
-                </>
-              ) : (
-                <>Fetch from Collection Book</>
-              )}
             </button>
             <button
               onClick={handleSaveAll}

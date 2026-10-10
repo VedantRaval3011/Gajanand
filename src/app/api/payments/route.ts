@@ -402,13 +402,15 @@ export async function POST(request: NextRequest) {
     }));
     await PaymentHistory.insertMany(historyDocs, { ordered: false });
 
-    // --- 3. Kick off sync as fire-and-forget — does NOT block response ---
-    payments.forEach((payment: PaymentData & { paymentTime?: string }, i: number) => {
-      const savedId = savedPayments[i]?._id;
-      syncPaymentBackground(payment, savedId, paymentDate).catch((err) =>
-        console.error('[payments] Unexpected sync error:', err)
-      );
-    });
+    // --- 3. Sync to loan payments (awaited) ---
+    // Awaited: on serverless the function can be frozen right after the response is
+    // sent, which silently dropped some syncs and left "Payment Today" empty.
+    await Promise.allSettled(
+      payments.map((payment: PaymentData & { paymentTime?: string }) => {
+        const saved = savedPayments.find((sp) => sp.accountNo === payment.accountNo);
+        return syncPaymentBackground(payment, saved?._id, paymentDate);
+      })
+    );
 
     return NextResponse.json({
       message: 'Payments saved successfully',
