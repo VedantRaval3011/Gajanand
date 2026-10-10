@@ -95,6 +95,17 @@ const LoanManagement: React.FC = () => {
     [key: string]: LoanDetails;
   }>({});
 
+  // Ref-backed caches + in-flight request maps so that every caller (prefetch
+  // while typing, blur, late-amount effect, arrow keys) shares one request per
+  // account instead of each firing its own, even from stale closures.
+  const loanCacheRef = useRef<{ [key: string]: LoanDetails }>({});
+  const loanInflightRef = useRef<{ [key: string]: Promise<LoanDetails | null> }>({});
+  const historyCacheRef = useRef<{ [key: string]: Payment[] }>({});
+  const historyInflightRef = useRef<{ [key: string]: Promise<Payment[]> }>({});
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Row whose amountPaid was just auto-filled and should be fully selected.
+  const pendingSelectRowRef = useRef<number | null>(null);
+
   const [sortConfig, setSortConfig] = useState<{
     key: "index" | "accountNo" | "amountPaid" | "paymentTime" | null;
     direction: "asc" | "desc";
@@ -152,35 +163,80 @@ const LoanManagement: React.FC = () => {
     });
   };
 
-  const fetchPaymentHistory = async (accountNo: string) => {
-    try {
-      if (paymentHistoryCache[accountNo]) {
-        return paymentHistoryCache[accountNo];
-      }
+  const loadLoan = (accountNo: string): Promise<LoanDetails | null> => {
+    const cached = loanDetailsCache[accountNo] || loanCacheRef.current[accountNo];
+    if (cached) return Promise.resolve(cached);
 
-      const response = await fetch(`/api/payment-history/${accountNo}`);
-      const history = await response.json();
+    const inflight = loanInflightRef.current[accountNo];
+    if (inflight) return inflight;
 
-      const totalReceived = history.reduce(
-        (sum: number, payment: Payment) => sum + (payment.amountPaid || 0),
-        0
-      );
+    const request = fetch(`/api/loans/${encodeURIComponent(accountNo)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: LoanDetails | null) => {
+        if (data) {
+          loanCacheRef.current[accountNo] = data;
+          setLoanDetailsCache((prev) => ({ ...prev, [accountNo]: data }));
+        }
+        return data;
+      })
+      .catch((error) => {
+        console.error("Error fetching loan details:", error);
+        return null;
+      })
+      .finally(() => {
+        delete loanInflightRef.current[accountNo];
+      });
 
-      setReceivedAmounts((prev) => ({
-        ...prev,
-        [accountNo]: totalReceived,
-      }));
+    loanInflightRef.current[accountNo] = request;
+    return request;
+  };
 
-      setPaymentHistoryCache((prev) => ({
-        ...prev,
-        [accountNo]: history,
-      }));
+  const fetchPaymentHistory = (accountNo: string): Promise<Payment[]> => {
+    const cached = paymentHistoryCache[accountNo] || historyCacheRef.current[accountNo];
+    if (cached) return Promise.resolve(cached);
 
-      return history;
-    } catch (error) {
-      console.error("Error fetching payment history:", error);
-      return [];
-    }
+    const inflight = historyInflightRef.current[accountNo];
+    if (inflight) return inflight;
+
+    const request = fetch(`/api/payment-history/${encodeURIComponent(accountNo)}`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((history: Payment[]) => {
+        if (!Array.isArray(history)) return [];
+
+        const totalReceived = history.reduce(
+          (sum: number, payment: Payment) => sum + (payment.amountPaid || 0),
+          0
+        );
+
+        historyCacheRef.current[accountNo] = history;
+        setReceivedAmounts((prev) => ({
+          ...prev,
+          [accountNo]: totalReceived,
+        }));
+        setPaymentHistoryCache((prev) => ({
+          ...prev,
+          [accountNo]: history,
+        }));
+
+        return history;
+      })
+      .catch((error) => {
+        console.error("Error fetching payment history:", error);
+        return [];
+      })
+      .finally(() => {
+        delete historyInflightRef.current[accountNo];
+      });
+
+    historyInflightRef.current[accountNo] = request;
+    return request;
+  };
+
+  const clearFetchCaches = () => {
+    loanCacheRef.current = {};
+    loanInflightRef.current = {};
+    historyCacheRef.current = {};
+    historyInflightRef.current = {};
   };
 
   const formatPeriodType = (isDaily: boolean) => {
@@ -492,89 +548,51 @@ const LoanManagement: React.FC = () => {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      let loanData = loanDetailsCache[trimmedValue];
+    // Don't toggle isLoading here: the [isLoading, payments.length] effect would
+    // yank focus back to the account number input mid-entry.
+    // History is only needed for the side panel, so it loads in parallel and
+    // never delays filling in the amount.
+    fetchPaymentHistory(trimmedValue);
+    const loanData = await loadLoan(trimmedValue);
 
-      // Instead of immediately updating global state, work with a local variable
-      if (!loanData) {
-        try {
-          const response = await fetch(`/api/loans/${trimmedValue}`);
-          if (!response.ok) {
-            throw new Error("Loan not found");
-          }
-          loanData = await response.json();
-
-          // Update cache without updating focus
-          setLoanDetailsCache((prev) => ({
-            ...prev,
-            [trimmedValue]: loanData,
-          }));
-
-          // Update loan details separately
-          setLoanDetails(loanData);
-        } catch (error) {
-          toast.error(
-            "Error fetching loan details: " + (error as Error).message
-          );
-          const resetPayments = [...payments];
-          if (index >= 0 && index < resetPayments.length) {
-            resetPayments[index].accountNo = "";
-            setPayments(resetPayments);
-          }
-          return;
-        }
-      }
-
-      if (loanData) {
-        // Update amount paid only if it's still the default or zero
-        setPayments((prevPayments) => {
-          const updatedPayments = [...prevPayments];
-          if (index >= 0 && index < updatedPayments.length) {
-            const currentPayment = updatedPayments[index];
-
-            if (
-              currentPayment.isDefaultAmount ||
-              currentPayment.amountPaid === 0
-            ) {
-              updatedPayments[index] = {
-                ...currentPayment,
-                amountPaid: loanData.instAmount,
-                isDefaultAmount: true,
-              };
-            }
-          }
-          return updatedPayments;
-        });
-
-        if (!paymentHistoryCache[trimmedValue]) {
-          await fetchPaymentHistory(trimmedValue);
-        }
-
-        // Important: Move focus to amount paid after processing account number
-        setTimeout(() => {
-          setSelectedCell({ row: index, column: "amountPaid" });
-          inputRefs.current[`amountPaid-${index}`]?.focus();
-        }, 100);
-      } else {
-        toast.error("Account number does not exist.");
-        const resetPayments = [...payments];
-        if (index >= 0 && index < resetPayments.length) {
-          resetPayments[index].accountNo = "";
-          setPayments(resetPayments);
-        }
-      }
-    } catch (error) {
-      console.error("Error validating account number.", error);
-      const resetPayments = [...payments];
-      if (index >= 0 && index < resetPayments.length) {
-        resetPayments[index].accountNo = "";
-        setPayments(resetPayments);
-      }
-    } finally {
-      setIsLoading(false);
+    if (!loanData) {
+      toast.error("Account number does not exist.");
+      setPayments((prevPayments) =>
+        prevPayments.map((payment, i) =>
+          i === index && payment.accountNo === trimmedValue
+            ? { ...payment, accountNo: "" }
+            : payment
+        )
+      );
+      return;
     }
+
+    setLoanDetails(loanData);
+
+    // Update amount paid only if it's still the default or zero
+    pendingSelectRowRef.current = index;
+    setPayments((prevPayments) =>
+      prevPayments.map((payment, i) =>
+        i === index &&
+          payment.accountNo === trimmedValue &&
+          (payment.isDefaultAmount || payment.amountPaid === 0)
+          ? { ...payment, amountPaid: loanData.instAmount, isDefaultAmount: true }
+          : payment
+      )
+    );
   };
+
+  // Once an auto-filled amount has rendered, select it fully if the user is
+  // already sitting in that field (and hasn't started typing their own value).
+  useEffect(() => {
+    const row = pendingSelectRowRef.current;
+    if (row === null) return;
+    pendingSelectRowRef.current = null;
+    const input = inputRefs.current[`amountPaid-${row}`];
+    if (input && document.activeElement === input && payments[row]?.isDefaultAmount) {
+      input.select();
+    }
+  }, [payments]);
 
   const handleAccountNoChange = (value: string, index: number) => {
     // Check if index is valid
@@ -611,7 +629,17 @@ const LoanManagement: React.FC = () => {
       return updatedPayments;
     });
 
-    // Don't do anything else while typing - we'll fetch details on blur instead
+    // Prefetch once typing pauses so the amount is usually ready by the time
+    // Enter is pressed. Blur reuses the same (cached or in-flight) request.
+    if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current);
+    const trimmedValue = value.trim();
+    if (trimmedValue) {
+      prefetchTimerRef.current = setTimeout(() => {
+        loadLoan(trimmedValue).then((loan) => {
+          if (loan) fetchPaymentHistory(trimmedValue);
+        });
+      }, 150);
+    }
   };
 
   const handleAmountPaidChange = (value: string, index: number) => {
@@ -850,6 +878,7 @@ const LoanManagement: React.FC = () => {
       setReceivedAmounts(newReceivedAmounts);
       setLateAmounts(currentLateAmounts); // already correct — calculated on blur/arrow-key
       setPaymentHistoryCache(newPaymentHistoryCache);
+      historyCacheRef.current = { ...historyCacheRef.current, ...newPaymentHistoryCache };
 
       // Make sure we have a valid last index before trying to focus it
       if (updatedPayments.length > 0) {
@@ -904,6 +933,10 @@ const LoanManagement: React.FC = () => {
             }
 
             setPaymentHistoryCache(updatedCache);
+            if (updatedCache[paymentToDelete.accountNo]) {
+              historyCacheRef.current[paymentToDelete.accountNo] =
+                updatedCache[paymentToDelete.accountNo];
+            }
 
             if (updatedPayments.length === 0) {
               setPayments([
@@ -977,6 +1010,7 @@ const LoanManagement: React.FC = () => {
 
   useEffect(() => {
     // Date switch should invalidate derived caches/state.
+    clearFetchCaches();
     setLoanDetailsCache({});
     setPaymentHistoryCache({});
     setReceivedAmounts({});
@@ -1177,6 +1211,7 @@ const LoanManagement: React.FC = () => {
         setReceivedAmounts(receivedAmountsMap);
         setLateAmounts(lateAmountsMap);
         setLoanDetailsCache(loanCache);
+        loanCacheRef.current = { ...loanCache };
 
         if (formattedPayments[0]?.accountNo) {
           const acc = formattedPayments[0].accountNo;
@@ -1286,6 +1321,7 @@ const LoanManagement: React.FC = () => {
     setLateAmounts({});
     setPaymentHistoryCache({});
     setLoanDetailsCache({});
+    clearFetchCaches();
   };
 
   const calculateLateAmount = async (
@@ -1370,39 +1406,12 @@ const LoanManagement: React.FC = () => {
   const fetchLoanDetails = async (
     accountNo: string
   ): Promise<LoanDetails | null> => {
-    try {
-      // Check if we already have this loan data in cache
-      if (loanDetailsCache[accountNo]) {
-        const cachedLoanData = loanDetailsCache[accountNo];
-
-        // Update loan details state without changing focus
-        setLoanDetails(cachedLoanData);
-        return cachedLoanData;
-      }
-
-      const response = await fetch(`/api/loans/${accountNo}`);
-
-      if (!response.ok) {
-        throw new Error("Loan not found");
-      }
-
-      const data = await response.json();
-
-      // Update cache
-      setLoanDetailsCache((prev) => ({
-        ...prev,
-        [accountNo]: data,
-      }));
-
-      // Update loan details state
-      setLoanDetails(data);
-
-      return data;
-    } catch (error) {
-      toast.error("Error fetching loan details: " + (error as Error).message);
-      setLoanDetails(null);
-      return null;
+    const data = await loadLoan(accountNo);
+    if (!data) {
+      toast.error("Error fetching loan details: Loan not found");
     }
+    setLoanDetails(data);
+    return data;
   };
 
   const handleRowClick = async (index: number, accountNo: string) => {
