@@ -64,12 +64,21 @@ export async function GET(request: NextRequest) {
       collected.map((c) => [String(c._id).trim(), c.total])
     );
 
+    // Ids of every live loan (not just this type/category). A payment whose loanId is still
+    // live belongs to that loan even if its stored accountNo was later reassigned elsewhere.
+    const liveLoanIds = new Set(
+      (await Loan.find({}, { _id: 1 }).lean<{ _id: unknown }[]>()).map((l) => String(l._id))
+    );
+
     const loansWithHistory = loans.map((loan: LoanDocument) => {
-      // Match by loanId, or by accountNo for payments saved against a re-created loan.
+      // Match by loanId, or by accountNo only for payments whose original loan was deleted
+      // (i.e. saved against a re-created loan).
       const loanPayments = payments.filter(
         (p: PaymentDocument) =>
           p.loanId.toString() === loan._id.toString() ||
-          (!!p.accountNo && p.accountNo.trim() === String(loan.accountNo).trim())
+          (!!p.accountNo &&
+            !liveLoanIds.has(p.loanId.toString()) &&
+            p.accountNo.trim() === String(loan.accountNo).trim())
       );
       const history = loanPayments.map((p: PaymentDocument) => ({
         date: new Date(p.date).toISOString().split("T")[0],
@@ -232,6 +241,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
+    const previousAccountNo = loan.accountNo;
     if (accountNo !== undefined) {
       const existingLoan = await Loan.findOne({ accountNo, _id: { $ne: id } });
       if (existingLoan) {
@@ -347,6 +357,12 @@ export async function PUT(request: NextRequest) {
     if (receivedDate !== undefined) loan.receivedDate = new Date(receivedDate as string);
 
     await loan.save();
+
+    // Keep the accountNo stored on this loan's payments in step with the loan, so a
+    // renumbered loan's old payments never get attributed to whoever reuses its old number.
+    if (loan.accountNo !== previousAccountNo) {
+      await Payment.updateMany({ loanId: loan._id }, { $set: { accountNo: loan.accountNo } });
+    }
 
     return NextResponse.json({ success: true, loan });
   } catch (error: unknown) {

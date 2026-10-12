@@ -201,6 +201,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     }
 
+    const previousAccountNo = loan.accountNo;
     if (accountNo !== undefined) {
       const existingLoan = await Loan.findOne({ accountNo, _id: { $ne: id } });
       if (existingLoan) {
@@ -316,6 +317,12 @@ export async function PUT(request: NextRequest) {
     if (receivedDate !== undefined) loan.receivedDate = new Date(receivedDate as string);
 
     await loan.save();
+
+    // Keep the accountNo stored on this loan's payments in step with the loan, so a
+    // renumbered loan's old payments never get attributed to whoever reuses its old number.
+    if (loan.accountNo !== previousAccountNo) {
+      await Payment.updateMany({ loanId: loan._id }, { $set: { accountNo: loan.accountNo } });
+    }
 
     return NextResponse.json({ success: true, loan });
   } catch (error: unknown) {
