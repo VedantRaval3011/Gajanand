@@ -1,15 +1,8 @@
 // pages/api/loanPayments.ts
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
-import { Schema, model, models } from "mongoose";
-
-const LoanPaymentSchema = new Schema({
-  loanId: { type: Schema.Types.ObjectId, ref: "Loan", required: true },
-  amount: { type: Number, required: true, min: 0 },
-  date: { type: Date, required: true },
-});
-
-const LoanPayment = models.LoanPayment || model("LoanPayment", LoanPaymentSchema);
+import LoanPayment from "@/models/PaymentDoc";
+import { loanPaymentsFilter } from "@/lib/loanPaymentMatch";
 
 export async function GET(request: NextRequest) {
   try {
@@ -121,8 +114,9 @@ export async function DELETE(request: NextRequest) {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
+    // Same matching as the payment history display, so any row shown can be deleted
     const deleteResult = await LoanPayment.deleteOne({
-      loanId,
+      ...(await loanPaymentsFilter(loanId)),
       date: { $gte: startOfDay, $lte: endOfDay },
     });
 
