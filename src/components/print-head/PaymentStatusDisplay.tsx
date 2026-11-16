@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useState } from "react";
 import { FILE_CATEGORIES } from "@/lib/constants";
 import { computePaymentStatus } from "@/lib/paymentStatus";
@@ -352,7 +353,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
         Show Detailed Info
       </button>
 
-      {showDetails && (
+      {showDetails && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-orange-600 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Payment Details</h2>
@@ -752,10 +753,10 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Move User Popup Modal */}
-      {isMoving && (
+      {isMoving && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
             {/* Header */}
@@ -906,7 +907,7 @@ const PaymentStatusDisplay: React.FC<PaymentStatusProps> = ({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 };
