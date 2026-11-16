@@ -7,6 +7,7 @@ import PrintablePaymentTable from "./PrintablePaymentTable";
 import ReconciliationPanel from "./ReconciliationPanel";
 import "./styles/print.css";
 import { useSearchParams } from "next/navigation";
+import { FILE_CATEGORIES } from "@/lib/constants";
 
 interface Note {
   _id: string;
@@ -32,6 +33,15 @@ interface Loan {
   index?: number;
   loanType?: "daily" | "monthly" | "pending";
   totalToBePaid?: number;
+}
+
+interface ExtraCashEntry {
+  _id: string;
+  date: string;
+  loanType: string;
+  category: string;
+  name: string;
+  amount: number;
 }
 
 interface PaymentTableProps {
@@ -69,12 +79,22 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [showNotes, setShowNotes] = useState<boolean>(false);
   const [isSavingAll, setIsSavingAll] = useState<boolean>(false);
   const [isSharingExcel, setIsSharingExcel] = useState<boolean>(false);
+  // Extra cash entries for every file of this loan type on the selected date.
+  const [extraCash, setExtraCash] = useState<ExtraCashEntry[]>([]);
+  const [extraName, setExtraName] = useState<string>("");
+  const [extraAmount, setExtraAmount] = useState<string>("");
+  const [isAddingExtra, setIsAddingExtra] = useState<boolean>(false);
+  // "Payment Today" per file for this loan type, for the all-files summary.
+  const [paymentsByFile, setPaymentsByFile] = useState<Record<string, number>>({});
+  const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
   useEffect(() => {
     fetchLoans();
     fetchNotes();
+    fetchExtraCash();
+    fetchAllFilesTotals();
   }, [loanType, currentCategory, selectedDate]);
 
   useEffect(() => {
@@ -217,6 +237,97 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       setError("Failed to load loans. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchExtraCash = async () => {
+    try {
+      const response = await fetch(
+        `/api/extra-cash?date=${selectedDate}&loanType=${loanType}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) throw new Error(`Failed to fetch extra cash: ${response.status}`);
+      const data = await response.json();
+      setExtraCash(Array.isArray(data.entries) ? data.entries : []);
+    } catch (err) {
+      console.error("Error fetching extra cash:", err);
+      setExtraCash([]);
+    }
+  };
+
+  // Same endpoint the table uses, without a file filter, so each file's figure
+  // matches exactly what that file's own "Total Payment Today" shows.
+  const fetchAllFilesTotals = async () => {
+    setIsSummaryLoading(true);
+    try {
+      const response = await fetch(
+        `/api/loansDoc?type=${loanType}&date=${selectedDate}&_=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) throw new Error(`Failed to fetch file totals: ${response.status}`);
+      const data = await response.json();
+      const totals: Record<string, number> = {};
+      for (const loan of (Array.isArray(data.loans) ? data.loans : []) as Loan[]) {
+        const file = loan.fileCategory || "Other";
+        totals[file] = (totals[file] || 0) + (loan.paymentReceivedToday || 0);
+      }
+      setPaymentsByFile(totals);
+    } catch (err) {
+      console.error("Error fetching all-file totals:", err);
+      setPaymentsByFile({});
+    } finally {
+      setIsSummaryLoading(false);
+    }
+  };
+
+  const handleAddExtraCash = async () => {
+    const name = extraName.trim();
+    const amount = Number(extraAmount);
+    if (!currentCategory) return;
+    if (!name) {
+      alert("Please enter a name for the extra cash.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount === 0) {
+      alert("Please enter an amount.");
+      return;
+    }
+
+    setIsAddingExtra(true);
+    try {
+      const response = await fetch("/api/extra-cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: selectedDate,
+          loanType,
+          category: currentCategory,
+          name,
+          amount,
+        }),
+      });
+      if (!response.ok) throw new Error(`Failed to save extra cash: ${response.status}`);
+      const { entry } = await response.json();
+      setExtraCash((prev) => [...prev, entry]);
+      setExtraName("");
+      setExtraAmount("");
+    } catch (err) {
+      console.error("Error saving extra cash:", err);
+      setError("Failed to save extra cash. Please try again.");
+    } finally {
+      setIsAddingExtra(false);
+    }
+  };
+
+  const handleDeleteExtraCash = async (entry: ExtraCashEntry) => {
+    if (!confirm(`Delete extra cash "${entry.name}" (${formatCurrency(entry.amount)})?`)) return;
+    try {
+      const response = await fetch(`/api/extra-cash/${entry._id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(`Failed to delete extra cash: ${response.status}`);
+      setExtraCash((prev) => prev.filter((e) => e._id !== entry._id));
+    } catch (err) {
+      console.error("Error deleting extra cash:", err);
+      setError("Failed to delete extra cash. Please try again.");
     }
   };
 
@@ -449,6 +560,37 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     (sum, loan) => sum + (loan.paymentReceivedToday || 0),
     0
   );
+
+  // Extra cash for this file, and the total including it.
+  const currentFileExtraCash = extraCash.filter((e) => e.category === currentCategory);
+  const currentFileExtraTotal = currentFileExtraCash.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalWithExtraCash = totalPaymentReceivedToday + currentFileExtraTotal;
+
+  // All files of this loan type for the selected date. This file uses its live
+  // (possibly just-edited) figures; the other files use the fetched totals.
+  const currentFilePaymentsLive = loansData.reduce(
+    (sum, loan) => sum + (loan.paymentReceivedToday || 0),
+    0
+  );
+  const allFileNames = Array.from(
+    new Set([
+      ...(FILE_CATEGORIES[loanType] || []),
+      ...Object.keys(paymentsByFile),
+      ...extraCash.map((e) => e.category),
+    ])
+  );
+  const allFilesRows = allFileNames.map((file) => {
+    const payments = file === currentCategory ? currentFilePaymentsLive : paymentsByFile[file] || 0;
+    const extra = extraCash
+      .filter((e) => e.category === file)
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+    return { file, payments, extra, total: payments + extra };
+  });
+  const allFilesPayments = allFilesRows.reduce((sum, r) => sum + r.payments, 0);
+  const allFilesExtra = allFilesRows.reduce((sum, r) => sum + r.extra, 0);
+  const allFilesTotal = allFilesPayments + allFilesExtra;
+  const loanTypeLabel =
+    loanType === "daily" ? "Daily" : loanType === "monthly" ? "Monthly" : "Pending";
 
   const handleShowPrintPreview = () => {
     setShowPrintPreview(true);
@@ -955,8 +1097,127 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                   className="border border-orange-300 p-2 sm:p-3"
                 ></td>
               </tr>
+
+              {/* Extra cash: saved entries */}
+              {currentFileExtraCash.map((entry) => (
+                <tr key={entry._id} className="bg-amber-50 text-orange-900">
+                  <td
+                    colSpan={4}
+                    className="border border-orange-300 p-2 sm:p-3 text-right text-base font-semibold"
+                  >
+                    Extra Cash: {entry.name}
+                  </td>
+                  <td className="border border-orange-300 p-2 sm:p-3 text-right text-base font-bold">
+                    {formatCurrency(entry.amount)}
+                  </td>
+                  <td colSpan={7} className="border border-orange-300 p-2 sm:p-3">
+                    <button
+                      onClick={() => handleDeleteExtraCash(entry)}
+                      className="px-3 py-1 bg-orange-700 text-white rounded-md hover:bg-orange-800 transition-colors duration-300 shadow-sm text-sm font-bold"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {/* Extra cash: add a new entry */}
+              <tr className="bg-amber-50 text-orange-900">
+                <td colSpan={4} className="border border-orange-300 p-2 sm:p-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-base font-semibold whitespace-nowrap">Extra Cash:</span>
+                    <input
+                      type="text"
+                      value={extraName}
+                      onChange={(e) => setExtraName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddExtraCash();
+                      }}
+                      placeholder="Name"
+                      className="w-full max-w-xs px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-base text-gray-700"
+                    />
+                  </div>
+                </td>
+                <td className="border border-orange-300 p-2 sm:p-3">
+                  <input
+                    type="number"
+                    value={extraAmount}
+                    onChange={(e) => setExtraAmount(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddExtraCash();
+                    }}
+                    onFocus={handleFocus}
+                    placeholder="Amount"
+                    className="w-24 sm:w-28 px-2 py-1 sm:px-3 sm:py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-base text-gray-700 font-bold"
+                  />
+                </td>
+                <td colSpan={7} className="border border-orange-300 p-2 sm:p-3">
+                  <button
+                    onClick={handleAddExtraCash}
+                    disabled={isAddingExtra || !currentCategory}
+                    className="px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-300 shadow-sm text-sm font-bold disabled:opacity-50"
+                  >
+                    {isAddingExtra ? "Adding..." : "Add"}
+                  </button>
+                </td>
+              </tr>
+
+              {/* Second total: payments + extra cash */}
+              <tr className="bg-orange-200 text-orange-900">
+                <td
+                  colSpan={4}
+                  className="border border-orange-300 p-2 sm:p-3 text-right text-base sm:text-lg font-bold"
+                >
+                  Total with Extra Cash:
+                </td>
+                <td className="border border-orange-300 p-2 sm:p-3 text-right text-base sm:text-lg font-bold">
+                  {formatCurrency(totalWithExtraCash)}
+                </td>
+                <td colSpan={7} className="border border-orange-300 p-2 sm:p-3"></td>
+              </tr>
             </tbody>
           </table>
+        </div>
+
+        {/* All files of this loan type for the selected date */}
+        <div className="mt-6 bg-orange-50 p-4 rounded-lg shadow-md border border-orange-200 text-orange-900">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-xl font-bold text-orange-700">
+              All {loanTypeLabel} Files — {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-IN")}
+            </h3>
+            {isSummaryLoading && <span className="text-sm text-gray-600">Loading...</span>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-base">
+              <thead>
+                <tr className="bg-orange-100">
+                  <th className="border border-orange-300 p-2 text-left">File</th>
+                  <th className="border border-orange-300 p-2 text-right">Payment</th>
+                  <th className="border border-orange-300 p-2 text-right">Extra Cash</th>
+                  <th className="border border-orange-300 p-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allFilesRows.map((row) => (
+                  <tr
+                    key={row.file}
+                    className={row.file === currentCategory ? "bg-amber-100 font-semibold" : ""}
+                  >
+                    <td className="border border-orange-300 p-2">{row.file}</td>
+                    <td className="border border-orange-300 p-2 text-right">{formatCurrency(row.payments)}</td>
+                    <td className="border border-orange-300 p-2 text-right">{formatCurrency(row.extra)}</td>
+                    <td className="border border-orange-300 p-2 text-right font-semibold">{formatCurrency(row.total)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-orange-200 font-bold text-lg">
+                  <td className="border border-orange-300 p-2">All Files Total</td>
+                  <td className="border border-orange-300 p-2 text-right">{formatCurrency(allFilesPayments)}</td>
+                  <td className="border border-orange-300 p-2 text-right">{formatCurrency(allFilesExtra)}</td>
+                  <td className="border border-orange-300 p-2 text-right">{formatCurrency(allFilesTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Simple Note Taking Section */}
