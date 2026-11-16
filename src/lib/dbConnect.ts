@@ -46,9 +46,10 @@ async function dbConnect() {
       // in production. Indexes already exist in Atlas; rebuilding-check on each
       // serverless cold start is wasted CPU + DB ops. Kept on in dev for convenience.
       autoIndex: process.env.NODE_ENV !== 'production',
-      // Pool tuned for Atlas M0 free tier + Vercel serverless:
-      // maxPoolSize: 3 means up to 10 concurrent instances = 30 connections max, well under the 500 limit
-      maxPoolSize: 3,
+      // Pool for Atlas + Vercel serverless. 3 was too few: page loads fire several
+      // requests at once and they queued behind each other. 10 per instance stays
+      // far under Atlas's 500-connection limit.
+      maxPoolSize: 10,
       minPoolSize: 1,        // Hold 1 connection open during the Vercel warm window
       maxIdleTimeMS: 60000,  // Keep connections alive for 60s (covers Vercel warm window)
       serverSelectionTimeoutMS: 5000,

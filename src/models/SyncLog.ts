@@ -38,4 +38,9 @@ const SyncLogSchema = new Schema(
     { timestamps: true }
 );
 
+// Every save upserts its log by paymentId; deletes and the sync-log view filter
+// by account / date.
+SyncLogSchema.index({ paymentId: 1 });
+SyncLogSchema.index({ accountNo: 1, paymentDate: 1 });
+
 export default models.SyncLog || model<ISyncLog>('SyncLog', SyncLogSchema);
