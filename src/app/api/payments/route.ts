@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
 import { deleteAllPaymentsForAccount, deleteAllPaymentsForDate } from '@/lib/deletePayments';
 import { Payment } from '@/models/Payment';
@@ -127,9 +128,20 @@ export async function GET(request: NextRequest) {
                 },
               },
             },
+            // One payment per account per day: older saves re-inserted history rows
+            // for every row on screen, so keep only the latest entry for each day.
+            { $sort: { _id: -1 } },
             {
               $group: {
-                _id: '$accountNo',
+                _id: {
+                  $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'Asia/Kolkata' },
+                },
+                amountPaid: { $first: '$amountPaid' },
+              },
+            },
+            {
+              $group: {
+                _id: null,
                 totalReceived: { $sum: '$amountPaid' },
               },
             },
@@ -267,84 +279,137 @@ export async function GET(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Background sync helper — fire-and-forget, does NOT block the POST response.
-// Writes to LoanDoc / LoanPayment / SyncLog after the primary payment is saved.
+// Sync saved payments to LoanDoc / LoanPayment / SyncLog in a fixed number of
+// round trips (3 reads/writes for the whole batch, not ~5 per payment).
 // ---------------------------------------------------------------------------
-async function syncPaymentBackground(
-  payment: PaymentData & { paymentTime?: string },
-  savedPaymentId: unknown,
-  paymentDate: string
+type SavedPaymentRef = { _id: unknown; accountNo: string };
+
+async function syncPayments(
+  payments: (PaymentData & { paymentTime?: string })[],
+  savedPayments: SavedPaymentRef[],
+  paymentDate: string,
+  startOfDay: Date,
+  endOfDay: Date
 ): Promise<void> {
+  const savedIdByAccount = new Map(savedPayments.map((sp) => [sp.accountNo, sp._id]));
+  // Without a saved payment id, match the log by account + day instead of an
+  // undefined paymentId (which Mongoose would drop, matching any log).
+  const syncLogFilter = (accountNo: string) => {
+    const paymentId = savedIdByAccount.get(accountNo);
+    return paymentId
+      ? { paymentId }
+      : { accountNo, paymentDate: { $gte: startOfDay, $lte: endOfDay } };
+  };
+
   try {
-    const loanDoc = await LoanDoc.findOne({ accountNo: payment.accountNo }).lean<{ _id: unknown } | null>();
+    const accountNos = [...new Set(payments.map((p) => p.accountNo))];
+    const loanDocs = await LoanDoc.find(
+      { accountNo: { $in: accountNos } },
+      { _id: 1, accountNo: 1 }
+    ).lean<{ _id: mongoose.Types.ObjectId; accountNo: string }[]>();
+    const loanDocByAccount = new Map(loanDocs.map((l) => [l.accountNo, l]));
 
-    if (loanDoc) {
-      const paymentDateObj = new Date(paymentDate);
-      const startOfDay = new Date(paymentDateObj);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(paymentDateObj);
-      endOfDay.setHours(23, 59, 59, 999);
+    const existingLoanPayments = loanDocs.length
+      ? await LoanPayment.find(
+          { loanId: { $in: loanDocs.map((l) => l._id) }, date: { $gte: startOfDay, $lte: endOfDay } },
+          { _id: 1, loanId: 1 }
+        ).lean<{ _id: mongoose.Types.ObjectId; loanId: mongoose.Types.ObjectId }[]>()
+      : [];
+    const existingByLoanId = new Map(existingLoanPayments.map((lp) => [String(lp.loanId), lp._id]));
 
-      const existingLoanPayment = await LoanPayment.findOne({
-        loanId: loanDoc._id,
-        date: { $gte: startOfDay, $lte: endOfDay },
-      });
+    const loanPaymentOps: Parameters<typeof LoanPayment.bulkWrite>[0] = [];
+    const syncLogOps: Parameters<typeof SyncLog.bulkWrite>[0] = [];
 
-      let loanPaymentId;
-      if (existingLoanPayment) {
-        existingLoanPayment.amount = payment.amountPaid;
-        await existingLoanPayment.save();
-        loanPaymentId = existingLoanPayment._id;
-      } else {
-        const newLoanPayment = await LoanPayment.create({
-          loanId: loanDoc._id,
-          accountNo: payment.accountNo,
-          amount: payment.amountPaid,
-          date: paymentDate,
+    for (const payment of payments) {
+      const loanDoc = loanDocByAccount.get(payment.accountNo);
+      const paymentId = savedIdByAccount.get(payment.accountNo);
+
+      if (!loanDoc) {
+        syncLogOps.push({
+          updateOne: {
+            filter: syncLogFilter(payment.accountNo),
+            update: {
+              $set: {
+                paymentId,
+                accountNo: payment.accountNo,
+                paymentDate,
+                amountPaid: payment.amountPaid,
+                syncStatus: 'not_found',
+                syncError: 'No matching loan found in Excel Creator (LoanDoc)',
+              },
+            },
+            upsert: true,
+          },
         });
-        loanPaymentId = newLoanPayment._id;
+        continue;
       }
 
-      await SyncLog.findOneAndUpdate(
-        { paymentId: savedPaymentId },
-        {
-          accountNo: payment.accountNo,
-          paymentDate,
-          amountPaid: payment.amountPaid,
-          loanDocId: loanDoc._id,
-          loanPaymentId,
-          syncStatus: 'success',
-          verifiedAt: new Date(),
-          verifiedBy: 'system',
+      let loanPaymentId = existingByLoanId.get(String(loanDoc._id));
+      if (loanPaymentId) {
+        loanPaymentOps.push({
+          updateOne: { filter: { _id: loanPaymentId }, update: { $set: { amount: payment.amountPaid } } },
+        });
+      } else {
+        loanPaymentId = new mongoose.Types.ObjectId();
+        existingByLoanId.set(String(loanDoc._id), loanPaymentId);
+        loanPaymentOps.push({
+          insertOne: {
+            document: {
+              _id: loanPaymentId,
+              loanId: loanDoc._id,
+              accountNo: payment.accountNo,
+              amount: payment.amountPaid,
+              date: paymentDate,
+            },
+          },
+        });
+      }
+
+      syncLogOps.push({
+        updateOne: {
+          filter: syncLogFilter(payment.accountNo),
+          update: {
+            $set: {
+              paymentId,
+              accountNo: payment.accountNo,
+              paymentDate,
+              amountPaid: payment.amountPaid,
+              loanDocId: loanDoc._id,
+              loanPaymentId,
+              syncStatus: 'success',
+              verifiedAt: new Date(),
+              verifiedBy: 'system',
+            },
+            $unset: { syncError: '' },
+          },
+          upsert: true,
         },
-        { upsert: true, new: true }
-      );
-    } else {
-      await SyncLog.findOneAndUpdate(
-        { paymentId: savedPaymentId },
-        {
-          accountNo: payment.accountNo,
-          paymentDate,
-          amountPaid: payment.amountPaid,
-          syncStatus: 'not_found',
-          syncError: 'No matching loan found in Excel Creator (LoanDoc)',
-        },
-        { upsert: true, new: true }
-      );
+      });
     }
+
+    if (loanPaymentOps.length) await LoanPayment.bulkWrite(loanPaymentOps, { ordered: false });
+    if (syncLogOps.length) await SyncLog.bulkWrite(syncLogOps, { ordered: false });
   } catch (syncError) {
-    console.error('[payments] Background sync failed for', payment.accountNo, syncError);
+    console.error('[payments] Sync to loan payments failed', syncError);
     try {
-      await SyncLog.findOneAndUpdate(
-        { paymentId: savedPaymentId },
-        {
-          accountNo: payment.accountNo,
-          paymentDate,
-          amountPaid: payment.amountPaid,
-          syncStatus: 'failed',
-          syncError: String(syncError),
-        },
-        { upsert: true, new: true }
+      await SyncLog.bulkWrite(
+        payments.map((payment) => ({
+          updateOne: {
+            filter: syncLogFilter(payment.accountNo),
+            update: {
+              $set: {
+                paymentId: savedIdByAccount.get(payment.accountNo),
+                accountNo: payment.accountNo,
+                paymentDate,
+                amountPaid: payment.amountPaid,
+                syncStatus: 'failed',
+                syncError: String(syncError),
+              },
+            },
+            upsert: true,
+          },
+        })),
+        { ordered: false }
       );
     } catch (logErr) {
       console.error('[payments] SyncLog write also failed:', logErr);
@@ -380,18 +445,27 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    const bulkResult = await Payment.bulkWrite(bulkOps, { ordered: false });
+    await Payment.bulkWrite(bulkOps, { ordered: false });
+
+    const startOfDay = new Date(new Date(paymentDate).setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date(paymentDate).setHours(23, 59, 59, 999));
+    const accountNos = payments.map((p: PaymentData) => p.accountNo);
 
     // Fetch the saved payments for response
-    const paymentDateObj = new Date(paymentDate);
-    const startOfDay = new Date(paymentDateObj.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(new Date(paymentDate).setHours(23, 59, 59, 999));
     const savedPayments = await Payment.find({
-      accountNo: { $in: payments.map((p: PaymentData) => p.accountNo) },
+      accountNo: { $in: accountNos },
       paymentDate: { $gte: startOfDay, $lte: endOfDay },
-    }).lean();
+    }).lean<(SavedPaymentRef & Record<string, unknown>)[]>();
 
-    // --- 2. Batch-insert PaymentHistory (1 write instead of N) ---
+    // --- 2. Replace (not append) PaymentHistory for these account-days ---
+    // Every save sends all rows on screen; inserting each time duplicated the history
+    // and inflated "total received". One payment per account per day, so drop that
+    // day's rows for these accounts and write them fresh. Exact date match: every
+    // save for a day sends the same "YYYY-MM-DD" value.
+    await PaymentHistory.deleteMany({
+      accountNo: { $in: accountNos },
+      date: new Date(paymentDate),
+    });
     const historyDocs = payments.map((payment: PaymentData & { paymentTime?: string }) => ({
       accountNo: payment.accountNo,
       date: paymentDate,
@@ -405,12 +479,7 @@ export async function POST(request: NextRequest) {
     // --- 3. Sync to loan payments (awaited) ---
     // Awaited: on serverless the function can be frozen right after the response is
     // sent, which silently dropped some syncs and left "Payment Today" empty.
-    await Promise.allSettled(
-      payments.map((payment: PaymentData & { paymentTime?: string }) => {
-        const saved = savedPayments.find((sp) => sp.accountNo === payment.accountNo);
-        return syncPaymentBackground(payment, saved?._id, paymentDate);
-      })
-    );
+    await syncPayments(payments, savedPayments, paymentDate, startOfDay, endOfDay);
 
     return NextResponse.json({
       message: 'Payments saved successfully',

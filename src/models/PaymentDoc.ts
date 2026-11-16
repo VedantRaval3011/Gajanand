@@ -33,4 +33,9 @@ const PaymentSchema = new Schema(
   { timestamps: true }
 );
 
+// Saving a collection looks up the day's entry by loanId + date; overdue and
+// ledger views filter by accountNo / date.
+PaymentSchema.index({ loanId: 1, date: 1 });
+PaymentSchema.index({ accountNo: 1 });
+
 export default models.LoanPayment || model('LoanPayment', PaymentSchema);
