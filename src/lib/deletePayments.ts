@@ -38,10 +38,12 @@ export async function deletePaymentRecord(payment: {
     });
   }
 
-  await PaymentHistory.deleteOne({
+  // deleteMany: older saves left several history rows (sometimes with old amounts)
+  // for the same payment; deleting only one left the rest counted as "received".
+  // Exact date: history rows are written with the payment's own date value.
+  await PaymentHistory.deleteMany({
     accountNo: payment.accountNo,
-    date: { $gte: startOfDay, $lte: endOfDay },
-    amountPaid: payment.amountPaid,
+    date: new Date(payment.paymentDate),
   });
 
   await Payment.findByIdAndDelete(payment._id);
