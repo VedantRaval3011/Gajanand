@@ -8,6 +8,7 @@ import ReconciliationPanel from "./ReconciliationPanel";
 import "./styles/print.css";
 import { useSearchParams } from "next/navigation";
 import { FILE_CATEGORIES } from "@/lib/constants";
+import { ChevronRight } from "lucide-react";
 
 interface Note {
   _id: string;
@@ -87,6 +88,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   // "Payment Today" per file for this loan type, for the all-files summary.
   const [paymentsByFile, setPaymentsByFile] = useState<Record<string, number>>({});
   const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
+  const [showAllFiles, setShowAllFiles] = useState<boolean>(false); // collapsed by default
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -1181,13 +1183,29 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 
         {/* All files of this loan type for the selected date */}
         <div className="mt-6 bg-orange-50 p-4 rounded-lg shadow-md border border-orange-200 text-orange-900">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-bold text-orange-700">
+          <button
+            type="button"
+            onClick={() => setShowAllFiles((open) => !open)}
+            aria-expanded={showAllFiles}
+            className="w-full flex justify-between items-center gap-4 text-left"
+          >
+            <h3 className="text-xl font-bold text-orange-700 flex items-center gap-2">
+              <ChevronRight
+                className={`w-6 h-6 transition-transform duration-200 ${showAllFiles ? "rotate-90" : ""}`}
+                aria-hidden
+              />
               All {loanTypeLabel} Files — {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-IN")}
             </h3>
-            {isSummaryLoading && <span className="text-sm text-gray-600">Loading...</span>}
-          </div>
-          <div className="overflow-x-auto">
+            <span className="text-xl font-bold text-orange-800 whitespace-nowrap">
+              {isSummaryLoading ? (
+                <span className="text-sm font-normal text-gray-600">Loading...</span>
+              ) : (
+                <>Total: {formatCurrency(allFilesTotal)}</>
+              )}
+            </span>
+          </button>
+          {showAllFiles && (
+          <div className="overflow-x-auto mt-3">
             <table className="w-full border-collapse text-base">
               <thead>
                 <tr className="bg-orange-100">
@@ -1218,6 +1236,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
               </tbody>
             </table>
           </div>
+          )}
         </div>
 
         {/* Simple Note Taking Section */}
