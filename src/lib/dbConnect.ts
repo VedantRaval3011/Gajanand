@@ -17,84 +17,103 @@ if (!MONGODB_URI) {
 // Remove any quotes that might have been accidentally added
 const uri = MONGODB_URI.replace(/["']/g, '');
 
+// Hard upper bound on how long any request waits to get a connection. Without it a
+// stuck connect left every request on the instance hanging until Vercel killed them
+// (300s "Task timed out" errors) and the whole app was down for minutes.
+const CONNECT_DEADLINE_MS = 25000;
+
+const opts = {
+  bufferCommands: false,
+  // Skip Mongoose's automatic index (re)build on every cold-start connection in
+  // production; kept on in dev for convenience.
+  autoIndex: process.env.NODE_ENV !== 'production',
+  // Pool for Atlas + Vercel serverless; far under Atlas's 500-connection limit.
+  maxPoolSize: 10,
+  minPoolSize: 1,
+  maxIdleTimeMS: 60000,
+  // An idle free-tier cluster can take more than 5s to answer the first connection.
+  serverSelectionTimeoutMS: 20000,
+  connectTimeoutMS: 20000,
+  socketTimeoutMS: 45000,
+  maxConnecting: 2,
+};
+
 interface GlobalWithMongoose {
   mongoose: {
     conn: null | typeof mongoose;
     promise: null | Promise<typeof mongoose>;
+    listenersAttached?: boolean;
   };
 }
 
 declare const global: GlobalWithMongoose;
 
-let cached = global.mongoose;
+const cached = global.mongoose ?? (global.mongoose = { conn: null, promise: null });
 
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+// Log-only listeners, attached once per process. They deliberately do NOT reset the
+// cached connection: after the first successful connect the MongoDB driver reconnects
+// on its own. Calling mongoose.connect() again while it is reconnecting is what could
+// hang forever (it waits for an "open" event that never comes).
+if (!cached.listenersAttached) {
+  cached.listenersAttached = true;
+  mongoose.connection.on('error', (err) => console.error('❌ MongoDB connection error:', err?.message || err));
+  mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected; driver will reconnect'));
+  mongoose.connection.on('reconnected', () => console.info('✅ MongoDB reconnected'));
 }
 
-async function dbConnect() {
-  // If we already have a connection, return it
-  if (cached.conn) {
-    return cached.conn;
+function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} took longer than ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+async function dbConnect(): Promise<typeof mongoose> {
+  // Connected (or the driver already reconnected): use it.
+  if (mongoose.connection.readyState === 1) {
+    cached.conn = mongoose;
+    return mongoose;
   }
 
-  // If we don't have a promise, create one
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-      // Skip Mongoose's automatic index (re)build on every cold-start connection
-      // in production. Indexes already exist in Atlas; rebuilding-check on each
-      // serverless cold start is wasted CPU + DB ops. Kept on in dev for convenience.
-      autoIndex: process.env.NODE_ENV !== 'production',
-      // Pool for Atlas + Vercel serverless. 3 was too few: page loads fire several
-      // requests at once and they queued behind each other. 10 per instance stays
-      // far under Atlas's 500-connection limit.
-      maxPoolSize: 10,
-      minPoolSize: 1,        // Hold 1 connection open during the Vercel warm window
-      maxIdleTimeMS: 60000,  // Keep connections alive for 60s (covers Vercel warm window)
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxConnecting: 2,
-    };
-
+  // Initial connect happened before but the link is down right now. Don't call
+  // connect() on top of the driver's own reconnect. A ping makes the driver pick a
+  // server (reconnecting if it can); only if that fails do we tear down and start
+  // over — every step with a deadline, so nothing can hang.
+  if (cached.conn) {
     try {
-      // Remove stale listeners before connecting/re-attaching — prevents listener stacking
-      // across reconnect cycles (each dbConnect() call after a disconnect would
-      // otherwise add a second error/disconnected handler on top of the old one).
-      mongoose.connection.removeAllListeners('error');
-      mongoose.connection.removeAllListeners('disconnected');
-
-      cached.promise = mongoose.connect(uri, opts).then((m) => m);
-
-      mongoose.connection.on('error', (err) => {
-        console.error('❌ MongoDB connection error:', err);
-        // Clear both so next request gets a clean reconnect
-        cached.promise = null;
-        cached.conn = null;
-      });
-
-      mongoose.connection.on('disconnected', () => {
-        cached.conn = null;
-        cached.promise = null; // Force full reconnect on next request
-      });
-
-    } catch (error) {
-      console.error('❌ MongoDB connection error:', error);
+      await withDeadline(
+        mongoose.connection.db!.admin().command({ ping: 1 }),
+        CONNECT_DEADLINE_MS,
+        'MongoDB reconnect ping'
+      );
+      return cached.conn;
+    } catch (pingError) {
+      console.warn('⚠️ MongoDB not recovering, reconnecting from scratch:', (pingError as Error)?.message);
+      await withDeadline(mongoose.disconnect(), 5000, 'MongoDB disconnect').catch(() => {});
+      cached.conn = null;
       cached.promise = null;
-      throw error;
     }
   }
 
-  try {
-    cached.conn = await cached.promise;
-  } catch (e) {
-    console.error('❌ Failed to establish MongoDB connection:', e);
-    cached.promise = null;
-    cached.conn = null;
-    throw e;
+  // First connect in this process (or the previous first attempt failed).
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(uri, opts).catch((err) => {
+      cached.promise = null; // allow the next request to try again
+      throw err;
+    });
   }
 
-  return cached.conn;
+  try {
+    cached.conn = await withDeadline(cached.promise, CONNECT_DEADLINE_MS, 'MongoDB connect');
+    return cached.conn;
+  } catch (e) {
+    console.error('❌ Failed to establish MongoDB connection:', (e as Error)?.message || e);
+    // A connect that blew the deadline may still be pending; drop it so the next
+    // request starts a fresh attempt instead of waiting on the stuck one.
+    cached.promise = null;
+    throw e;
+  }
 }
 
 // SIGINT handler at module level — only registered once per process, never inside dbConnect().
