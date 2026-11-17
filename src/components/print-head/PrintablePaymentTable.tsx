@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   addMonthsKeepingDay,
   calculateMonthsSinceStart,
@@ -34,7 +34,57 @@ interface PrintablePaymentTableProps {
   selectedDate: string;
   currentCategory?: string;
   onClose: () => void;
+  // Batch mode: print several files, each `copies` times, one A4 page per sheet.
+  sheets?: { category: string; loansData: Loan[] }[];
+  copies?: number;
+  autoPrint?: boolean;
 }
+
+// Batch print: one A4 page per sheet. Overrides the single-page print layout.
+// A plain <style> (not styled-jsx), so it is only on the page in batch mode.
+const BATCH_PRINT_CSS = `
+  /* Batch print: one A4 page per sheet. Overrides the single-page layout above. */
+  @media screen {
+    .batch-print .batch-sheet {
+      margin-bottom: 12mm;
+      padding-bottom: 6mm;
+      border-bottom: 2px dashed #f97316;
+    }
+  }
+  @media print {
+    html,
+    body {
+      height: auto !important;
+      overflow: visible !important;
+    }
+    .a4-print-component.batch-print {
+      /* Pinned to the top: the page's hidden header still takes up space and
+         would otherwise push the first sheet down, adding a blank page. */
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      transform: none !important;
+      width: 190mm !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 0 !important;
+      margin: 0 auto !important;
+    }
+    .batch-print .batch-sheet {
+      height: 276mm; /* A4 height minus the 10mm page margins, with rounding room */
+      padding: 5mm 10mm;
+      box-sizing: border-box;
+      overflow: hidden;
+      break-after: page;
+      page-break-after: always;
+    }
+    .batch-print .batch-sheet:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+  }
+`;
 
 const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
   loansData,
@@ -42,8 +92,25 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
   selectedDate,
   currentCategory,
   onClose,
+  sheets,
+  copies = 1,
+  autoPrint = false,
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
+  const isBatch = Array.isArray(sheets);
+  // Pages in print order: each file's copies together (G1, G1, G3, G3, ...).
+  const batchPages = isBatch
+    ? sheets!.flatMap((sheet) =>
+        Array.from({ length: Math.max(1, copies) }, (_, copy) => ({ ...sheet, copy }))
+      )
+    : [];
+
+  useEffect(() => {
+    if (!autoPrint) return;
+    // Let the sheets paint before opening the print dialog.
+    const timer = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(timer);
+  }, [autoPrint]);
 
   const calculatePaymentStatus = (loan: Loan) => {
     const paymentHistory = loan.paymentHistory || [];
@@ -335,10 +402,10 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     }
   };
 
-  const getTableData = () => {
+  const getTableData = (loans: Loan[]) => {
     const tableData: (Loan | null)[] = new Array(90).fill(null);
 
-    loansData.forEach((loan) => {
+    loans.forEach((loan) => {
       if (loan.index && loan.index >= 1 && loan.index <= 90) {
         tableData[loan.index - 1] = loan;
       }
@@ -354,7 +421,6 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     window.print();
   };
 
-  const { leftSide, rightSide } = getTableData();
   const formattedDate = new Date(selectedDate)
     .toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -367,8 +433,151 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     .toLocaleDateString("en-US", { weekday: "long" })
     .toUpperCase();
 
+  const renderSheet = (loans: Loan[], category?: string) => {
+    const { leftSide, rightSide } = getTableData(loans);
+    return (
+      <>
+          <div className="header-info">
+            <span className="date">DATE: {formattedDate}</span>
+            <span className="admin flex gap-5">
+              શ્રી ગણેશાયનમઃ <span>{category}</span>
+            </span>
+            <span className="day">DAY: {dayName}</span>
+          </div>
+    
+          <div className="print-table-container">
+            <table className="w-full border-collapse border border-gray-500 text-xs">
+              <thead>
+                <tr className="header-row">
+                  <th
+                    className="border border-gray-500 p-1 index-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    હપ્તો
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 name-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    નામ
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 amount-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    ચડેલ
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 payment-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    આવેલ
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 index-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    હપ્તો
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 name-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    નામ
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 amount-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    ચડેલ
+                  </th>
+                  <th
+                    className="border border-gray-500 p-1 payment-col"
+                    style={{ backgroundColor: "#fee2e2" }}
+                  >
+                    આવેલ
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 45 }).map((_, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {/* Left Side */}
+                    <td className="border border-gray-500 p-1 index-col text-amount">
+                      {leftSide[rowIndex]?.installmentAmount &&
+                      loanType !== "pending"
+                        ? leftSide[rowIndex]!.installmentAmount
+                        : ""}
+                    </td>
+                    <td className="border border-gray-500 p-1 name-col">
+                      {leftSide[rowIndex]?.nameGujarati || ""}
+                      {leftSide[rowIndex]?.index && loanType !== "pending" && (
+                        <span className="text-blue ml-1">
+                          {leftSide[rowIndex]?.accountNo}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`border border-gray-500 p-1 amount-col ${
+                        leftSide[rowIndex]
+                          ? calculatePaymentStatus(leftSide[rowIndex]!).statusColor
+                          : ""
+                      }`}
+                    >
+                      {leftSide[rowIndex]
+                        ? calculatePaymentStatus(
+                            leftSide[rowIndex]!
+                          ).status.includes("/")
+                          ? calculatePaymentStatus(leftSide[rowIndex]!).status
+                          : `₹${calculatePaymentStatus(leftSide[rowIndex]!).status}`
+                        : ""}
+                    </td>
+                    <td className="border border-gray-500 p-1 payment-col"> </td>
+    
+                    {/* Right Side */}
+                    <td className="border border-gray-500 p-1 index-col text-amount">
+                      {rightSide[rowIndex]?.installmentAmount &&
+                      loanType !== "pending"
+                        ? rightSide[rowIndex]!.installmentAmount
+                        : ""}
+                    </td>
+                    <td className="border border-gray-500 p-1 name-col">
+                      {rightSide[rowIndex]?.nameGujarati || ""}
+                      {rightSide[rowIndex]?.index && loanType !== "pending" && (
+                        <span className="text-blue ml-1">
+                          {rightSide[rowIndex]?.accountNo}
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`border border-gray-500 p-1 amount-col ${
+                        rightSide[rowIndex]
+                          ? calculatePaymentStatus(rightSide[rowIndex]!).statusColor
+                          : ""
+                      }`}
+                    >
+                      {rightSide[rowIndex]
+                        ? calculatePaymentStatus(
+                            rightSide[rowIndex]!
+                          ).status.includes("/")
+                          ? calculatePaymentStatus(rightSide[rowIndex]!).status
+                          : `₹${
+                              calculatePaymentStatus(rightSide[rowIndex]!).status
+                            }`
+                        : ""}
+                    </td>
+                    <td className="border border-gray-500 p-1 payment-col"> </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+      </>
+    );
+  };
+
   return (
-    <div ref={printRef} className="bg-white a4-print-component">
+    <div ref={printRef} className={`bg-white a4-print-component${isBatch ? " batch-print" : ""}`}>
       <style jsx global>{`
         /* Mobile-specific styles */
         @media screen and (max-width: 768px) {
@@ -717,11 +926,12 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
           .print-table-container {
             page-break-after: avoid;
             page-break-inside: avoid;
-            transform: scale(0.92);  
+            transform: scale(0.92);
             transform-origin: top center;
           }
         }
       `}</style>
+      {isBatch && <style dangerouslySetInnerHTML={{ __html: BATCH_PRINT_CSS }} />}
 
       <div className="no-print flex justify-between items-center mb-2">
         <h2 className="text-xl font-bold">
@@ -731,7 +941,11 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
             ? "Monthly"
             : "Pending"}{" "}
           Loans
-          {currentCategory ? ` - ${currentCategory}` : " - All Categories"}
+          {isBatch
+            ? ` - ${sheets!.map((s) => s.category).join(", ")} × ${Math.max(1, copies)} ${copies > 1 ? "copies" : "copy"} (${batchPages.length} pages)`
+            : currentCategory
+            ? ` - ${currentCategory}`
+            : " - All Categories"}
         </h2>
         <div className="flex space-x-4">
           <button
@@ -749,141 +963,13 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
         </div>
       </div>
 
-      <div className="header-info">
-        <span className="date">DATE: {formattedDate}</span>
-        <span className="admin flex gap-5">
-          શ્રી ગણેશાયનમઃ <span>{currentCategory}</span>
-        </span>
-        <span className="day">DAY: {dayName}</span>
-      </div>
-
-      <div className="print-table-container">
-        <table className="w-full border-collapse border border-gray-500 text-xs">
-          <thead>
-            <tr className="header-row">
-              <th
-                className="border border-gray-500 p-1 index-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                હપ્તો
-              </th>
-              <th
-                className="border border-gray-500 p-1 name-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                નામ
-              </th>
-              <th
-                className="border border-gray-500 p-1 amount-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                ચડેલ
-              </th>
-              <th
-                className="border border-gray-500 p-1 payment-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                આવેલ
-              </th>
-              <th
-                className="border border-gray-500 p-1 index-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                હપ્તો
-              </th>
-              <th
-                className="border border-gray-500 p-1 name-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                નામ
-              </th>
-              <th
-                className="border border-gray-500 p-1 amount-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                ચડેલ
-              </th>
-              <th
-                className="border border-gray-500 p-1 payment-col"
-                style={{ backgroundColor: "#fee2e2" }}
-              >
-                આવેલ
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: 45 }).map((_, rowIndex) => (
-              <tr key={rowIndex}>
-                {/* Left Side */}
-                <td className="border border-gray-500 p-1 index-col text-amount">
-                  {leftSide[rowIndex]?.installmentAmount &&
-                  loanType !== "pending"
-                    ? leftSide[rowIndex]!.installmentAmount
-                    : ""}
-                </td>
-                <td className="border border-gray-500 p-1 name-col">
-                  {leftSide[rowIndex]?.nameGujarati || ""}
-                  {leftSide[rowIndex]?.index && loanType !== "pending" && (
-                    <span className="text-blue ml-1">
-                      {leftSide[rowIndex]?.accountNo}
-                    </span>
-                  )}
-                </td>
-                <td
-                  className={`border border-gray-500 p-1 amount-col ${
-                    leftSide[rowIndex]
-                      ? calculatePaymentStatus(leftSide[rowIndex]!).statusColor
-                      : ""
-                  }`}
-                >
-                  {leftSide[rowIndex]
-                    ? calculatePaymentStatus(
-                        leftSide[rowIndex]!
-                      ).status.includes("/")
-                      ? calculatePaymentStatus(leftSide[rowIndex]!).status
-                      : `₹${calculatePaymentStatus(leftSide[rowIndex]!).status}`
-                    : ""}
-                </td>
-                <td className="border border-gray-500 p-1 payment-col"> </td>
-
-                {/* Right Side */}
-                <td className="border border-gray-500 p-1 index-col text-amount">
-                  {rightSide[rowIndex]?.installmentAmount &&
-                  loanType !== "pending"
-                    ? rightSide[rowIndex]!.installmentAmount
-                    : ""}
-                </td>
-                <td className="border border-gray-500 p-1 name-col">
-                  {rightSide[rowIndex]?.nameGujarati || ""}
-                  {rightSide[rowIndex]?.index && loanType !== "pending" && (
-                    <span className="text-blue ml-1">
-                      {rightSide[rowIndex]?.accountNo}
-                    </span>
-                  )}
-                </td>
-                <td
-                  className={`border border-gray-500 p-1 amount-col ${
-                    rightSide[rowIndex]
-                      ? calculatePaymentStatus(rightSide[rowIndex]!).statusColor
-                      : ""
-                  }`}
-                >
-                  {rightSide[rowIndex]
-                    ? calculatePaymentStatus(
-                        rightSide[rowIndex]!
-                      ).status.includes("/")
-                      ? calculatePaymentStatus(rightSide[rowIndex]!).status
-                      : `₹${
-                          calculatePaymentStatus(rightSide[rowIndex]!).status
-                        }`
-                    : ""}
-                </td>
-                <td className="border border-gray-500 p-1 payment-col"> </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {isBatch
+        ? batchPages.map((page) => (
+            <div key={`${page.category}-${page.copy}`} className="batch-sheet">
+              {renderSheet(page.loansData, page.category)}
+            </div>
+          ))
+        : renderSheet(loansData, currentCategory)}
     </div>
   );
 };

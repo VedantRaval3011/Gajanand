@@ -9,6 +9,7 @@ import "./styles/print.css";
 import { useSearchParams } from "next/navigation";
 import { FILE_CATEGORIES } from "@/lib/constants";
 import { ChevronRight } from "lucide-react";
+import { createPortal } from "react-dom";
 
 interface Note {
   _id: string;
@@ -89,6 +90,17 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [paymentsByFile, setPaymentsByFile] = useState<Record<string, number>>({});
   const [isSummaryLoading, setIsSummaryLoading] = useState<boolean>(false);
   const [showAllFiles, setShowAllFiles] = useState<boolean>(false); // collapsed by default
+  // Print several files, N copies each.
+  const [showBatchPrintDialog, setShowBatchPrintDialog] = useState<boolean>(false);
+  const [batchFiles, setBatchFiles] = useState<string[]>([]);
+  const [batchCopies, setBatchCopies] = useState<number>(1);
+  const [batchDate, setBatchDate] = useState<string>(selectedDate);
+  const [isPreparingBatch, setIsPreparingBatch] = useState<boolean>(false);
+  const [batchPrint, setBatchPrint] = useState<{
+    sheets: { category: string; loansData: Loan[] }[];
+    copies: number;
+    date: string;
+  } | null>(null);
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -594,6 +606,72 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const loanTypeLabel =
     loanType === "daily" ? "Daily" : loanType === "monthly" ? "Monthly" : "Pending";
 
+  // Local calendar date as YYYY-MM-DD, `offsetDays` from today.
+  const localDateString = (offsetDays = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const openBatchPrintDialog = () => {
+    setBatchFiles(currentCategory ? [currentCategory] : []);
+    setBatchCopies(1);
+    setBatchDate(selectedDate);
+    setShowBatchPrintDialog(true);
+  };
+
+  const toggleBatchFile = (file: string) => {
+    setBatchFiles((prev) =>
+      prev.includes(file) ? prev.filter((f) => f !== file) : [...prev, file]
+    );
+  };
+
+  const handleBatchPrint = async () => {
+    if (batchFiles.length === 0) {
+      alert("Select at least one file to print.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(batchDate)) {
+      alert("Please choose a date to print for.");
+      return;
+    }
+    const copies = Math.min(Math.max(1, Math.floor(batchCopies) || 1), 20);
+    const printDate = batchDate;
+    setIsPreparingBatch(true);
+    try {
+      // Fresh data for every file of this loan type on the print date — the same
+      // endpoint (and so the same sheet) as each file's own Print Preview.
+      const response = await fetch(
+        `/api/loansDoc?type=${loanType}&date=${printDate}&_=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) throw new Error(`Failed to load files: ${response.status}`);
+      const data = await response.json();
+      const byFile: Record<string, Loan[]> = {};
+      for (const loan of (Array.isArray(data.loans) ? data.loans : []) as Loan[]) {
+        (byFile[loan.fileCategory] ||= []).push(loan);
+      }
+      // Print in the files' natural order, whatever order they were ticked in.
+      const ordered = (FILE_CATEGORIES[loanType] as readonly string[]).filter((f) =>
+        batchFiles.includes(f)
+      );
+      const sheets = ordered.map((file) => ({
+        category: file,
+        // For the date on screen, this file uses what's shown (including unsaved
+        // edits), like its own preview; any other date uses that date's data.
+        loansData:
+          file === currentCategory && printDate === selectedDate ? loansData : byFile[file] || [],
+      }));
+      setShowBatchPrintDialog(false);
+      setBatchPrint({ sheets, copies, date: printDate });
+    } catch (err) {
+      console.error("Error preparing batch print:", err);
+      alert("Could not load the selected files for printing. Please try again.");
+    } finally {
+      setIsPreparingBatch(false);
+    }
+  };
+
   const handleShowPrintPreview = () => {
     setShowPrintPreview(true);
   };
@@ -693,6 +771,20 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
 
   const { leftSide, rightSide } = getTableData();
 
+  if (batchPrint) {
+    return (
+      <PrintablePaymentTable
+        loansData={[]}
+        loanType={loanType}
+        selectedDate={batchPrint.date}
+        sheets={batchPrint.sheets}
+        copies={batchPrint.copies}
+        autoPrint
+        onClose={() => setBatchPrint(null)}
+      />
+    );
+  }
+
   if (showPrintPreview) {
     return (
       <PrintablePaymentTable
@@ -712,6 +804,155 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
         isOpen={showReconciliationPanel}
         onClose={() => setShowReconciliationPanel(false)}
       />
+      {/* Portaled to <body> so the table's sticky headers can't paint over it. */}
+      {showBatchPrintDialog && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setShowBatchPrintDialog(false)}
+          onKeyDown={(e) => {
+            // Close the dialog without the page-level Escape (which leaves the page).
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setShowBatchPrintDialog(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="batch-print-title"
+            className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl text-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="batch-print-title" className="text-2xl font-bold text-orange-700 mb-1">
+              Print Files
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">{loanTypeLabel} files</p>
+
+            <span className="block font-semibold mb-2">Print for date</span>
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              {[
+                { label: "Today", value: localDateString(0) },
+                { label: "Tomorrow", value: localDateString(1) },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => setBatchDate(option.value)}
+                  className={`px-3 py-2 rounded-md border font-bold ${
+                    batchDate === option.value
+                      ? "border-orange-600 bg-orange-600 text-white"
+                      : "border-orange-300 text-orange-700 hover:bg-orange-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+              <input
+                type="date"
+                aria-label="Custom print date"
+                value={batchDate}
+                onChange={(e) => setBatchDate(e.target.value)}
+                className="px-3 py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-base font-bold"
+              />
+              {batchDate && (
+                <span className="text-sm text-gray-600">
+                  {new Date(`${batchDate}T00:00:00`).toLocaleDateString("en-IN", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </span>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-semibold">Files</span>
+              <div className="space-x-3 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setBatchFiles([...(FILE_CATEGORIES[loanType] || [])])}
+                  className="text-orange-700 hover:underline font-semibold"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBatchFiles([])}
+                  className="text-orange-700 hover:underline font-semibold"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
+              {(FILE_CATEGORIES[loanType] || []).map((file) => (
+                <label
+                  key={file}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer select-none ${
+                    batchFiles.includes(file)
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={batchFiles.includes(file)}
+                    onChange={() => toggleBatchFile(file)}
+                    className="h-4 w-4 accent-orange-600"
+                  />
+                  <span className="font-semibold">{file}</span>
+                </label>
+              ))}
+            </div>
+
+            <label htmlFor="batch-copies" className="block font-semibold mb-1">
+              Copies of each file
+            </label>
+            <input
+              id="batch-copies"
+              type="number"
+              min={1}
+              max={20}
+              value={batchCopies}
+              autoFocus
+              onFocus={handleFocus}
+              onChange={(e) => setBatchCopies(Number(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleBatchPrint();
+              }}
+              className="w-28 px-3 py-2 border border-orange-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-base font-bold"
+            />
+            <p className="text-sm text-gray-600 mt-2">
+              {batchFiles.length} file{batchFiles.length === 1 ? "" : "s"} ×{" "}
+              {Math.min(Math.max(1, Math.floor(batchCopies) || 1), 20)} ={" "}
+              <span className="font-bold">
+                {batchFiles.length * Math.min(Math.max(1, Math.floor(batchCopies) || 1), 20)} pages
+              </span>
+            </p>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowBatchPrintDialog(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchPrint}
+                disabled={isPreparingBatch || batchFiles.length === 0}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 font-bold disabled:opacity-50"
+              >
+                {isPreparingBatch ? "Preparing..." : "Print"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       <div className="bg-white p-4 rounded-lg shadow-lg border-t-4 border-orange-500">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 space-y-4 sm:space-y-0">
           <h2 className="text-xl sm:text-2xl text-orange-700 font-bold">
@@ -785,6 +1026,14 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                 }`}
             >
               Print Preview
+            </button>
+            <button
+              onClick={openBatchPrintDialog}
+              disabled={isLoading}
+              className={`w-full sm:w-auto px-4 py-2 bg-orange-700 text-white rounded-md hover:bg-orange-800 transition-colors duration-300 shadow-md text-base font-bold ${isLoading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+            >
+              Print Files
             </button>
             <button
               onClick={() => setShowReconciliationPanel(true)}
