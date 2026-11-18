@@ -81,6 +81,17 @@ const BATCH_PRINT_CSS = `
       break-after: page;
       page-break-after: always;
     }
+    /* Fixed row height so all 45 rows of a full file fit on the sheet with
+       room to spare. The cells' Tailwind p-1 class otherwise beats the plain
+       td padding rule, making rows tall enough that the last ones got cut. */
+    .batch-print td,
+    .batch-print th {
+      padding: 0 2px !important;
+      height: 6mm !important;
+      max-height: 6mm !important;
+      line-height: 1.1 !important;
+      box-sizing: border-box;
+    }
     .batch-print .batch-sheet:last-child {
       break-after: auto;
       page-break-after: auto;
