@@ -94,6 +94,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [showBatchPrintDialog, setShowBatchPrintDialog] = useState<boolean>(false);
   const [batchFiles, setBatchFiles] = useState<string[]>([]);
   const [batchCopies, setBatchCopies] = useState<number>(1);
+  // Back side of a manual two-sided print: the flipped stack feeds the last
+  // printed sheet first, so the files must print last-to-first.
+  const [batchReverse, setBatchReverse] = useState<boolean>(false);
   const [batchDate, setBatchDate] = useState<string>(selectedDate);
   const [isPreparingBatch, setIsPreparingBatch] = useState<boolean>(false);
   const [batchPrint, setBatchPrint] = useState<{
@@ -616,6 +619,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const openBatchPrintDialog = () => {
     setBatchFiles(currentCategory ? [currentCategory] : []);
     setBatchCopies(1);
+    setBatchReverse(false);
     setBatchDate(selectedDate);
     setShowBatchPrintDialog(true);
   };
@@ -651,10 +655,12 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
       for (const loan of (Array.isArray(data.loans) ? data.loans : []) as Loan[]) {
         (byFile[loan.fileCategory] ||= []).push(loan);
       }
-      // Print in the files' natural order, whatever order they were ticked in.
+      // Print in the files' natural order, whatever order they were ticked in
+      // (last-to-first for the back side, so each back lands on its front).
       const ordered = (FILE_CATEGORIES[loanType] as readonly string[]).filter((f) =>
         batchFiles.includes(f)
       );
+      if (batchReverse) ordered.reverse();
       const sheets = ordered.map((file) => ({
         category: file,
         // For the date on screen, this file uses what's shown (including unsaved
@@ -931,6 +937,35 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                 {batchFiles.length * Math.min(Math.max(1, Math.floor(batchCopies) || 1), 20)} pages
               </span>
             </p>
+
+            <label className="flex items-start gap-2 mt-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={batchReverse}
+                onChange={(e) => setBatchReverse(e.target.checked)}
+                className="h-4 w-4 mt-1 accent-orange-600"
+              />
+              <span>
+                <span className="font-semibold">Back side – print in reverse order</span>
+                <span className="block text-sm text-gray-600">
+                  Tick this for the second pass after flipping the pages, so each file prints
+                  on the back of the right page.
+                </span>
+              </span>
+            </label>
+            {batchFiles.length > 0 && (
+              <p className="text-sm text-gray-600 mt-2">
+                Order:{" "}
+                <span className="font-bold">
+                  {(() => {
+                    const o = (FILE_CATEGORIES[loanType] as readonly string[]).filter((f) =>
+                      batchFiles.includes(f)
+                    );
+                    return (batchReverse ? [...o].reverse() : o).join(" → ");
+                  })()}
+                </span>
+              </p>
+            )}
 
             <div className="flex justify-end gap-3 mt-6">
               <button
