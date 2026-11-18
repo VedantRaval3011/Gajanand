@@ -28,14 +28,16 @@ interface Loan {
   totalToBePaid?: number;
 }
 
+type LoanType = "daily" | "monthly" | "pending";
+
 interface PrintablePaymentTableProps {
   loansData: Loan[];
-  loanType: "daily" | "monthly" | "pending";
+  loanType: LoanType;
   selectedDate: string;
   currentCategory?: string;
   onClose: () => void;
   // Batch mode: print several files, each `copies` times, one A4 page per sheet.
-  sheets?: { category: string; loansData: Loan[] }[];
+  sheets?: { category: string; loansData: Loan[]; loanType?: LoanType }[];
   copies?: number;
   autoPrint?: boolean;
 }
@@ -88,7 +90,7 @@ const BATCH_PRINT_CSS = `
 
 const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
   loansData,
-  loanType,
+  loanType: defaultLoanType,
   selectedDate,
   currentCategory,
   onClose,
@@ -112,7 +114,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     return () => clearTimeout(timer);
   }, [autoPrint]);
 
-  const calculatePaymentStatus = (loan: Loan) => {
+  const calculatePaymentStatus = (loan: Loan, loanType: LoanType = defaultLoanType) => {
     const paymentHistory = loan.paymentHistory || [];
     const todayPayment = loan.paymentReceivedToday || 0;
     const currentDate = new Date(selectedDate.split("T")[0]);
@@ -433,7 +435,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
     .toLocaleDateString("en-US", { weekday: "long" })
     .toUpperCase();
 
-  const renderSheet = (loans: Loan[], category?: string) => {
+  const renderSheet = (loans: Loan[], category?: string, loanType: LoanType = defaultLoanType) => {
     const { leftSide, rightSide } = getTableData(loans);
     return (
       <>
@@ -520,16 +522,16 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                     <td
                       className={`border border-gray-500 p-1 amount-col ${
                         leftSide[rowIndex]
-                          ? calculatePaymentStatus(leftSide[rowIndex]!).statusColor
+                          ? calculatePaymentStatus(leftSide[rowIndex]!, loanType).statusColor
                           : ""
                       }`}
                     >
                       {leftSide[rowIndex]
                         ? calculatePaymentStatus(
-                            leftSide[rowIndex]!
+                            leftSide[rowIndex]!, loanType
                           ).status.includes("/")
-                          ? calculatePaymentStatus(leftSide[rowIndex]!).status
-                          : `₹${calculatePaymentStatus(leftSide[rowIndex]!).status}`
+                          ? calculatePaymentStatus(leftSide[rowIndex]!, loanType).status
+                          : `₹${calculatePaymentStatus(leftSide[rowIndex]!, loanType).status}`
                         : ""}
                     </td>
                     <td className="border border-gray-500 p-1 payment-col"> </td>
@@ -552,17 +554,17 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
                     <td
                       className={`border border-gray-500 p-1 amount-col ${
                         rightSide[rowIndex]
-                          ? calculatePaymentStatus(rightSide[rowIndex]!).statusColor
+                          ? calculatePaymentStatus(rightSide[rowIndex]!, loanType).statusColor
                           : ""
                       }`}
                     >
                       {rightSide[rowIndex]
                         ? calculatePaymentStatus(
-                            rightSide[rowIndex]!
+                            rightSide[rowIndex]!, loanType
                           ).status.includes("/")
-                          ? calculatePaymentStatus(rightSide[rowIndex]!).status
+                          ? calculatePaymentStatus(rightSide[rowIndex]!, loanType).status
                           : `₹${
-                              calculatePaymentStatus(rightSide[rowIndex]!).status
+                              calculatePaymentStatus(rightSide[rowIndex]!, loanType).status
                             }`
                         : ""}
                     </td>
@@ -935,12 +937,13 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
 
       <div className="no-print flex justify-between items-center mb-2">
         <h2 className="text-xl font-bold">
-          {loanType === "daily"
-            ? "Daily"
-            : loanType === "monthly"
-            ? "Monthly"
-            : "Pending"}{" "}
-          Loans
+          {isBatch
+            ? "Print Files"
+            : `${defaultLoanType === "daily"
+                ? "Daily"
+                : defaultLoanType === "monthly"
+                ? "Monthly"
+                : "Pending"} Loans`}
           {isBatch
             ? ` - ${sheets!.map((s) => s.category).join(", ")} × ${Math.max(1, copies)} ${copies > 1 ? "copies" : "copy"} (${batchPages.length} pages)`
             : currentCategory
@@ -966,7 +969,7 @@ const PrintablePaymentTable: React.FC<PrintablePaymentTableProps> = ({
       {isBatch
         ? batchPages.map((page) => (
             <div key={`${page.category}-${page.copy}`} className="batch-sheet">
-              {renderSheet(page.loansData, page.category)}
+              {renderSheet(page.loansData, page.category, page.loanType)}
             </div>
           ))
         : renderSheet(loansData, currentCategory)}

@@ -46,6 +46,23 @@ interface ExtraCashEntry {
   amount: number;
 }
 
+type LoanType = "daily" | "monthly" | "pending";
+
+// Every file the Print Files dialog offers, grouped by loan type.
+const PRINT_GROUPS: { type: LoanType; label: string; files: readonly string[] }[] = [
+  { type: "daily", label: "Daily", files: FILE_CATEGORIES.daily },
+  { type: "monthly", label: "Monthly", files: FILE_CATEGORIES.monthly },
+  { type: "pending", label: "Pending", files: FILE_CATEGORIES.pending },
+];
+const ALL_PRINT_FILES = PRINT_GROUPS.flatMap((g) => g.files.map((file) => ({ file, type: g.type })));
+
+// The ticked files in print order: daily, monthly, then pending, each in its
+// natural order — or all of that reversed for the back side.
+const orderedBatchFiles = (selected: string[], reverse: boolean) => {
+  const ordered = ALL_PRINT_FILES.filter((f) => selected.includes(f.file));
+  return reverse ? ordered.reverse() : ordered;
+};
+
 interface PaymentTableProps {
   onExportExcel?: () => void;
   loanType: "daily" | "monthly" | "pending";
@@ -100,7 +117,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   const [batchDate, setBatchDate] = useState<string>(selectedDate);
   const [isPreparingBatch, setIsPreparingBatch] = useState<boolean>(false);
   const [batchPrint, setBatchPrint] = useState<{
-    sheets: { category: string; loansData: Loan[] }[];
+    sheets: { category: string; loanType: LoanType; loansData: Loan[] }[];
     copies: number;
     date: string;
   } | null>(null);
@@ -643,30 +660,37 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
     const printDate = batchDate;
     setIsPreparingBatch(true);
     try {
-      // Fresh data for every file of this loan type on the print date — the same
-      // endpoint (and so the same sheet) as each file's own Print Preview.
-      const response = await fetch(
-        `/api/loansDoc?type=${loanType}&date=${printDate}&_=${Date.now()}`,
-        { cache: "no-store" }
-      );
-      if (!response.ok) throw new Error(`Failed to load files: ${response.status}`);
-      const data = await response.json();
+      // Print in the files' natural order (daily, monthly, pending), whatever
+      // order they were ticked in (last-to-first for the back side, so each
+      // back lands on its front).
+      const ordered = orderedBatchFiles(batchFiles, batchReverse);
+      // Fresh data for every loan type that has a ticked file, on the print
+      // date — the same endpoint (and so the same sheet) as each file's own
+      // Print Preview.
+      const types = [...new Set(ordered.map((f) => f.type))];
       const byFile: Record<string, Loan[]> = {};
-      for (const loan of (Array.isArray(data.loans) ? data.loans : []) as Loan[]) {
-        (byFile[loan.fileCategory] ||= []).push(loan);
-      }
-      // Print in the files' natural order, whatever order they were ticked in
-      // (last-to-first for the back side, so each back lands on its front).
-      const ordered = (FILE_CATEGORIES[loanType] as readonly string[]).filter((f) =>
-        batchFiles.includes(f)
+      await Promise.all(
+        types.map(async (type) => {
+          const response = await fetch(
+            `/api/loansDoc?type=${type}&date=${printDate}&_=${Date.now()}`,
+            { cache: "no-store" }
+          );
+          if (!response.ok) throw new Error(`Failed to load ${type} files: ${response.status}`);
+          const data = await response.json();
+          for (const loan of (Array.isArray(data.loans) ? data.loans : []) as Loan[]) {
+            (byFile[loan.fileCategory] ||= []).push(loan);
+          }
+        })
       );
-      if (batchReverse) ordered.reverse();
-      const sheets = ordered.map((file) => ({
+      const sheets = ordered.map(({ file, type }) => ({
         category: file,
+        loanType: type,
         // For the date on screen, this file uses what's shown (including unsaved
         // edits), like its own preview; any other date uses that date's data.
         loansData:
-          file === currentCategory && printDate === selectedDate ? loansData : byFile[file] || [],
+          type === loanType && file === currentCategory && printDate === selectedDate
+            ? loansData
+            : byFile[file] || [],
       }));
       setShowBatchPrintDialog(false);
       setBatchPrint({ sheets, copies, date: printDate });
@@ -827,13 +851,13 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="batch-print-title"
-            className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl text-gray-800"
+            className="w-full max-w-lg max-h-[95vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl text-gray-800"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="batch-print-title" className="text-2xl font-bold text-orange-700 mb-1">
               Print Files
             </h3>
-            <p className="text-sm text-gray-600 mb-4">{loanTypeLabel} files</p>
+            <p className="text-sm text-gray-600 mb-4">Daily, Monthly and Pending files</p>
 
             <span className="block font-semibold mb-2">Print for date</span>
             <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -878,7 +902,7 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
               <div className="space-x-3 text-sm">
                 <button
                   type="button"
-                  onClick={() => setBatchFiles([...(FILE_CATEGORIES[loanType] || [])])}
+                  onClick={() => setBatchFiles(ALL_PRINT_FILES.map((f) => f.file))}
                   className="text-orange-700 hover:underline font-semibold"
                 >
                   Select all
@@ -892,8 +916,11 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
-              {(FILE_CATEGORIES[loanType] || []).map((file) => (
+            {PRINT_GROUPS.map((group) => (
+            <div key={group.type} className="mb-4">
+            <span className="block text-sm font-bold text-gray-600 mb-1">{group.label}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {group.files.map((file) => (
                 <label
                   key={file}
                   className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer select-none ${
@@ -912,6 +939,8 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                 </label>
               ))}
             </div>
+            </div>
+            ))}
 
             <label htmlFor="batch-copies" className="block font-semibold mb-1">
               Copies of each file
@@ -957,12 +986,9 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
               <p className="text-sm text-gray-600 mt-2">
                 Order:{" "}
                 <span className="font-bold">
-                  {(() => {
-                    const o = (FILE_CATEGORIES[loanType] as readonly string[]).filter((f) =>
-                      batchFiles.includes(f)
-                    );
-                    return (batchReverse ? [...o].reverse() : o).join(" → ");
-                  })()}
+                  {orderedBatchFiles(batchFiles, batchReverse)
+                    .map((f) => f.file)
+                    .join(" → ")}
                 </span>
               </p>
             )}
