@@ -264,16 +264,47 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
+    // Also list loans that were created or edited in the range, even if their loan
+    // date is outside it (e.g. a loan typed in today with an earlier loan date).
+    // createdAt/updatedAt are real timestamps, so use the chosen days in India time.
+    // The ledger sends each day as an ISO instant of local midnight; a bare
+    // YYYY-MM-DD is read as midnight IST.
+    const toIstMidnight = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00+05:30`) : new Date(value);
+    const activityStart = toIstMidnight(fromDate as string);
+    const activityEnd = new Date(toIstMidnight(toDate as string).getTime() + 24 * 60 * 60 * 1000 - 1);
+    const activityRange = { $gte: activityStart, $lte: activityEnd };
+
     const loans = await LoanSchema.find({
-      date: { $gte: startDate, $lte: endDate },
-    }).lean();
+      $or: [
+        { date: { $gte: startDate, $lte: endDate } },
+        { createdAt: activityRange },
+        { updatedAt: activityRange },
+      ],
+    }).lean<Record<string, unknown>[]>();
     if (!loans || loans.length === 0) {
       return NextResponse.json(
         { message: 'No loans found for the given date range' },
         { status: 404 }
       );
     }
-    return NextResponse.json(loans);
+
+    // Tell the page why each loan is listed:
+    //  loanDate — its loan date is in range
+    //  created  — entered in range with a loan date outside it (e.g. account typed in today)
+    //  updated  — only edited in range
+    const inRange = (d: unknown, from: Date, to: Date) => {
+      const t = d ? new Date(d as string).getTime() : NaN;
+      return !isNaN(t) && t >= from.getTime() && t <= to.getTime();
+    };
+    const result = loans.map((loan) => {
+      if (inRange(loan.date, startDate, endDate)) return { ...loan, listedFor: 'loanDate' };
+      if (inRange(loan.createdAt, activityStart, activityEnd)) {
+        return { ...loan, listedFor: 'created', activityAt: loan.createdAt };
+      }
+      return { ...loan, listedFor: 'updated', activityAt: loan.updatedAt };
+    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching loans:', error);
     return NextResponse.json(

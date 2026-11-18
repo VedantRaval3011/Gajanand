@@ -24,6 +24,10 @@ interface LoanDetails {
   telephone2: string;
   name: string;
   hasGuarantor: boolean;
+  // Why the loan is in the list (from /api/loans): its loan date is in range, it was
+  // entered in range with another loan date, or it was only edited in range.
+  listedFor?: "loanDate" | "created" | "updated";
+  activityAt?: string;
   guarantors: Array<{
     holderName: string;
     address: string;
@@ -37,6 +41,10 @@ const ubuntu = Ubuntu({
   weight: "400",
   subsets: ["latin"],
 });
+
+// Loans given in the range (by loan date) or newly entered in it count in totals;
+// existing loans that were only edited are shown but not counted.
+const countsInTotals = (loan: LoanDetails) => loan.listedFor !== "updated";
 
 const LoanLedger: React.FC = () => {
   const [fromDate, setFromDate] = useState("");
@@ -176,10 +184,10 @@ const LoanLedger: React.FC = () => {
     }
     
     setLoans(filteredLoans);
-    const total = filteredLoans.reduce(
-      (sum: number, loan: LoanDetails) => sum + loan.amount,
-      0
-    );
+    // Loans only edited in the range are listed but not added to the totals.
+    const total = filteredLoans
+      .filter(countsInTotals)
+      .reduce((sum: number, loan: LoanDetails) => sum + loan.amount, 0);
     setTotalAmount(total);
   };
 
@@ -405,7 +413,7 @@ const LoanLedger: React.FC = () => {
                     ₹
                     <span className="text-lg sm:text-xl lg:text-2xl font-bold">
                       {loans
-                        .filter((loan) => !loan.isDaily)
+                        .filter((loan) => !loan.isDaily && countsInTotals(loan))
                         .reduce((sum, loan) => sum + loan.instAmount, 0)
                         .toLocaleString("en-IN")}
                     </span>
@@ -418,7 +426,7 @@ const LoanLedger: React.FC = () => {
                     ₹
                     <span className="text-lg sm:text-xl lg:text-2xl font-bold">
                       {loans
-                        .filter((loan) => loan.isDaily)
+                        .filter((loan) => loan.isDaily && countsInTotals(loan))
                         .reduce((sum, loan) => sum + loan.instAmount, 0)
                         .toLocaleString("en-IN")}
                     </span>
@@ -504,6 +512,19 @@ const LoanLedger: React.FC = () => {
                       </td>
                       <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {new Date(loan.date).toLocaleDateString("en-GB")}
+                        {loan.listedFor && loan.listedFor !== "loanDate" && loan.activityAt && (
+                          <span
+                            className={`ml-2 inline-block rounded px-2 py-0.5 text-xs font-bold align-middle ${
+                              loan.listedFor === "created"
+                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                : "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+                            }`}
+                            title={loan.listedFor === "created" ? "Entered in this range with a different loan date" : "Edited in this range; not counted in the totals"}
+                          >
+                            {loan.listedFor === "created" ? "Entered" : "Updated"}{" "}
+                            {new Date(loan.activityAt).toLocaleDateString("en-GB")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-2 sm:px-6 py-2 sm:py-4 text-sm sm:text-lg lg:text-xl font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
                         {new Date(loan.mDate).toLocaleDateString("en-GB")}
