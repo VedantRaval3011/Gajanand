@@ -15,6 +15,7 @@ const routeToNavMapping: Record<string, { parent: string; index: number }> = {
   // Transaction routes
   '/collection-book': { parent: 'Transaction', index: 0 },
   '/day-book': { parent: 'Transaction', index: 1 },
+  '/personal-day-book': { parent: 'Transaction', index: 2 },
 
   // Report routes
   '/payment-dashboard': { parent: 'Report', index: 0 },

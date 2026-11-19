@@ -13,8 +13,10 @@ export async function exportEntriesWorkbook(opts: {
   filtered: boolean;
   /** Collection Book totals to list as one income row per day. */
   collection?: CollectionResponse | null;
+  /** Book name for the title, sheet and file, e.g. "Day Book". Defaults to "Day Book". */
+  bookName?: string;
 }) {
-  const { entries, totals, from, to, balance, filtered, collection } = opts;
+  const { entries, totals, from, to, balance, filtered, collection, bookName = "Day Book" } = opts;
   const XLSX = await import("xlsx");
   const period = from === to ? formatDayLabel(from) : `${formatDayLabel(from)} to ${formatDayLabel(to)}`;
 
@@ -42,7 +44,7 @@ export async function exportEntriesWorkbook(opts: {
   list.sort((a, b) => a.date.localeCompare(b.date) || Number(!!b.collection) - Number(!!a.collection));
 
   const rows: (string | number)[][] = [
-    ["Gajanand Finance - Day Book"],
+    [`Gajanand Finance - ${bookName}`],
     [`Period: ${period}`],
     filtered ? ["Filtered list"] : collection ? ["Includes Collection Book collection"] : [],
     [],
@@ -59,6 +61,8 @@ export async function exportEntriesWorkbook(opts: {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 5 }, { wch: 12 }, { wch: 40 }, { wch: 18 }, { wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Day Book");
-  XLSX.writeFile(wb, `daybook-${from === to ? from : `${from}-to-${to}`}${filtered ? "-filtered" : ""}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, bookName);
+  // "Day Book" -> daybook-..., "Personal Day Book" -> personal-daybook-...
+  const filePrefix = bookName.toLowerCase().replace(/day book/, "daybook").replace(/\s+/g, "-");
+  XLSX.writeFile(wb, `${filePrefix}-${from === to ? from : `${from}-to-${to}`}${filtered ? "-filtered" : ""}.xlsx`);
 }
