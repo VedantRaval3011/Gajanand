@@ -5,7 +5,7 @@ export const UserRefSchema = new Schema(
   { _id: false }
 );
 
-const DaybookEntrySchema = new Schema(
+export const DaybookEntrySchema = new Schema(
   {
     date: { type: String, required: true }, // 'YYYY-MM-DD' IST calendar day
     type: { type: String, enum: ['income', 'expense'], required: true },

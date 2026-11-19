@@ -3,7 +3,7 @@ import { UserRefSchema } from './DaybookEntry';
 
 // Optional opening balance. The register works without it; when set, running
 // balances are shown from `asOfDate` onwards.
-const DaybookSettingSchema = new Schema(
+export const DaybookSettingSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: 'default' },
     openingBalance: { type: Number, required: true },

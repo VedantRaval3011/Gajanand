@@ -40,6 +40,7 @@ export default function Navbar() {
     Transaction: [
       { title: "Collection Book", href: "/collection-book", shortcut: "1" },
       { title: "Day Book", href: "/day-book", shortcut: "2" },
+      { title: "Personal Day Book", href: "/personal-day-book", shortcut: "3" },
     ],
     Report: [
       { title: "B-6", href: "/payment-dashboard", shortcut: "1" },

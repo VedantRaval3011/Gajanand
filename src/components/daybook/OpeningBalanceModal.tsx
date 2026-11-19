@@ -12,9 +12,13 @@ interface Props {
   defaultDate: string;
   onClose: () => void;
   onSaved: () => void;
+  /** API of the book: "/api/daybook" or "/api/personal-daybook". */
+  apiBase?: string;
+  /** Name shown in the help text, e.g. "Day Book". */
+  bookName?: string;
 }
 
-export default function OpeningBalanceModal({ setting, defaultDate, onClose, onSaved }: Props) {
+export default function OpeningBalanceModal({ setting, defaultDate, onClose, onSaved, apiBase = "/api/daybook", bookName = "Day Book" }: Props) {
   const [amount, setAmount] = useState(setting ? String(setting.openingBalance) : "");
   const [asOfDate, setAsOfDate] = useState(setting?.asOfDate ?? defaultDate);
   const [error, setError] = useState<{ field?: string; message: string } | null>(null);
@@ -27,7 +31,7 @@ export default function OpeningBalanceModal({ setting, defaultDate, onClose, onS
     if (!asOfDate) return setError({ field: "asOfDate", message: "Enter a date" });
     setBusy(true);
     try {
-      await api("/api/daybook/settings", { method: "PUT", body: { openingBalance: n, asOfDate } });
+      await api(`${apiBase}/settings`, { method: "PUT", body: { openingBalance: n, asOfDate } });
       toast.success("Opening balance saved");
       onSaved();
     } catch (e) {
@@ -41,7 +45,7 @@ export default function OpeningBalanceModal({ setting, defaultDate, onClose, onS
   const remove = async () => {
     setBusy(true);
     try {
-      await api("/api/daybook/settings", { method: "DELETE" });
+      await api(`${apiBase}/settings`, { method: "DELETE" });
       toast.success("Opening balance removed");
       onSaved();
     } catch (e) {
@@ -75,7 +79,7 @@ export default function OpeningBalanceModal({ setting, defaultDate, onClose, onS
         }}
       >
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Not required to record entries. Set it if you want the Day Book to show the cash in hand at the start and end of
+          Not required to record entries. Set it if you want the {bookName} to show the cash in hand at the start and end of
           each day. Entries dated before this date are not included in the balance.
         </p>
         <div className="grid grid-cols-2 gap-3">

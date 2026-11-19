@@ -54,9 +54,11 @@ interface Props {
   onClose: () => void;
   /** `keepOpen` is true after "Save & add another". */
   onSaved: (date: string, keepOpen: boolean) => void;
+  /** API of the book being edited: "/api/daybook" or "/api/personal-daybook". */
+  apiBase?: string;
 }
 
-export default function EntryModal({ entryId, initial, maxDay, knownCategories, onClose, onSaved }: Props) {
+export default function EntryModal({ entryId, initial, maxDay, knownCategories, onClose, onSaved, apiBase = "/api/daybook" }: Props) {
   const [draft, setDraft] = useState<EntryDraft>(initial);
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
@@ -88,7 +90,7 @@ export default function EntryModal({ entryId, initial, maxDay, knownCategories, 
     };
     setSaving(true);
     try {
-      await api(isEdit ? `/api/daybook/entries/${entryId}` : "/api/daybook/entries", {
+      await api(isEdit ? `${apiBase}/entries/${entryId}` : `${apiBase}/entries`, {
         method: isEdit ? "PUT" : "POST",
         body,
       });
