@@ -248,6 +248,10 @@ export default function Home() {
           ) : (
             <UserList
               groupedUsers={filteredGroupedUsers}
+              allFileNumbers={Object.keys(groupedUsers)}
+              fileCounts={Object.fromEntries(
+                Object.entries(groupedUsers).map(([f, list]) => [f, list.length])
+              )}
               onUserUpdated={fetchUsers}
               onUserDeleted={fetchUsers}
             />

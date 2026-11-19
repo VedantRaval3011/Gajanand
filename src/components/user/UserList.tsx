@@ -18,11 +18,47 @@ interface UserListProps {
   groupedUsers: { [fileNumber: string]: User[] };
   onUserUpdated: () => void;
   onUserDeleted: () => void;
+  allFileNumbers?: string[];
+  fileCounts?: { [fileNumber: string]: number };
 }
 
-const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUserDeleted }) => {
+const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUserDeleted, allFileNumbers, fileCounts }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [expandedFiles, setExpandedFiles] = useState<string[]>([]);
+  const [moveUser, setMoveUser] = useState<User | null>(null);
+  const [targetFile, setTargetFile] = useState('');
+  const [isMoving, setIsMoving] = useState(false);
+
+  const fileOptions = (allFileNumbers ?? Object.keys(groupedUsers))
+    .filter((f) => f !== moveUser?.fileNumber)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const openMove = (user: User) => {
+    setMoveUser(user);
+    setTargetFile('');
+  };
+
+  const handleMove = async () => {
+    if (!moveUser || !targetFile) return;
+    setIsMoving(true);
+    try {
+      const response = await fetch(`/api/users/${moveUser._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileNumber: targetFile }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to move user');
+      toast.success(`Moved to File #${targetFile}`);
+      setExpandedFiles((prev) => (prev.includes(targetFile) ? prev : [...prev, targetFile]));
+      setMoveUser(null);
+      onUserUpdated();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setIsMoving(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this user?')) {
@@ -115,6 +151,14 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
+                            onClick={() => openMove(user)}
+                            className="px-3 py-1 sm:px-4 sm:py-2 bg-orange-400 dark:bg-orange-500 text-white rounded-lg hover:bg-orange-500 dark:hover:bg-orange-600 transition-colors text-sm sm:text-base whitespace-nowrap"
+                          >
+                            Move to
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => handleDelete(user._id)}
                             className="px-3 py-1 sm:px-4 sm:py-2 bg-orange-600 dark:bg-orange-700 text-white rounded-lg hover:bg-orange-700 dark:hover:bg-orange-800 transition-colors text-sm sm:text-base whitespace-nowrap"
                           >
@@ -129,6 +173,52 @@ const UserList: React.FC<UserListProps> = ({ groupedUsers, onUserUpdated, onUser
             </AnimatePresence>
           </motion.div>
         ))
+      )}
+      {moveUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !isMoving && setMoveUser(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-orange-50 dark:bg-gray-800 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-1 uppercase">
+              Move {moveUser.holderName}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              Currently in File #{moveUser.fileNumber}
+            </p>
+            <select
+              value={targetFile}
+              onChange={(e) => setTargetFile(e.target.value)}
+              className="w-full p-3 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="">Select a file...</option>
+              {fileOptions.map((f) => (
+                <option key={f} value={f}>
+                  File #{f} ({fileCounts?.[f] ?? groupedUsers[f]?.length ?? 0} users)
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setMoveUser(null)}
+                disabled={isMoving}
+                className="px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMove}
+                disabled={!targetFile || isMoving}
+                className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+              >
+                {isMoving ? 'Moving...' : 'Move'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {selectedUser && (
         <UserUpdateModal
